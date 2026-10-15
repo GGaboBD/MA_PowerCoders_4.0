@@ -11,7 +11,7 @@ document.querySelector('#cantidad-vuelo').textContent = String(count);
 const passengersRoot = document.querySelector('#pasajeros-form');
 for (let i = 1; i <= count; i++) {
   const field = (label, control, extra = '') => `<div class="campo-form ${extra}"><label for="p${i}-${label.id}">${label.text}</label>${control}</div>`;
-  passengersRoot.insertAdjacentHTML('beforeend', `<section class="pasajero-bloque"><div class="pasajero-titulo"><h2>Pasajero ${i}</h2><span>Información para este itinerario</span></div><div class="campos-pasajero">${field({text:'Nombre',id:'nombre'},`<input id="p${i}-nombre" name="nombre" autocomplete="off" required>`)}${field({text:'Apellido',id:'apellido'},`<input id="p${i}-apellido" name="apellido" autocomplete="off" required>`)}${field({text:'Correo de contacto',id:'correo'},`<input id="p${i}-correo" name="correo" type="email" autocomplete="off" required>`)}${field({text:'Documento (demo)',id:'documento'},`<input id="p${i}-documento" name="documento" autocomplete="off" required>`)}${field({text:'Preferencia de comida',id:'comida'},`<select id="p${i}-comida" name="comida"><option>Sin preferencia</option><option>Vegetariana</option><option>Vegana</option><option>Sin gluten</option><option>Otra preferencia</option></select>`)}${field({text:'Atención a bordo',id:'atencion'},`<select id="p${i}-atencion" name="atencion"><option>Atención habitual</option><option>Prefiero descansar sin interrupciones</option><option>Prefiero que me consulten antes</option></select>`)}${field({text:'Alergias o notas (opcional)',id:'alergias'},`<input id="p${i}-alergias" name="alergias" autocomplete="off" placeholder="Déjalo vacío si no aplica">`,'alergias')}</div></section>`);
+  passengersRoot.insertAdjacentHTML('beforeend', `<section class="pasajero-bloque"><div class="pasajero-titulo"><h2>Pasajero ${i}</h2><span>Información para este itinerario</span></div><div class="campos-pasajero">${field({text:'Nombre',id:'nombre'},`<input id="p${i}-nombre" name="nombre" autocomplete="off" required>`)}${field({text:'Apellido',id:'apellido'},`<input id="p${i}-apellido" name="apellido" autocomplete="off" required>`)}${field({text:'Correo de contacto',id:'correo'},`<input id="p${i}-correo" name="correo" type="email" autocomplete="off" required>`)}${field({text:'Documento (demo)',id:'documento'},`<input id="p${i}-documento" name="documento" autocomplete="off" required>`)}${field({text:'Idioma',id:'idioma'},`<select id="p${i}-idioma" name="idioma">${Object.entries(Abordaje.IDIOMAS).map(([v,t]) => `<option value="${v}">${t}</option>`).join('')}</select>`)}${field({text:'País',id:'pais'},`<select id="p${i}-pais" name="pais">${Abordaje.PAISES.map(p => `<option>${p}</option>`).join('')}</select>`)}${field({text:'Preferencia de comida',id:'comida'},`<select id="p${i}-comida" name="comida"><option>Sin preferencia</option><option>Vegetariana</option><option>Vegana</option><option>Sin gluten</option><option>Otra preferencia</option></select>`)}${field({text:'Atención a bordo',id:'atencion'},`<select id="p${i}-atencion" name="atencion"><option>Atención habitual</option><option>Prefiero descansar sin interrupciones</option><option>Prefiero que me consulten antes</option></select>`)}${field({text:'Alergias o notas (opcional)',id:'alergias'},`<input id="p${i}-alergias" name="alergias" autocomplete="off" placeholder="Déjalo vacío si no aplica">`,'alergias')}</div></section>`);
 }
 const form = document.querySelector('#formulario-compra');
 const dialog = document.querySelector('#dialog-asientos');
@@ -80,6 +80,22 @@ document.querySelector('#confirmar-asientos').addEventListener('click', () => {
   document.querySelector('#confirmacion').hidden = true;
   dialog.close();
 });
+// Enlace al pase de abordar QR de cada pasajero, con los datos de esta compra de prueba.
+function passLink(index, seat) {
+  const value = id => document.querySelector(`#p${index+1}-${id}`).value;
+  const pass = new URLSearchParams({
+    origen: params.get('origen') || 'BOG', destino: params.get('destino') || 'MDE', fecha: params.get('fecha') || '',
+    vuelo: params.get('vuelo') || '', asiento: seat, nombre: value('nombre').trim(), apellido: value('apellido').trim(),
+    idioma: value('idioma'), pais: value('pais'), comida: String(Math.max(0, Abordaje.COMIDAS.indexOf(value('comida')))),
+    atencion: String(Math.max(0, Abordaje.ATENCION.indexOf(value('atencion')))), alergias: value('alergias').trim(),
+    noMolestar: value('atencion') === Abordaje.ATENCION[1] ? '1' : '0'
+  });
+  const link = document.createElement('a');
+  link.className = 'enlace-pase';
+  link.href = `pase.html?${pass.toString()}`;
+  link.textContent = 'Ver pase de abordar →';
+  return link;
+}
 form.addEventListener('input', () => { document.querySelector('#confirmacion').hidden = true; });
 form.addEventListener('submit', event => {
   event.preventDefault();
@@ -94,7 +110,8 @@ form.addEventListener('submit', event => {
   confirmation.append(title, itinerary);
   confirmed.forEach((seat, i) => {
     const detail = document.createElement('p');
-    detail.textContent = `${passengerName(i)} · Asiento ${seat} · ${document.querySelector(`#p${i+1}-comida`).value} · ${document.querySelector(`#p${i+1}-atencion`).value}`;
+    detail.textContent = `${passengerName(i)} · Asiento ${seat} · ${document.querySelector(`#p${i+1}-comida`).value} · ${document.querySelector(`#p${i+1}-atencion`).value} `;
+    detail.append(passLink(i, seat));
     confirmation.append(detail);
   });
   const total = document.createElement('p'); total.textContent = `Total estimado: COP $${(price * count).toLocaleString('es-CO')}. Simulación: no se ha cobrado ni emitido un boleto.`;
