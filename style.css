@@ -232,3 +232,7 @@ h1 span { color: var(--rojo); }
 .enlace-reservar { font-size: 14px; font-weight: 700; white-space: nowrap; }
 .enlace-reservar:hover { color: var(--rojo); }
 @media (max-width: 1200px) { .navegacion { gap: 18px; } .navegacion nav { gap: 20px; } .acciones-nav { gap: 14px; } }
+
+/* Enlace al pase de abordar QR desde el resumen de compra. */
+.enlace-pase { color: var(--rojo); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
+.enlace-pase:hover { color: var(--rojo-profundo); }
