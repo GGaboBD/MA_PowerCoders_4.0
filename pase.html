@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="description" content="Genera tu pase de abordar con código QR en el prototipo Avianca Premium Concept.">
+  <title>Tu pase de abordar · Avianca Premium Concept</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23da291c'/%3E%3Ctext x='16' y='24' text-anchor='middle' font-family='Arial' font-size='28' font-weight='700' fill='white'%3Ea%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="abordaje.css">
+  <script src="assets/vendor/qrcode.js" defer></script>
+  <script src="abordaje.js" defer></script>
+  <script src="pase.js" defer></script>
+</head>
+<body class="pagina-abordaje">
+  <a class="saltar" href="#contenido">Saltar al contenido</a>
+  <header class="encabezado">
+    <div class="contenedor navegacion">
+      <a class="marca" href="index.html" aria-label="Avianca, inicio">avianca<span class="marca-detalle">PREMIUM CONCEPT</span></a>
+      <nav class="nav-abordaje" aria-label="Abordaje">
+        <a class="activo" href="pase.html" aria-current="page">Pase de abordar</a>
+        <a href="tripulacion.html">Panel de tripulación</a>
+      </nav>
+      <a class="volver" href="index.html">Volver al inicio</a>
+    </div>
+  </header>
+
+  <main id="contenido" class="contenedor abordaje-main">
+    <div class="abordaje-intro">
+      <div>
+        <p class="etiqueta"><span class="numero">02</span> ABORDAJE · PASAJERO</p>
+        <h1 class="titulo-abordaje">Tu pase,<br><span>listo.</span></h1>
+      </div>
+      <p>Revisa tus datos y lleva el código contigo. Al escanearlo, la tripulación sabrá quién va en tu asiento y cómo prefieres que te atiendan, sin preguntarte de nuevo.</p>
+    </div>
+    <p class="pasos-reserva">1. Revisa tus datos <span>2. Genera tu código</span> <span>3. Preséntalo al abordar</span></p>
+    <p class="aviso-origen" id="aviso-origen" hidden></p>
+
+    <div class="pase-layout">
+      <form id="form-pase" class="pase-form" novalidate>
+        <section class="pasajero-bloque" aria-labelledby="t-vuelo">
+          <div class="pasajero-titulo"><h2 id="t-vuelo">Tu vuelo</h2><span>Itinerario de muestra</span></div>
+          <div class="campos-pase">
+            <div class="campo-form"><label for="f-origen">Origen</label><select id="f-origen" name="origen"></select></div>
+            <div class="campo-form"><label for="f-destino">Destino</label><select id="f-destino" name="destino"></select></div>
+            <div class="campo-form"><label for="f-fecha">Fecha</label><input id="f-fecha" name="fecha" type="date" required></div>
+            <div class="campo-form"><label for="f-vuelo">Vuelo</label><select id="f-vuelo" name="vuelo"></select></div>
+            <div class="campo-form"><label for="f-asiento">Asiento</label><select id="f-asiento" name="asiento"></select></div>
+            <div class="campo-form"><span>Cabina</span><p class="dato-fijo" id="f-cabina">—</p></div>
+          </div>
+        </section>
+
+        <section class="pasajero-bloque" aria-labelledby="t-pasajero">
+          <div class="pasajero-titulo"><h2 id="t-pasajero">Quién viaja</h2><span>Imprescindible</span></div>
+          <div class="campos-pase">
+            <div class="campo-form"><label for="f-nombre">Nombre</label><input id="f-nombre" name="nombre" maxlength="40" autocomplete="off" required></div>
+            <div class="campo-form"><label for="f-apellido">Apellido</label><input id="f-apellido" name="apellido" maxlength="40" autocomplete="off" required></div>
+            <div class="campo-form"><label for="f-trato">Cómo prefieres que te llamen <em>(opcional)</em></label><input id="f-trato" name="trato" maxlength="40" autocomplete="off" placeholder="Ej. Ing. Ceballos"></div>
+            <div class="campo-form"><label for="f-idioma">Idioma</label><select id="f-idioma" name="idioma"></select></div>
+            <div class="campo-form"><label for="f-pais">País</label><select id="f-pais" name="pais"></select></div>
+          </div>
+        </section>
+
+        <section class="pasajero-bloque" aria-labelledby="t-pref">
+          <div class="pasajero-titulo"><h2 id="t-pref">Cómo te gusta viajar</h2><span>Opcional · no bloquea tu pase</span></div>
+          <div class="campos-pase">
+            <div class="campo-form"><label for="f-comida">Preferencia de comida</label><select id="f-comida" name="comida"></select></div>
+            <div class="campo-form"><label for="f-atencion">Atención a bordo</label><select id="f-atencion" name="atencion"></select></div>
+            <div class="campo-form"><label for="f-motivo">Motivo del viaje</label><select id="f-motivo" name="motivo"></select></div>
+            <div class="campo-form ancho-doble"><label for="f-alergias">Alergias o notas para la tripulación</label><input id="f-alergias" name="alergias" maxlength="80" autocomplete="off" placeholder="Déjalo vacío si no aplica"></div>
+            <label class="interruptor ancho-doble"><input type="checkbox" name="noMolestar" id="f-nomolestar"><span class="interruptor-pista" aria-hidden="true"></span><span><strong>No molestar</strong><br><small>La tripulación solo te atenderá si la llamas.</small></span></label>
+          </div>
+        </section>
+        <p class="nota-prototipo">Prototipo académico. No ingreses datos reales: el código se genera en tu navegador y no se envía ni se guarda.</p>
+      </form>
+
+      <aside class="pase-columna" aria-label="Vista previa del pase">
+        <article class="pase" id="pase" aria-live="polite">
+          <header class="pase-cabecera">
+            <span class="pase-marca">avianca<small>PREMIUM CONCEPT</small></span>
+            <span class="pase-tipo"><small>PASE DE ABORDAR</small><strong id="p-cabina">Clase ejecutiva</strong></span>
+          </header>
+          <div class="pase-ruta">
+            <div><strong id="p-origen">BOG</strong><span id="p-origen-ciudad">Bogotá</span></div>
+            <span class="pase-trayecto" aria-hidden="true"><i></i><svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z" transform="rotate(90 12 12)"/></svg><i></i></span>
+            <div class="derecha"><strong id="p-destino">MDE</strong><span id="p-destino-ciudad">Medellín</span></div>
+          </div>
+          <div class="pase-pasajero"><span class="campo-etiqueta">PASAJERO</span><strong id="p-nombre">—</strong></div>
+          <dl class="pase-datos">
+            <div><dt>Vuelo</dt><dd id="p-vuelo">—</dd></div>
+            <div><dt>Fecha</dt><dd id="p-fecha">—</dd></div>
+            <div><dt>Salida</dt><dd id="p-salida">—</dd></div>
+            <div><dt>Abordaje</dt><dd id="p-abordaje">—</dd></div>
+            <div><dt>Grupo</dt><dd id="p-grupo">—</dd></div>
+            <div class="pase-asiento"><dt>Asiento</dt><dd id="p-asiento">—</dd></div>
+          </dl>
+          <div class="pase-corte" aria-hidden="true"></div>
+          <div class="pase-qr">
+            <div class="pase-qr-marco"><canvas id="p-qr" width="240" height="240" role="img" aria-label="Código QR del pase de abordar"></canvas><p class="pase-qr-vacio" id="p-qr-vacio" hidden>Completa nombre y apellido para generar tu código.</p></div>
+            <div class="pase-qr-texto">
+              <strong>Presenta este código al abordar.</strong>
+              <p>La tripulación lo escanea para darte la bienvenida en tu asiento.</p>
+              <span class="pase-verificacion" id="p-verificacion">VERIFICACIÓN · ——————</span>
+            </div>
+          </div>
+        </article>
+        <div class="pase-acciones">
+          <button class="boton boton-rojo" type="button" id="descargar-pase">Descargar pase (PNG)</button>
+          <button class="boton boton-claro" type="button" id="imprimir-pase">Imprimir</button>
+          <a class="boton boton-claro" id="probar-escaner" href="tripulacion.html">Probar en el panel de tripulación →</a>
+        </div>
+        <p class="pase-estado" id="pase-estado" role="status"></p>
+      </aside>
+    </div>
+    <noscript>Activa JavaScript para generar tu código QR.</noscript>
+  </main>
+  <footer class="contenedor abordaje-footer"><span>Proyecto universitario · 2026</span><span>Prototipo independiente, no es el sitio oficial de Avianca.</span></footer>
+</body>
+</html>
