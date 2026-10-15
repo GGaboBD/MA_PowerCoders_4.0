@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="description" content="Panel de tripulación: escanea el pase de abordar y reconoce al pasajero en su asiento.">
+  <title>Panel de tripulación · Avianca Premium Concept</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23da291c'/%3E%3Ctext x='16' y='24' text-anchor='middle' font-family='Arial' font-size='28' font-weight='700' fill='white'%3Ea%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="abordaje.css">
+  <script src="assets/vendor/jsQR.js" defer></script>
+  <script src="abordaje.js" defer></script>
+  <script src="tripulacion.js" defer></script>
+</head>
+<body class="pagina-abordaje pagina-tripulacion">
+  <a class="saltar" href="#contenido">Saltar al contenido</a>
+  <header class="encabezado">
+    <div class="contenedor navegacion">
+      <a class="marca" href="index.html" aria-label="Avianca, inicio">avianca<span class="marca-detalle">PREMIUM CONCEPT</span></a>
+      <nav class="nav-abordaje" aria-label="Abordaje">
+        <a href="pase.html">Pase de abordar</a>
+        <a class="activo" href="tripulacion.html" aria-current="page">Panel de tripulación</a>
+      </nav>
+      <a class="volver" href="index.html">Volver al inicio</a>
+    </div>
+  </header>
+
+  <main id="contenido" class="contenedor abordaje-main">
+    <div class="abordaje-intro">
+      <div>
+        <p class="etiqueta"><span class="numero">02</span> ABORDAJE · TRIPULACIÓN</p>
+        <h1 class="titulo-abordaje">Reconoce a<br>cada <span>pasajero.</span></h1>
+      </div>
+      <p>Escanea el pase al ingresar al avión. El asiento queda asociado a la persona, y su ficha muestra cómo darle la bienvenida y qué tener en cuenta durante el vuelo.</p>
+    </div>
+
+    <div class="escaner-layout">
+      <section class="escaner" aria-labelledby="t-escaner">
+        <div class="escaner-cabecera">
+          <h2 id="t-escaner">Escáner de pases</h2>
+          <span class="escaner-indicador" id="indicador"><i></i><span id="indicador-texto">Cámara apagada</span></span>
+        </div>
+        <div class="visor" id="visor">
+          <video id="video" playsinline muted aria-label="Vista de la cámara"></video>
+          <div class="visor-reposo" id="visor-reposo">
+            <svg viewBox="0 0 48 48" width="56" height="56" aria-hidden="true"><path d="M6 16V8a2 2 0 0 1 2-2h8M32 6h8a2 2 0 0 1 2 2v8M42 32v8a2 2 0 0 1-2 2h-8M16 42H8a2 2 0 0 1-2-2v-8" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><rect x="14" y="14" width="8" height="8" fill="currentColor"/><rect x="26" y="14" width="8" height="8" fill="currentColor"/><rect x="14" y="26" width="8" height="8" fill="currentColor"/><rect x="28" y="28" width="4" height="4" fill="currentColor"/></svg>
+            <p>Activa la cámara y apunta al código QR del pase.</p>
+          </div>
+          <div class="visor-marco" aria-hidden="true"><span></span><span></span><span></span><span></span><i class="visor-linea"></i></div>
+          <div class="visor-flash" id="visor-flash" aria-hidden="true"></div>
+        </div>
+        <div class="escaner-controles">
+          <button class="boton boton-rojo" type="button" id="boton-camara">Activar cámara</button>
+          <label class="selector-camara" id="selector-camara" hidden>Cámara <select id="camaras"></select></label>
+        </div>
+        <div class="escaner-alternativas">
+          <label class="boton boton-claro subir-imagen">Subir imagen del pase<input type="file" id="archivo" accept="image/*" hidden></label>
+          <div class="simular">
+            <label for="muestra">Pase de muestra</label>
+            <div><select id="muestra"></select><button class="boton boton-claro" type="button" id="simular">Simular escaneo</button></div>
+          </div>
+        </div>
+        <p class="escaner-ayuda" id="escaner-ayuda">La cámara necesita permiso del navegador y una conexión segura (https). Si no está disponible, sube una captura del pase o usa un pase de muestra.</p>
+      </section>
+
+      <section class="ficha" id="ficha" aria-labelledby="t-ficha" aria-live="polite" tabindex="-1">
+        <div class="ficha-vacia" id="ficha-vacia">
+          <p class="etiqueta">FICHA DEL PASAJERO</p>
+          <h2 id="t-ficha">Esperando un pase.</h2>
+          <p>Cuando escanees un código, aquí verás quién es, su asiento y sus preferencias. También puedes tocar un asiento ocupado en el plano.</p>
+        </div>
+        <div class="ficha-alerta" id="ficha-alerta" hidden role="alert"></div>
+        <div class="ficha-contenido" id="ficha-contenido" hidden>
+          <div class="ficha-estado" id="ficha-estado"></div>
+          <div class="ficha-cabecera">
+            <div>
+              <p class="etiqueta" id="ficha-trato"></p>
+              <h2 id="ficha-nombre"></h2>
+              <p class="ficha-ruta" id="ficha-ruta"></p>
+            </div>
+            <div class="ficha-asiento"><span>ASIENTO</span><strong id="ficha-asiento"></strong></div>
+          </div>
+          <blockquote class="ficha-saludo"><span>Saludo sugerido · <b id="ficha-idioma-corto"></b></span><p id="ficha-saludo"></p></blockquote>
+          <div class="ficha-insignias" id="ficha-insignias"></div>
+          <dl class="ficha-datos" id="ficha-datos"></dl>
+          <p class="ficha-pie" id="ficha-pie"></p>
+        </div>
+      </section>
+    </div>
+
+    <section class="cabina-vivo" aria-labelledby="t-cabina">
+      <div class="cabina-vivo-cabecera">
+        <div>
+          <p class="etiqueta"><span class="numero">03</span> CABINA EN VIVO</p>
+          <h2 id="t-cabina">Quién va en cada asiento.</h2>
+        </div>
+        <div class="contadores">
+          <div><strong id="contador-total">0</strong><span>a bordo</span></div>
+          <div><strong id="contador-primera">0/12</strong><span>Primera</span></div>
+          <div><strong id="contador-ejecutiva">0/32</strong><span>Ejecutiva</span></div>
+          <button class="boton boton-claro" type="button" id="reiniciar">Reiniciar abordaje</button>
+        </div>
+      </div>
+      <div class="cabina-vivo-grid">
+        <div class="plano-vivo" id="plano-vivo" aria-label="Plano de la cabina"></div>
+        <div class="lista-abordados">
+          <h3>Registro de abordaje</h3>
+          <ol id="lista-abordados"></ol>
+          <p class="lista-vacia" id="lista-vacia">Aún no se ha escaneado ningún pase.</p>
+        </div>
+      </div>
+      <p class="nota-prototipo">Demostración académica. El registro se guarda solo en este navegador y puedes borrarlo con "Reiniciar abordaje".</p>
+    </section>
+  </main>
+  <footer class="contenedor abordaje-footer"><span>Proyecto universitario · 2026</span><span>Prototipo independiente, no es el sitio oficial de Avianca.</span></footer>
+</body>
+</html>
