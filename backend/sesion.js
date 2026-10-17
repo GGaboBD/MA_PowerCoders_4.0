@@ -4,8 +4,16 @@ const argon2 = require('argon2');
 const { rateLimit } = require('express-rate-limit');
 const COOKIE = 'avianca_sesion';
 const DURACION = 8 * 60 * 60 * 1000;
-// Configuración local: el servidor solo escucha en 127.0.0.1.
-const cookieOptions = { httpOnly: true, sameSite: 'strict', secure: false, path: '/' };
+const EN_PRODUCCION =
+  process.env.RENDER === 'true' ||
+  process.env.NODE_ENV === 'production';
+
+const cookieOptions = {
+  httpOnly: true,
+  sameSite: 'strict',
+  secure: EN_PRODUCCION,
+  path: '/',
+};
 const digest = token => createHash('sha256').update(token).digest('hex');
 function leerToken(req) {
   const matches = (req.headers.cookie || '').split(';').map(v => v.trim()).filter(v => v.startsWith(COOKIE + '='));
@@ -18,10 +26,46 @@ function publico(usuario) {
 }
 function origenLocal(req, res, next) {
   const port = Number(process.env.PORT || 3000);
-  if (![`http://localhost:${port}`, `http://127.0.0.1:${port}`].includes(req.get('origin'))) {
-    return res.status(403).json({ ok: false, mensaje: 'Abre el formulario desde localhost del proyecto.' });
+  const permitidos = new Set();
+
+  if (!EN_PRODUCCION) {
+    permitidos.add(`http://localhost:${port}`);
+    permitidos.add(`http://127.0.0.1:${port}`);
   }
-  if (!req.is('application/json')) return res.status(415).json({ ok: false, mensaje: 'La solicitud debe ser JSON.' });
+
+  const direcciones = [
+    process.env.RENDER_EXTERNAL_URL,
+    process.env.PUBLIC_ORIGIN,
+  ];
+
+  for (const direccion of direcciones) {
+    if (!direccion) continue;
+
+    try {
+      const url = new URL(direccion);
+
+      if (url.protocol === 'https:') {
+        permitidos.add(url.origin);
+      }
+    } catch {
+      // Una dirección mal configurada no se autoriza.
+    }
+  }
+
+  if (!permitidos.has(req.get('origin'))) {
+    return res.status(403).json({
+      ok: false,
+      mensaje: 'Abre el formulario desde la dirección de la página del proyecto.',
+    });
+  }
+
+  if (!req.is('application/json')) {
+    return res.status(415).json({
+      ok: false,
+      mensaje: 'La solicitud debe ser JSON.',
+    });
+  }
+
   next();
 }
 
