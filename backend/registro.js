@@ -1,6 +1,7 @@
 'use strict';
 const argon2 = require('argon2');
 const { rateLimit } = require('express-rate-limit');
+const { origenLocal } = require('./sesion');
 
 function validarRegistro(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('Completa los datos del formulario.');
@@ -39,15 +40,9 @@ async function comprobarEsquema(db) {
 module.exports = function registrarRegistro(app, db) {
   const limite = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: 'draft-8', legacyHeaders: false,
     message: { ok: false, mensaje: 'Demasiados intentos. Espera 15 minutos antes de intentar nuevamente.' } });
-  app.post('/api/registro', limite, async (req, res) => {
+  app.post('/api/registro', origenLocal, limite, async (req, res) => {
     res.set('Cache-Control', 'no-store');
     // Este servidor se ejecuta únicamente en loopback. No habilitar CORS abierto.
-    const origin = req.get('origin');
-    const port = Number(process.env.PORT || 3000);
-    if (origin && ![`http://localhost:${port}`, `http://127.0.0.1:${port}`].includes(origin)) {
-      return res.status(403).json({ ok: false, mensaje: 'Abre el formulario desde el servidor local del proyecto.' });
-    }
-    if (!req.is('application/json')) return res.status(415).json({ ok: false, mensaje: 'Envía los datos como JSON.' });
     let datos;
     try { datos = validarRegistro(req.body); }
     catch (error) { return res.status(400).json({ ok: false, mensaje: error.message }); }
