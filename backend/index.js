@@ -11,6 +11,13 @@ const registrarMisReservas = require('./mis-reservas');
 const registrarCancelacion = require('./cancelar-reserva');
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
+const EN_RENDER = process.env.RENDER === 'true';
+const HOST = EN_RENDER ? '0.0.0.0' : '127.0.0.1';
+
+if (EN_RENDER) {
+  app.set('trust proxy', 1);
+}
+
 app.use(express.json({ limit: '20kb' }));
 app.use(express.static(path.join(__dirname, '..', 'frontend')));
 
@@ -48,15 +55,22 @@ async function iniciarServidor() {
       const status = error.type === 'entity.too.large' ? 413 : error.type === 'entity.parse.failed' ? 400 : 500;
       res.status(status).json({ ok: false, mensaje: 'La solicitud no se pudo procesar. Revisa los datos enviados.' });
     });
-    const servidor = app.listen(PORT, '127.0.0.1', () => console.log(`API disponible en http://localhost:${PORT}`));
+    const servidor = app.listen(PORT, HOST, () => {
+      console.log(`Servidor iniciado en el puerto ${PORT}`);
+    });
     servidor.on('error', async error => {
       console.error('No se pudo iniciar el servidor:', error.code);
       await cliente.close();
       process.exitCode = 1;
     });
-    process.once('SIGINT', () => {
-      servidor.close(async () => { await cliente.close(); });
-    });
+    function cerrarServidor() {
+  servidor.close(async () => {
+    await cliente.close();
+  });
+}
+
+process.once('SIGINT', cerrarServidor);
+process.once('SIGTERM', cerrarServidor);
   } catch (error) {
     console.error('No se pudo conectar con MongoDB:', error.name, error.code || 'sin código');
     if (error.name === 'Error' && !error.code) console.error(error.message);
