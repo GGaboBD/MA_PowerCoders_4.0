@@ -4,16 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "dependencies": {
-    "argon2": "^0.45.1",
-    "express": "^5.3.0",
-    "express-rate-limit": "^8.7.1",
-    "mongodb": "^7.7.0"
+  "start": "node index.js",
+  "dev": "node --env-file=.env index.js",
+  "test": "echo \"Error: no test specified\" && exit 1"
   }
 }
