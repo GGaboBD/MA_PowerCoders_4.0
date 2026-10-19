@@ -161,3 +161,8 @@ const Abordaje = (() => {
   return { CIUDADES, IDIOMAS, PAISES, COMIDAS, ATENCION, MOTIVOS, VUELOS, CABINAS, LETRAS,
     codificar, decodificar, describir, asientosDe, cabinaDeAsiento, dibujarQR, muestras, hoyISO, formatearFecha };
 })();
+
+// Permite probar la misma lógica con Node sin cambiar su uso en el navegador.
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = Abordaje;
+}
