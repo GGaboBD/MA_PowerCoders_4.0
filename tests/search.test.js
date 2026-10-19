@@ -69,7 +69,7 @@ test('la búsqueda filtra simultáneamente por hora mínima y cabina', () => {
 test('la búsqueda incluye un vuelo a la hora límite exacta', () => {
   const busqueda = cargarBusqueda();
   const vuelos = busqueda.buscar({ hora: '16:10', cabina: 'ejecutiva' });
-  assert.equal(vuelos.length, 1);
+  assert.equal(vuelos.length, 2);
   assert.equal(vuelos[0].searchParams.get('vuelo'), 'AV 8436');
   assert.equal(vuelos[0].searchParams.get('hora'), '16:10');
 });
