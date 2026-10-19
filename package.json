@@ -1,0 +1,13 @@
+{
+  "name": "avianca-powercoders",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Prototipo académico de cabina y abordaje de PowerCoders 4.0",
+  "scripts": {
+    "check:syntax": "node --check abordaje.js && node --check cuenta.js && node --check pase.js && node --check purchase.js && node --check search.js && node --check tripulacion.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}
