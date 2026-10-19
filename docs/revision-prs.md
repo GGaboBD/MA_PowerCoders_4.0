@@ -40,10 +40,14 @@ La plantilla está en `main` desde el commit de merge
 La [ejecución de CI de ese commit](https://github.com/GGaboBD/MA_PowerCoders_4.0/actions/runs/39278792651)
 está pendiente de terminar al preparar esta auditoría.
 
+En esta rama se ejecutaron con éxito `npm ci`, `npm run check:syntax` y
+`npm test` con Node 24.14.0: 20 pruebas aprobadas, cero fallidas y cero omitidas.
+
 La carga automática se verificará en el formulario del PR real de esta auditoría,
 antes de editar su descripción y sin pegar el checklist, usar `--body` ni aportar
-el cuerpo mediante parámetros de URL. Hasta conservar esa evidencia y comprobar
-`npm test`, no corresponde finalizar [PCA-36](https://avianca-powercoders.atlassian.net/browse/PCA-36).
+el cuerpo mediante parámetros de URL. Hasta conservar esa evidencia y el verde
+de CI en el merge, no corresponde finalizar
+[PCA-36](https://avianca-powercoders.atlassian.net/browse/PCA-36).
 
 ## Pendientes de T16
 
