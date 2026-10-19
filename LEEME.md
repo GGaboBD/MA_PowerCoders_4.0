@@ -26,3 +26,17 @@ La búsqueda de pasajeros (HU03) sigue pendiente de implementación.
 y pull requests dirigidos a `main`. Un error de sintaxis o una prueba fallida
 produce una ejecución roja. Vercel y GitHub Pages mantienen sus integraciones
 de despliegue independientes; este workflow solo verifica el código.
+
+## Revisión de pull requests
+
+El autor abre un PR hacia `main` con el ticket Jira y el checklist de
+`.github/pull_request_template.md` → un compañero revisa los criterios de
+aceptación y aprueba formalmente en GitHub → se verifica el checklist con
+evidencias y CI verde en el commit actual → un compañero distinto del autor
+hace merge. El autor no aprueba ni fusiona su propio PR.
+
+Marca casillas solo con evidencia. Si un punto no aplica, déjalo desmarcado y
+explica el motivo para que el revisor lo evalúe antes del merge. Para comprobar
+la carga automática, abre el formulario de un PR nuevo después de integrar la
+plantilla en `main` y verifica la descripción antes de editarla; pegar el
+checklist manualmente no demuestra su carga automática.
