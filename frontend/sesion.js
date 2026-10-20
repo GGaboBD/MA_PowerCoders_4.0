@@ -55,14 +55,17 @@
       const response = await fetch('/api/sesion', { credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.timeout(15000) });
       if (actual !== version) return;
       if (response.status === 401) { pintar(null); aviso.hidden = true; return; }
+      if (!(response.headers.get('content-type') || '').includes('application/json')) throw new TypeError('sin servidor');
       const data = await response.json();
       if (actual !== version) return;
       if (!response.ok || !data.ok) throw new Error('sesion');
       pintar(data.usuario); aviso.hidden = true;
-    } catch {
+    } catch (error) {
       if (actual !== version) return;
       pintar(null);
-      aviso.textContent = 'No pudimos comprobar tu sesión. Comprueba que el servidor esté encendido y recarga la página.';
+      aviso.textContent = error instanceof TypeError
+        ? 'Sin conexión con el servidor del sitio: el inicio de sesión, las reservas y el panel no funcionarán. Ábrelo desde el servidor Node (npm run dev → http://localhost:3000, o Render), no desde un hosting estático.'
+        : 'No pudimos comprobar tu sesión. Comprueba que el servidor esté encendido y recarga la página.';
       aviso.hidden = false;
     } finally { if (actual === version) comprobando = false; }
   }

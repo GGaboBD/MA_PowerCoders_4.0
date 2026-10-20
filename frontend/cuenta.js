@@ -4,6 +4,14 @@ const parametros = new URLSearchParams(location.search);
 // Solo se vuelve a páginas conocidas del personal: nunca a una dirección recibida en la URL.
 const DESTINOS_PERSONAL = ['tripulacion.html', 'personal.html'];
 const volver = DESTINOS_PERSONAL.includes(parametros.get('volver')) ? parametros.get('volver') : null;
+// Las cuentas se guardan a través de la API del backend. Si la página se abrió desde un hosting estático
+// (Vercel, GitHub Pages, Live Server) o el servidor no está encendido, no hay respuesta JSON de la API.
+const SIN_SERVIDOR = 'No hay conexión con el servidor del sitio, así que no se guardó nada. Abre la página desde el servidor Node (npm run dev → http://localhost:3000, o el servicio de Render): Vercel, GitHub Pages o Live Server solo muestran las páginas, sin la base de datos.';
+async function leerJSON(response) {
+  if (!(response.headers.get('content-type') || '').includes('application/json')) throw Object.assign(new Error('sin servidor'), { sinServidor: true });
+  return response.json();
+}
+const sinServidor = error => error.sinServidor || error instanceof TypeError;
 const tabs = [...document.querySelectorAll('[role="tab"]')];
 function changePanel(mode, focusTab = false) {
   tabs.forEach(tab => {
@@ -77,7 +85,7 @@ registration.addEventListener('submit', async event => {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body), signal: AbortSignal.timeout(20000),
     });
-    const result = await response.json();
+    const result = await leerJSON(response);
     if (!response.ok || !result.ok) {
       message.textContent = result.mensaje || 'No se pudo completar el registro.';
       return;
@@ -90,8 +98,9 @@ registration.addEventListener('submit', async event => {
     });
     message.textContent = 'Cuenta creada correctamente. Abre Iniciar sesión para acceder con tu correo y contraseña.';
     document.getElementById('login-email').value = body.correo.trim().toLowerCase();
-  } catch {
-    message.textContent = 'No pudimos confirmar el resultado. La cuenta podría haberse guardado: intenta iniciar sesión antes de registrarte otra vez.';
+  } catch (error) {
+    message.textContent = sinServidor(error) ? SIN_SERVIDOR
+      : 'No pudimos confirmar el resultado. La cuenta podría haberse guardado: intenta iniciar sesión antes de registrarte otra vez.';
   } finally {
     pending = false;
     controls.forEach(control => { control.disabled = false; });
@@ -120,13 +129,14 @@ function conectarLogin({ form, email, clave, mensaje, texto, acceso, alEntrar })
     loginMessage.textContent = 'Comprobando tus datos…'; loginMessage.hidden = false;
     try {
       const response = await fetch('/api/login', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(20000) });
-      const result = await response.json();
+      const result = await leerJSON(response);
       if (!response.ok || !result.ok) { loginMessage.textContent = result.mensaje || 'No se pudo iniciar sesión.'; return; }
       document.getElementById(clave).value = '';
       loginMessage.hidden = true;
       alEntrar(result.usuario);
-    } catch {
-      loginMessage.textContent = 'No pudimos confirmar el acceso. Recarga la página para comprobar si la sesión se inició.';
+    } catch (error) {
+      loginMessage.textContent = sinServidor(error) ? SIN_SERVIDOR
+        : 'No pudimos confirmar el acceso. Recarga la página para comprobar si la sesión se inició.';
     } finally {
       loggingIn = false;
       controls.forEach(control => { control.disabled = false; });
