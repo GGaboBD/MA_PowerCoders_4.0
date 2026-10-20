@@ -8,6 +8,9 @@
   <title>avianca — Una nueva perspectiva del viaje</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23da291c'/%3E%3Ctext x='16' y='24' text-anchor='middle' font-family='Arial' font-size='28' font-weight='700' fill='white'%3Ea%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="reservas.css">
+  <link rel="stylesheet" href="sesion.css">
+  <script src="sesion.js" defer></script>
 </head>
 <body>
   <a class="saltar" href="#contenido">Saltar al contenido</a>
@@ -21,14 +24,37 @@
         <a href="#experiencia">La experiencia</a>
         <a href="#cabinas">Nuestras cabinas</a>
         <a href="#viaje">Tu viaje</a>
-        <a href="pase.html">Pase de abordar</a>
-        <a href="tripulacion.html">Tripulación</a>
+        <a href="mis-reservas.html" data-rol="cliente" hidden>Mis reservas</a>
+        <a href="pase.html" data-rol="cliente" hidden>Pase de abordar</a>
+        <a href="tripulacion.html" data-permiso="tripulacion.ver" hidden>Tripulación</a>
+        <a href="personal.html" data-permiso="personal.gestionar" hidden>Personal</a>
       </nav>
       <div class="acciones-nav"><a class="enlace-reservar" href="#buscar-vuelos">Buscar vuelos</a><a class="boton boton-oscuro" href="cuenta.html">Iniciar sesión</a></div>
     </div>
   </header>
 
   <main id="contenido">
+    <section id="buscar-vuelos" class="buscador contenedor" aria-labelledby="titulo-buscador">
+      <div class="buscador-superior">
+        <h2 id="titulo-buscador">Tu próximo viaje</h2>
+        <div class="opciones-viaje"><span>Solo ida</span><span>Ejecutiva & primera clase</span></div>
+        <span class="nota-prototipo">Vuelos de muestra</span>
+      </div>
+      <form class="buscador-campos" id="formulario-busqueda">
+        <label class="campo campo-origen"><span class="campo-etiqueta">Origen</span><select name="origen" required><option value="SAL">San Salvador (SAL)</option><option value="MIA">Miami (MIA)</option><option value="BOG">Bogotá (BOG)</option><option value="MDE">Medellín (MDE)</option><option value="CLO">Cali (CLO)</option><option value="CTG">Cartagena (CTG)</option></select></label>
+        <span class="intercambio" aria-hidden="true">→</span>
+        <label class="campo campo-destino"><span class="campo-etiqueta">Destino</span><select name="destino" required><option value="BOG" selected>Bogotá (BOG)</option><option value="SAL">San Salvador (SAL)</option><option value="MIA">Miami (MIA)</option><option value="MDE">Medellín (MDE)</option><option value="CLO">Cali (CLO)</option><option value="CTG">Cartagena (CTG)</option></select></label>
+        <label class="campo campo-fecha"><span class="campo-etiqueta">Fecha</span><input name="fecha" type="date" required></label>
+        <label class="campo campo-hora"><span class="campo-etiqueta">Hora desde</span><input name="hora" type="time" value="00:00" required></label>
+        <label class="campo campo-cabina"><span class="campo-etiqueta">Cabina</span><select name="cabina"><option value="ejecutiva">Clase ejecutiva</option><option value="primera">Primera clase</option></select></label>
+        <label class="campo campo-pasajeros"><span class="campo-etiqueta">Pasajeros</span><select name="pasajeros"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></label>
+        <button class="boton boton-rojo" type="submit">Explorar vuelos</button>
+      </form>
+      <p class="nota-prototipo buscador-nota">Horarios locales del origen · Tarifas y asientos consultados en la base de datos del prototipo. La búsqueda no aparta asientos.</p>
+    </section>
+
+    <section class="resultados contenedor" id="resultados" aria-live="polite" hidden></section>
+
     <!-- Portada editorial: imagen conceptual, no fotografía de una flota real. -->
     <section class="portada" aria-labelledby="titulo-portada">
       <img class="avion" src="assets/avion.webp" alt="Visual conceptual de un avión comercial blanco y rojo volando sobre las nubes" width="1536" height="1024" fetchpriority="high">
@@ -46,26 +72,7 @@
       </div>
     </section>
 
-    <section id="buscar-vuelos" class="buscador contenedor" aria-labelledby="titulo-buscador">
-      <div class="buscador-superior">
-        <h2 id="titulo-buscador">Tu próximo viaje</h2>
-        <div class="opciones-viaje"><span>Solo ida</span><span>Ejecutiva & primera clase</span></div>
-        <span class="nota-prototipo">Prototipo · vuelos de muestra</span>
-      </div>
-      <p class="pasos-reserva">1. Busca tu vuelo <span>2. Completa tus datos</span> <span>3. Elige tus asientos</span></p>
-      <form class="buscador-campos" id="formulario-busqueda">
-        <label class="campo"><span class="campo-etiqueta">Origen</span><select name="origen" required><option value="BOG">Bogotá (BOG)</option><option value="MDE">Medellín (MDE)</option><option value="CLO">Cali (CLO)</option><option value="CTG">Cartagena (CTG)</option></select></label>
-        <span class="intercambio" aria-hidden="true">→</span>
-        <label class="campo"><span class="campo-etiqueta">Destino</span><select name="destino" required><option value="MDE">Medellín (MDE)</option><option value="BOG">Bogotá (BOG)</option><option value="CLO">Cali (CLO)</option><option value="CTG">Cartagena (CTG)</option></select></label>
-        <label class="campo"><span class="campo-etiqueta">Fecha</span><input name="fecha" type="date" required></label>
-        <label class="campo"><span class="campo-etiqueta">Hora desde</span><input name="hora" type="time" value="00:00" required></label>
-        <label class="campo"><span class="campo-etiqueta">Cabina</span><select name="cabina"><option value="ejecutiva">Clase ejecutiva</option><option value="primera">Primera clase</option></select></label>
-        <label class="campo"><span class="campo-etiqueta">Pasajeros</span><select name="pasajeros"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></label>
-        <button class="boton boton-rojo" type="submit">Explorar vuelos</button>
-      </form>
-      <p class="nota-prototipo buscador-nota">La búsqueda usa itinerarios y precios ficticios para este prototipo. No se realizan reservas.</p>
-    </section>
-    <section class="resultados contenedor" id="resultados" aria-live="polite" hidden></section>
+
 
     <!-- Beneficios: composición asimétrica y divisores finos, inspirados en DESIGN.md. -->
     <section class="experiencia contenedor seccion" id="experiencia" aria-labelledby="titulo-experiencia">
@@ -115,7 +122,7 @@
   <footer class="pie">
     <div class="contenedor">
       <div class="pie-superior"><a class="marca marca-pie" href="#inicio">avianca<span class="marca-detalle">PREMIUM CONCEPT</span></a><p>Volar también puede ser<br>tu parte favorita del viaje.</p><a class="boton boton-contorno" href="#inicio">Volver al inicio</a></div>
-      <div class="pie-inferior"><span>Proyecto universitario · 2026</span><span>Prototipo independiente, no es el sitio oficial de Avianca.</span><span>Diseñado para imaginar.</span></div>
+      <div class="pie-inferior"><span>Proyecto universitario · 2026</span><span>Prototipo independiente, no es el sitio oficial de Avianca.</span><a class="enlace-personal" href="cuenta.html?acceso=personal">Acceso del personal de Avianca</a></div>
     </div>
   </footer>
   <script src="search.js" defer></script>

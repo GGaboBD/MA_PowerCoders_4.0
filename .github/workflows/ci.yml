@@ -12,7 +12,10 @@ permissions:
 jobs:
   integracion:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
+    env:
+      # MongoDB temporal para las pruebas de integración (dos bases y acceso por rol). No usa Atlas.
+      MONGOMS_DOWNLOAD_DIR: /home/runner/.cache/mongodb-binaries
     steps:
       - uses: actions/checkout@v4
 
@@ -20,6 +23,11 @@ jobs:
         with:
           node-version: 24
           cache: 'npm'
+
+      - uses: actions/cache@v4
+        with:
+          path: /home/runner/.cache/mongodb-binaries
+          key: mongodb-binaries-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
       - run: npm ci
 
