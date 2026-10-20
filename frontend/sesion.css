@@ -1,0 +1,14 @@
+.sesion-salir[hidden], .sesion-aviso[hidden], #perfil-sesion[hidden], #formularios-acceso[hidden] { display: none !important; }
+.sesion-salir { white-space: nowrap; font-size: 14px; padding: 12px 18px; }
+.sesion-aviso { padding: 8px 6%; font-size: 14px; background: #fff4ef; color: #333; }
+#perfil-sesion { padding-block: 30px; }
+#perfil-sesion h2 { font-size: 32px; margin-bottom: 16px; }
+#perfil-sesion p { margin-bottom: 20px; overflow-wrap: anywhere; }
+.enlace-personal { color: #b1b1b1; text-decoration: underline; text-underline-offset: 3px; }
+.enlace-personal:hover { color: white; }
+/* Con sesión iniciada la navegación suma enlaces (Mis reservas, Pase, Tripulación, Personal):
+   en pantallas medianas se ocultan dos anclas de la portada para que todo quepa en una línea. */
+.navegacion nav a { white-space: nowrap; }
+@media (max-width: 1320px) {
+  .navegacion nav:has(a[data-rol]:not([hidden]), a[data-permiso]:not([hidden])) :is(a[href="#experiencia"], a[href="#cabinas"]) { display: none; }
+}

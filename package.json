@@ -1,13 +1,28 @@
 {
   "name": "avianca-powercoders",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
-  "description": "Prototipo académico de cabina y abordaje de PowerCoders 4.0",
+  "description": "Sitio web Avianca Premium Concept: reservas de clientes, pase de abordar QR y panel de tripulación con dos bases MongoDB",
+  "main": "backend/index.js",
   "scripts": {
-    "check:syntax": "node --check abordaje.js && node --check cuenta.js && node --check pase.js && node --check purchase.js && node --check search.js && node --check tripulacion.js",
+    "start": "node backend/index.js",
+    "dev": "node --env-file=.env backend/index.js",
+    "preparar": "node --env-file-if-exists=.env backend/scripts/preparar-bases.js",
+    "personal:crear": "node --env-file-if-exists=.env backend/scripts/crear-personal.js",
+    "demo": "node --env-file-if-exists=.env backend/scripts/semilla-demo.js",
+    "check:syntax": "node scripts/revisar-sintaxis.js",
     "test": "node --test"
   },
   "engines": {
     "node": ">=24"
+  },
+  "dependencies": {
+    "argon2": "^0.45.1",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.1",
+    "mongodb": "^7.7.0"
+  },
+  "devDependencies": {
+    "mongodb-memory-server": "^11.3.0"
   }
 }

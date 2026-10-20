@@ -31,3 +31,9 @@
 .cuenta-panel [hidden] { display: none; }
 .cuenta-footer { display: flex; justify-content: space-between; font-size: 12px; color: var(--gris-texto); padding-bottom: 26px; }
 @media (max-width: 1200px) { .cuenta-panel { padding-inline: 34px; } .cuenta-imagen { padding-inline: 34px; } }
+/* Tres accesos: clientes (iniciar sesión, crear cuenta) y personal de Avianca. */
+.cuenta-tabs button { font-size: 14px; }
+.cuenta-tabs #tab-personal[aria-selected="true"] { color: var(--negro); border-bottom-color: var(--negro); }
+#panel-personal .cuenta-intro { max-width: 470px; }
+.perfil-acciones { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 4px; }
+#perfil-sesion .cuenta-mensaje { margin: 0 0 20px; }

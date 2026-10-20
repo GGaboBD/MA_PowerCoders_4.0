@@ -1,0 +1,21 @@
+.viajes-main{padding-top:64px;padding-bottom:72px;max-width:1200px}
+.viajes-heading{display:flex;align-items:center;justify-content:space-between;gap:32px;margin-bottom:36px}
+.viajes-heading h1{font-size:clamp(44px,5vw,72px);line-height:1.05;letter-spacing:-2px;margin:14px 0 20px}
+.viajes-heading h1 span{color:#da291c}.viajes-heading p{color:#5e5e5e}
+.viajes-aviso{padding:16px 20px;background:#f4f4f4;border-radius:12px;margin-bottom:24px}
+.viaje-tarjeta{border:1px solid #dedede;border-radius:24px;overflow:hidden;margin:0 0 28px;background:white}
+.viaje-cabecera{padding:24px 28px;display:flex;justify-content:space-between;align-items:center;gap:24px;background:#f8f7f5;border-bottom:1px solid #dedede}
+.viaje-cabecera h2{font-size:28px;margin:8px 0}.viaje-cabecera p{margin:4px 0;color:#555}
+.viaje-localizador{font-size:13px;letter-spacing:1px;font-weight:700;color:#555}
+.viaje-estado{border-radius:30px;background:#e9f3ec;color:#235334;padding:8px 16px;font-weight:700;white-space:nowrap}
+.viaje-cuerpo{padding:24px 28px}.viaje-fechas{display:flex;gap:48px;margin-bottom:24px}.viaje-fechas p{margin:0}.viaje-fechas span{display:block;color:#666;font-size:13px;margin-bottom:6px}
+.viaje-tabla{width:100%;border-collapse:collapse;text-align:left}.viaje-tabla th{color:#666;font-size:12px;text-transform:uppercase;letter-spacing:.5px}.viaje-tabla td,.viaje-tabla th{padding:14px 12px;border-bottom:1px solid #eee;vertical-align:top}.viaje-tabla td:first-child,.viaje-tabla th:first-child{padding-left:0}
+.viaje-tabla small{display:block;font-size:11px;color:#666;max-width:370px;overflow-wrap:anywhere;margin-top:6px}.viaje-tabla strong{font-size:20px}.viaje-tabla-contenedor{overflow-x:auto}
+.viaje-total{text-align:right;padding-top:20px;font-size:17px;font-weight:700}.viajes-nota{color:#666;font-size:13px;margin-top:32px}
+#mas-reservas{display:block;margin:24px auto}#mas-reservas[hidden],#acceder-reservas[hidden]{display:none}button:disabled{opacity:.6;cursor:wait}
+
+.cancelar-reserva{margin-top:20px;color:#a22118;border-color:#d9aaa5}
+.viaje-cancelado .viaje-estado{background:#eee;color:#555}
+#dialog-cancelar{max-width:600px;width:calc(100% - 64px);padding:36px;border:1px solid #ddd;border-radius:24px;margin:auto;box-shadow:0 24px 80px #0003}
+#dialog-cancelar::backdrop{background:#0008}#dialog-cancelar h2{font-size:28px;margin:0 0 20px}#dialog-cancelar p{line-height:1.6;margin-bottom:16px}
+.cancelar-acciones{display:flex;gap:12px;flex-wrap:wrap;margin-top:24px}#cancelar-estado{font-weight:600;color:#a22118}
