@@ -1,17 +1,5 @@
-/* Registro e inicio de sesión de clientes (base de clientes) y acceso del personal (base de Avianca). */
+/* Registro conectado a la API. Inicio de sesión conectado a MongoDB. */
 'use strict';
-const parametros = new URLSearchParams(location.search);
-// Solo se vuelve a páginas conocidas del personal: nunca a una dirección recibida en la URL.
-const DESTINOS_PERSONAL = ['tripulacion.html', 'personal.html'];
-const volver = DESTINOS_PERSONAL.includes(parametros.get('volver')) ? parametros.get('volver') : null;
-// Las cuentas se guardan a través de la API del backend. Si la página se abrió desde un hosting estático
-// (Vercel, GitHub Pages, Live Server) o el servidor no está encendido, no hay respuesta JSON de la API.
-const SIN_SERVIDOR = 'No hay conexión con el servidor del sitio, así que no se guardó nada. Abre la página desde el servidor Node (npm run dev → http://localhost:3000, o el servicio de Render): Vercel, GitHub Pages o Live Server solo muestran las páginas, sin la base de datos.';
-async function leerJSON(response) {
-  if (!(response.headers.get('content-type') || '').includes('application/json')) throw Object.assign(new Error('sin servidor'), { sinServidor: true });
-  return response.json();
-}
-const sinServidor = error => error.sinServidor || error instanceof TypeError;
 const tabs = [...document.querySelectorAll('[role="tab"]')];
 function changePanel(mode, focusTab = false) {
   tabs.forEach(tab => {
@@ -21,15 +9,14 @@ function changePanel(mode, focusTab = false) {
     document.getElementById(tab.getAttribute('aria-controls')).hidden = !active;
     if (active && focusTab) tab.focus();
   });
-  document.querySelectorAll('form .cuenta-mensaje').forEach(message => { message.hidden = true; });
+  document.querySelectorAll('.cuenta-mensaje').forEach(message => { message.hidden = true; });
 }
 tabs.forEach((tab, index) => {
   tab.addEventListener('click', () => changePanel(tab.id.replace('tab-', '')));
   tab.addEventListener('keydown', event => {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault();
-    const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1
-      : event.key === 'ArrowLeft' ? (index - 1 + tabs.length) % tabs.length : (index + 1) % tabs.length;
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + 1) % tabs.length;
     changePanel(tabs[next].id.replace('tab-', ''), true);
   });
 });
@@ -85,7 +72,7 @@ registration.addEventListener('submit', async event => {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body), signal: AbortSignal.timeout(20000),
     });
-    const result = await leerJSON(response);
+    const result = await response.json();
     if (!response.ok || !result.ok) {
       message.textContent = result.mensaje || 'No se pudo completar el registro.';
       return;
@@ -98,9 +85,8 @@ registration.addEventListener('submit', async event => {
     });
     message.textContent = 'Cuenta creada correctamente. Abre Iniciar sesión para acceder con tu correo y contraseña.';
     document.getElementById('login-email').value = body.correo.trim().toLowerCase();
-  } catch (error) {
-    message.textContent = sinServidor(error) ? SIN_SERVIDOR
-      : 'No pudimos confirmar el resultado. La cuenta podría haberse guardado: intenta iniciar sesión antes de registrarte otra vez.';
+  } catch {
+    message.textContent = 'No pudimos confirmar el resultado. La cuenta podría haberse guardado: comprueba usuarios en MongoDB antes de reintentar.';
   } finally {
     pending = false;
     controls.forEach(control => { control.disabled = false; });
@@ -109,68 +95,36 @@ registration.addEventListener('submit', async event => {
     message.hidden = false;
   }
 });
-
-// Mismo flujo para clientes y personal; cambia la base donde se busca la cuenta (acceso).
-function conectarLogin({ form, email, clave, mensaje, texto, acceso, alEntrar }) {
-  const loginForm = document.getElementById(form);
-  const loginMessage = document.getElementById(mensaje);
-  const loginSubmit = loginForm.querySelector('[type="submit"]');
-  loginSubmit.disabled = false;
-  let loggingIn = false;
-  loginForm.addEventListener('submit', async event => {
-    event.preventDefault();
-    if (loggingIn || !loginForm.reportValidity()) return;
-    loggingIn = true;
-    const controls = [...loginForm.querySelectorAll('input, button')];
-    const body = { correo: document.getElementById(email).value, password: document.getElementById(clave).value, acceso };
-    controls.forEach(control => { control.disabled = true; });
-    loginSubmit.textContent = 'Ingresando…';
-    loginForm.setAttribute('aria-busy', 'true');
-    loginMessage.textContent = 'Comprobando tus datos…'; loginMessage.hidden = false;
-    try {
-      const response = await fetch('/api/login', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(20000) });
-      const result = await leerJSON(response);
-      if (!response.ok || !result.ok) { loginMessage.textContent = result.mensaje || 'No se pudo iniciar sesión.'; return; }
-      document.getElementById(clave).value = '';
-      loginMessage.hidden = true;
-      alEntrar(result.usuario);
-    } catch (error) {
-      loginMessage.textContent = sinServidor(error) ? SIN_SERVIDOR
-        : 'No pudimos confirmar el acceso. Recarga la página para comprobar si la sesión se inició.';
-    } finally {
-      loggingIn = false;
-      controls.forEach(control => { control.disabled = false; });
-      loginSubmit.textContent = texto;
-      loginForm.setAttribute('aria-busy', 'false');
-    }
-  });
-}
-function mostrarPerfil(usuario) {
-  window.SesionUI.autenticar(usuario);
-  document.getElementById('sesion-nombre').setAttribute('tabindex', '-1');
-  document.getElementById('sesion-nombre').focus();
-}
-conectarLogin({ form: 'form-login', email: 'login-email', clave: 'login-password', mensaje: 'mensaje-login', texto: 'Iniciar sesión', acceso: 'cliente', alEntrar: mostrarPerfil });
-conectarLogin({ form: 'form-personal', email: 'personal-email', clave: 'personal-password', mensaje: 'mensaje-personal', texto: 'Entrar al panel', acceso: 'personal',
-  alEntrar(usuario) {
-    // El personal entra directo a su herramienta; el servidor vuelve a comprobar el rol al abrirla.
-    const destino = volver && (volver !== 'personal.html' || usuario.permisos.includes('personal.gestionar')) ? volver : 'tripulacion.html';
-    if (usuario.permisos.includes('tripulacion.ver')) { location.assign(destino); return; }
-    mostrarPerfil(usuario);
-  } });
-
-const ROLES = { azafata: 'Tripulación de cabina: escanea pases, consulta a cada pasajero y registra el abordaje.', administrador: 'Administración: panel de tripulación, reinicio de abordajes y gestión de las cuentas del personal.' };
-window.addEventListener('sesion-cambio', event => {
-  const usuario = event.detail;
-  const aviso = document.getElementById('sesion-aviso');
-  if (usuario?.tipoCuenta === 'personal') document.getElementById('sesion-rol').textContent = ROLES[usuario.rol] || '';
-  // Se llegó aquí desde una página del personal sin el permiso necesario.
-  aviso.hidden = !(usuario && parametros.get('motivo') === 'permiso');
-  aviso.textContent = usuario?.tipoCuenta === 'personal'
-    ? 'Tu cuenta del personal no tiene permiso para esa sección.'
-    : 'Esa sección es solo para el personal de Avianca. Cierra sesión para entrar con una cuenta de tripulación o administración.';
-  const avisoPersonal = document.getElementById('aviso-personal');
-  avisoPersonal.hidden = Boolean(usuario) || !volver;
-  avisoPersonal.textContent = 'Inicia sesión con tu cuenta del personal para abrir esa sección.';
+const loginForm = document.getElementById('form-login');
+const loginMessage = document.getElementById('mensaje-login');
+const loginSubmit = loginForm.querySelector('[type="submit"]');
+loginSubmit.disabled = false;
+let loggingIn = false;
+loginForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  if (loggingIn || !loginForm.reportValidity()) return;
+  loggingIn = true;
+  const controls = [...loginForm.querySelectorAll('input, button')];
+  const body = { correo: document.getElementById('login-email').value, password: document.getElementById('login-password').value };
+  controls.forEach(control => { control.disabled = true; });
+  loginSubmit.textContent = 'Ingresando…';
+  loginForm.setAttribute('aria-busy', 'true');
+  loginMessage.textContent = 'Comprobando tus datos…'; loginMessage.hidden = false;
+  try {
+    const response = await fetch('/api/login', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(20000) });
+    const result = await response.json();
+    if (!response.ok || !result.ok) { loginMessage.textContent = result.mensaje || 'No se pudo iniciar sesión.'; return; }
+    document.getElementById('login-password').value = '';
+    window.SesionUI.autenticar(result.usuario);
+    document.getElementById('sesion-nombre').setAttribute('tabindex', '-1');
+    document.getElementById('sesion-nombre').focus();
+  } catch {
+    loginMessage.textContent = 'No pudimos confirmar el acceso. Recarga la página para comprobar si la sesión se inició.';
+  } finally {
+    loggingIn = false;
+    controls.forEach(control => { control.disabled = false; });
+    loginSubmit.textContent = 'Iniciar sesión';
+    loginForm.setAttribute('aria-busy', 'false');
+  }
 });
-changePanel(parametros.get('acceso') === 'personal' ? 'personal' : 'login');
+changePanel('login');

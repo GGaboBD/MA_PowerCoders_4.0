@@ -1,22 +1,12 @@
 'use strict';
 const { randomBytes, createHash } = require('node:crypto');
-const { ObjectId } = require('mongodb');
 const argon2 = require('argon2');
 const { rateLimit } = require('express-rate-limit');
-const { ROLES_PERSONAL, permisosDe } = require('./roles');
 const COOKIE = 'avianca_sesion';
 const DURACION = 8 * 60 * 60 * 1000;
 const EN_PRODUCCION =
   process.env.RENDER === 'true' ||
   process.env.NODE_ENV === 'production';
-const OPCIONES_HASH = { type: argon2.argon2id, memoryCost: 65536, timeCost: 3, parallelism: 1 };
-
-// Cada tipo de cuenta vive en su propia base de datos (ADR 0004). Una sola cookie identifica la sesión;
-// el documento de la sesión se guarda junto a la cuenta: clientes en la base de clientes y personal en la de Avianca.
-const CUENTAS = Object.freeze({
-  cliente: { base: 'clientes', usuarios: 'usuarios', sesiones: 'sesiones_web', campo: 'usuarioId' },
-  personal: { base: 'avianca', usuarios: 'personal', sesiones: 'sesiones_personal', campo: 'personalId' },
-});
 
 const cookieOptions = {
   httpOnly: true,
@@ -31,20 +21,9 @@ function leerToken(req) {
   const token = matches[0].slice(COOKIE.length + 1);
   return /^[a-f0-9]{64}$/.test(token) ? token : null;
 }
-
-// Cuenta autenticada con lo mínimo que necesitan las rutas protegidas.
-function describirCuenta(tipo, usuario) {
-  const rol = tipo === 'personal' ? usuario.rol : usuario.tipoCuenta === 'cliente' ? 'cliente' : 'sin_rol';
-  return {
-    _id: usuario._id, tipo, tipoCuenta: tipo === 'personal' ? 'personal' : usuario.tipoCuenta, rol, permisos: permisosDe(rol),
-    nombre: usuario.nombre || '', apellido: usuario.apellido || '', correo: usuario.correo,
-  };
+function publico(usuario) {
+  return { id: String(usuario._id), nombre: usuario.nombre || '', apellido: usuario.apellido || '', correo: usuario.correo, tipoCuenta: usuario.tipoCuenta };
 }
-// Perfil que recibe el navegador. Nunca incluye el hash ni el identificador de sesión.
-function publico(cuenta) {
-  return { id: String(cuenta._id), nombre: cuenta.nombre, apellido: cuenta.apellido, correo: cuenta.correo, tipoCuenta: cuenta.tipoCuenta, rol: cuenta.rol, permisos: cuenta.permisos };
-}
-
 function origenLocal(req, res, next) {
   const port = Number(process.env.PORT || 3000);
   const permitidos = new Set();
@@ -110,79 +89,39 @@ async function preparar(db) {
   await db.collection(nombre).createIndex({ usuarioId: 1 }, { name: 'sesion_por_usuario' });
 }
 
-// Devuelve la cuenta de la sesión activa (cliente o personal) o null.
-async function autenticar(req, bases) {
-  const token = leerToken(req);
-  if (!token) return null;
-  const id = digest(token);
-  const ahora = new Date();
-  for (const [tipo, cfg] of Object.entries(CUENTAS)) {
-    const db = bases[cfg.base];
-    const sesion = await db.collection(cfg.sesiones).findOne({ _id: id, expiraEn: { $gt: ahora } });
-    if (!sesion) continue;
-    const usuario = await db.collection(cfg.usuarios).findOne({ _id: sesion[cfg.campo], estado: 'activo' },
-      { projection: { nombre: 1, apellido: 1, correo: 1, tipoCuenta: 1, rol: 1 } });
-    if (!usuario || (tipo === 'personal' && !ROLES_PERSONAL.includes(usuario.rol))) return null;
-    return describirCuenta(tipo, usuario);
-  }
-  return null;
-}
-
-// La sesión puede estar en cualquiera de las dos bases: se borra de ambas.
-async function borrarSesion(bases, token) {
-  const id = digest(token);
-  for (const cfg of Object.values(CUENTAS)) await bases[cfg.base].collection(cfg.sesiones).deleteOne({ _id: id });
-}
-
-async function borrarSesionesDePersonal(bases, personalId) {
-  await bases.avianca.collection('sesiones_personal').deleteMany({ personalId: new ObjectId(personalId) });
-}
-
-async function auditarPersonal(bases, actorId, accion, extra = {}) {
-  await bases.avianca.collection('auditoria_personal').insertOne({ _id: new ObjectId(), actorId, accion, ...extra, fecha: new Date() });
-}
-
-module.exports = async function registrarSesion(app, bases, opciones = {}) {
-  await preparar(bases.clientes);
-  const dummyHash = await argon2.hash(randomBytes(32).toString('hex'), OPCIONES_HASH);
-  // Cuenta solo los intentos fallidos: frena la fuerza bruta sin bloquear a quien entra y sale varias veces
-  // desde el mismo equipo (por ejemplo, la demo con cuentas de cliente, azafata y administración).
-  const limiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: opciones.limiteLogin ?? 15, skipSuccessfulRequests: true, standardHeaders: 'draft-8', legacyHeaders: false,
+module.exports = async function registrarSesion(app, db) {
+  await preparar(db);
+  const sesiones = db.collection('sesiones_web');
+  const usuarios = db.collection('usuarios');
+  const dummyHash = await argon2.hash(randomBytes(32).toString('hex'), {
+    type: argon2.argon2id, memoryCost: 65536, timeCost: 3, parallelism: 1,
+  });
+  const limiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 15, standardHeaders: 'draft-8', legacyHeaders: false,
     message: { ok: false, mensaje: 'Demasiados intentos. Espera 15 minutos para volver a intentar.' } });
   app.use(['/api/login', '/api/sesion', '/api/logout'], (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
-  // acceso: "cliente" (predeterminado) busca en la base de clientes; "personal" en la base de Avianca.
   app.post('/api/login', origenLocal, limiter, async (req, res) => {
     const body = req.body;
-    if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).some(k => !['correo', 'password', 'acceso'].includes(k)) ||
-        typeof body.correo !== 'string' || typeof body.password !== 'string' || body.correo.length > 254 || body.password.length < 1 || body.password.length > 128 ||
-        (body.acceso !== undefined && !Object.hasOwn(CUENTAS, body.acceso))) {
+    if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).some(k => !['correo', 'password'].includes(k)) ||
+        typeof body.correo !== 'string' || typeof body.password !== 'string' || body.correo.length > 254 || body.password.length < 1 || body.password.length > 128) {
       return res.status(400).json({ ok: false, mensaje: 'Introduce un correo y una contraseña válidos.' });
     }
     try {
-      const tipo = body.acceso || 'cliente';
-      const cfg = CUENTAS[tipo];
-      const db = bases[cfg.base];
       const correo = body.correo.trim().toLowerCase();
-      const usuario = await db.collection(cfg.usuarios).findOne({ correo }, { collation: { locale: 'en', strength: 2 } });
+      const usuario = await usuarios.findOne({ correo }, { collation: { locale: 'en', strength: 2 } });
       const hash = typeof usuario?.passwordHash === 'string' && usuario.passwordHash.startsWith('$argon2id$') ? usuario.passwordHash : dummyHash;
       let correcto = false;
       try { correcto = await argon2.verify(hash, body.password); } catch { correcto = false; }
-      const habilitado = usuario && usuario.estado === 'activo' && (tipo !== 'personal' || ROLES_PERSONAL.includes(usuario.rol));
-      if (!habilitado || hash === dummyHash || !correcto) {
+      if (!usuario || usuario.estado !== 'activo' || hash === dummyHash || !correcto) {
         return res.status(401).json({ ok: false, mensaje: 'Correo o contraseña incorrectos, o cuenta no habilitada.' });
       }
       const anterior = leerToken(req);
       // Rotar el identificador después de autenticar: nunca reutilizar el recibido.
-      if (anterior) await borrarSesion(bases, anterior);
+      if (anterior) await sesiones.deleteOne({ _id: digest(anterior) });
       const token = randomBytes(32).toString('hex');
       const ahora = new Date();
-      await db.collection(cfg.sesiones).insertOne({ _id: digest(token), [cfg.campo]: usuario._id, creadoEn: ahora, expiraEn: new Date(ahora.getTime() + DURACION) });
-      if (tipo === 'personal') {
-        await db.collection('personal').updateOne({ _id: usuario._id }, { $set: { ultimoAcceso: ahora } });
-        await auditarPersonal(bases, usuario._id, 'sesion.iniciar');
-      }
+      await sesiones.insertOne({ _id: digest(token), usuarioId: usuario._id, creadoEn: ahora, expiraEn: new Date(ahora.getTime() + DURACION) });
       res.cookie(COOKIE, token, { ...cookieOptions, maxAge: DURACION });
-      res.json({ ok: true, usuario: publico(describirCuenta(tipo, usuario)) });
+      res.json({ ok: true, usuario: publico(usuario) });
     } catch {
       res.status(503).json({ ok: false, mensaje: 'No pudimos iniciar sesión. Intenta nuevamente.' });
     }
@@ -192,19 +131,20 @@ module.exports = async function registrarSesion(app, bases, opciones = {}) {
   app.get('/api/sesion', async (req, res) => {
     try {
       const token = leerToken(req);
-      const cuenta = await autenticar(req, bases);
-      if (!cuenta) {
-        if (token) await borrarSesion(bases, token);
+      const sesion = token ? await sesiones.findOne({ _id: digest(token), expiraEn: { $gt: new Date() } }) : null;
+      const usuario = sesion ? await usuarios.findOne({ _id: sesion.usuarioId }, { projection: { nombre: 1, apellido: 1, correo: 1, tipoCuenta: 1, estado: 1 } }) : null;
+      if (!sesion || !usuario || usuario.estado !== 'activo') {
+        if (token) await sesiones.deleteOne({ _id: digest(token) });
         res.clearCookie(COOKIE, cookieOptions);
         return res.status(401).json({ ok: false, mensaje: 'No hay una sesión activa.' });
       }
-      res.json({ ok: true, usuario: publico(cuenta) });
+      res.json({ ok: true, usuario: publico(usuario) });
     } catch { res.status(503).json({ ok: false, mensaje: 'No pudimos comprobar tu sesión.' }); }
   });
   app.post('/api/logout', origenLocal, async (req, res) => {
     try {
       const token = leerToken(req);
-      if (token) await borrarSesion(bases, token);
+      if (token) await sesiones.deleteOne({ _id: digest(token) });
       res.clearCookie(COOKIE, cookieOptions);
       res.json({ ok: true, mensaje: 'Sesión cerrada.' });
     } catch { res.status(503).json({ ok: false, mensaje: 'No pudimos cerrar la sesión. Intenta nuevamente.' }); }
@@ -213,8 +153,10 @@ module.exports = async function registrarSesion(app, bases, opciones = {}) {
 
 // Compartir la comprobación de sesión con las operaciones protegidas.
 module.exports.origenLocal = origenLocal;
-module.exports.autenticar = autenticar;
-module.exports.borrarSesionesDePersonal = borrarSesionesDePersonal;
-module.exports.auditarPersonal = auditarPersonal;
-module.exports.OPCIONES_HASH = OPCIONES_HASH;
-module.exports.CUENTAS = CUENTAS;
+module.exports.autenticar = async function autenticar(req, db) {
+  const token = leerToken(req);
+  if (!token) return null;
+  const sesion = await db.collection('sesiones_web').findOne({_id:digest(token),expiraEn:{$gt:new Date()}});
+  if (!sesion) return null;
+  return db.collection('usuarios').findOne({_id:sesion.usuarioId,estado:'activo'},{projection:{tipoCuenta:1}});
+};

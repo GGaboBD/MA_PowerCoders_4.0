@@ -95,5 +95,3 @@ module.exports = function registrarVuelos(app, db) {
 };
 module.exports.validar = validar;
 module.exports.presentar = presentar;
-module.exports.zonas = zonas;
-module.exports.horarioLocal = horarioLocal;

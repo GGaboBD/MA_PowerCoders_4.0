@@ -37,12 +37,9 @@
     const body=el('div',undefined,'viaje-cuerpo');
     if(f){const times=el('div',undefined,'viaje-fechas');for(const [label,value,airport]of [['Salida',f.salida,f.origen],['Llegada',f.llegada,f.destino]]){const p=el('p');p.append(el('span',`${label} · hora local de ${airport}`),el('b',date(value,airport)));times.append(p);}body.append(times);}
     const wrap=el('div',undefined,'viaje-tabla-contenedor'),table=el('table',undefined,'viaje-tabla'),thead=el('thead'),tr=el('tr');
-    for(const text of ['Pasajero / boleto','Asiento','Cabina','Estado','Importe','Pase']){const th=el('th',text);th.scope='col';tr.append(th);}thead.append(tr);table.append(thead);
+    for(const text of ['Pasajero / boleto','Asiento','Cabina','Estado','Importe']){const th=el('th',text);th.scope='col';tr.append(th);}thead.append(tr);table.append(thead);
     const tbody=el('tbody');const totals=new Map();
-    for(const t of r.boletos){const row=el('tr'),name=el('td',t.pasajero);name.append(el('small',t.numero));const seat=el('td');seat.append(el('strong',t.asiento));
-      // Pase de abordar QR de cada boleto vigente (lo valida la tripulación contra la base de datos).
-      const pass=el('td');if(r.estado!=='cancelada'&&t.estado!=='cancelado'){const link=el('a','Ver pase','enlace-pase');link.href=`pase.html?${new URLSearchParams({boleto:t.numero})}`;pass.append(link);}else pass.textContent='—';
-      row.append(name,seat,el('td',labels[t.clase]||t.clase),el('td',labels[t.estado]||t.estado),el('td',money(t.precio,t.moneda)),pass);tbody.append(row);
+    for(const t of r.boletos){const row=el('tr'),name=el('td',t.pasajero);name.append(el('small',t.numero));const seat=el('td');seat.append(el('strong',t.asiento));row.append(name,seat,el('td',labels[t.clase]||t.clase),el('td',labels[t.estado]||t.estado),el('td',money(t.precio,t.moneda)));tbody.append(row);
       if(t.estado!=='cancelado')totals.set(t.moneda,(totals.get(t.moneda)||0)+Number(t.precio));}
     table.append(tbody);wrap.append(table);body.append(wrap);
     if(!r.boletos.length)body.append(el('p','Esta reserva no tiene boletos registrados.'));

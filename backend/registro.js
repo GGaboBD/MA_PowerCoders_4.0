@@ -28,11 +28,11 @@ async function comprobarEsquema(db) {
   const validator = info?.options?.validator;
   const schema = validator?.$jsonSchema || validator?.$and?.find(r => r.$jsonSchema)?.$jsonSchema;
   if (!schema?.properties?.nombre || !schema?.properties?.apellido) {
-    throw new Error('Falta el esquema de usuarios. En una base nueva ejecuta npm run preparar; en la base existente, node --env-file=.env backend/preparar-registro.js');
+    throw new Error('Ejecuta primero: node --env-file=.env preparar-registro.js');
   }
   const indices = await db.collection('usuarios').listIndexes().toArray();
   if (!indices.some(i => i.unique && Object.keys(i.key).length === 1 && i.key.correo === 1 && i.collation?.locale === 'en' && i.collation?.strength === 2 && !i.partialFilterExpression && !i.sparse)) {
-    throw new Error('Falta el índice único de correo. Ejecuta npm run preparar o backend/preparar-registro.js.');
+    throw new Error('Falta el índice único de correo. Ejecuta preparar-registro.js.');
   }
   if (!await db.collection('roles').findOne({ _id: 'cliente' })) throw new Error('Falta el rol cliente de la base original.');
 }

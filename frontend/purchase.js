@@ -43,28 +43,9 @@ document.querySelector('#fecha-vuelo').textContent = `${travelDate} · ${params.
 document.querySelector('#detalle-vuelo').textContent = `${params.get('vuelo') || 'Vuelo demo'} · ${cabin}`;
 document.querySelector('#cantidad-vuelo').textContent = String(count);
 const passengersRoot = document.querySelector('#pasajeros-form');
-// Datos de identidad, preferencias y cómo quiere ser reconocido cada pasajero (lo verá la tripulación).
-const options = list => list.map(([value, text]) => `<option value="${value}">${text}</option>`).join('');
-const languages = options(Object.entries(Abordaje.IDIOMAS));
-const reasons = options(Abordaje.MOTIVOS.map((text, index) => [index, text]));
 for (let i = 1; i <= count; i++) {
   const field = (label, control, extra = '') => `<div class="campo-form ${extra}"><label for="p${i}-${label.id}">${label.text}</label>${control}</div>`;
-  passengersRoot.insertAdjacentHTML('beforeend', `<section class="pasajero-bloque"><div class="pasajero-titulo"><h2>Pasajero ${i}</h2><span>Información para este itinerario</span></div><div class="campos-pasajero">${[
-    field({text:'Nombre',id:'nombre'},`<input id="p${i}-nombre" name="nombre" maxlength="80" autocomplete="off" required>`),
-    field({text:'Apellido',id:'apellido'},`<input id="p${i}-apellido" name="apellido" maxlength="80" autocomplete="off" required>`),
-    field({text:'Cómo prefieres que te llamen (opcional)',id:'trato'},`<input id="p${i}-trato" maxlength="40" autocomplete="off" placeholder="Ej. Ing. Ceballos">`),
-    field({text:'Idioma para atenderte',id:'idioma'},`<select id="p${i}-idioma">${languages}</select>`),
-    field({text:'Fecha de nacimiento',id:'nacimiento'},`<input id="p${i}-nacimiento" type="date" min="1900-01-01" max="${new Date().toISOString().slice(0,10)}" required>`),
-    field({text:'Tipo de documento',id:'tipo'},`<select id="p${i}-tipo"><option value="pasaporte">Pasaporte</option><option value="identidad">Identidad</option></select>`),
-    field({text:'País emisor (2 letras, ej. SV)',id:'pais'},`<input id="p${i}-pais" maxlength="2" pattern="[A-Za-z]{2}" value="SV" required>`),
-    field({text:'Documento (demo)',id:'documento'},`<input id="p${i}-documento" name="documento" maxlength="40" autocomplete="off" required>`),
-    field({text:'Preferencia de comida',id:'comida'},`<select id="p${i}-comida" name="comida"><option>Sin preferencia</option><option>Vegetariana</option><option>Vegana</option><option>Sin gluten</option><option>Otra preferencia</option></select>`),
-    field({text:'Atención a bordo',id:'atencion'},`<select id="p${i}-atencion" name="atencion">${options(Abordaje.ATENCION.map(text => [text, text]))}</select>`),
-    field({text:'Motivo del viaje (opcional)',id:'motivo'},`<select id="p${i}-motivo">${reasons}</select>`),
-    field({text:'Bebida (opcional)',id:'bebida'},`<input id="p${i}-bebida" maxlength="80">`),
-    field({text:'Notas para la tripulación (opcional)',id:'notas'},`<input id="p${i}-notas" maxlength="900">`),
-    field({text:'Alergias separadas por comas (opcional)',id:'alergias'},`<input id="p${i}-alergias" name="alergias" autocomplete="off" placeholder="Déjalo vacío si no aplica">`,'alergias'),
-  ].join('')}</div></section>`);
+  passengersRoot.insertAdjacentHTML('beforeend', `<section class="pasajero-bloque"><div class="pasajero-titulo"><h2>Pasajero ${i}</h2><span>Información para este itinerario</span></div><div class="campos-pasajero">${field({text:'Nombre',id:'nombre'},`<input id="p${i}-nombre" name="nombre" maxlength="80" autocomplete="off" required>`)}${field({text:'Apellido',id:'apellido'},`<input id="p${i}-apellido" name="apellido" maxlength="80" autocomplete="off" required>`)}${field({text:'Fecha de nacimiento',id:'nacimiento'},`<input id="p${i}-nacimiento" type="date" min="1900-01-01" max="${new Date().toISOString().slice(0,10)}" required>`)}${field({text:'Tipo de documento',id:'tipo'},`<select id="p${i}-tipo"><option value="pasaporte">Pasaporte</option><option value="identidad">Identidad</option></select>`)}${field({text:'País emisor (2 letras, ej. SV)',id:'pais'},`<input id="p${i}-pais" maxlength="2" pattern="[A-Za-z]{2}" value="SV" required>`)}${field({text:'Documento (demo)',id:'documento'},`<input id="p${i}-documento" name="documento" maxlength="40" autocomplete="off" required>`)}${field({text:'Preferencia de comida',id:'comida'},`<select id="p${i}-comida" name="comida"><option>Sin preferencia</option><option>Vegetariana</option><option>Vegana</option><option>Sin gluten</option><option>Otra preferencia</option></select>`)}${field({text:'Atención a bordo',id:'atencion'},`<select id="p${i}-atencion" name="atencion"><option>Atención habitual</option><option>Prefiero descansar sin interrupciones</option><option>Prefiero que me consulten antes</option></select>`)}${field({text:'Bebida (opcional)',id:'bebida'},`<input id="p${i}-bebida" maxlength="80">`)}${field({text:'Notas (opcional)',id:'notas'},`<input id="p${i}-notas" maxlength="900">`)}${field({text:'Alergias separadas por comas (opcional)',id:'alergias'},`<input id="p${i}-alergias" name="alergias" autocomplete="off" placeholder="Déjalo vacío si no aplica">`,'alergias')}</div></section>`);
 }
 const form = document.querySelector('#formulario-compra');
 const dialog = document.querySelector('#dialog-asientos');
@@ -237,9 +218,9 @@ function buildPayload() {
   return {vueloId:flightId,clase:cabinKey,precioAceptado:flight.precio,monedaAceptada:flight.moneda,salidaAceptada:flight.salida,
     pasajeros:confirmed.map((asiento,i)=>({asiento,nombres:get(i,'nombre'),apellidos:get(i,'apellido'),fechaNacimiento:get(i,'nacimiento'),
       documento:{tipo:get(i,'tipo'),paisEmisor:get(i,'pais').toUpperCase(),numero:get(i,'documento')},
-      preferencias:{comida:foods[get(i,'comida')],noMolestar:get(i,'atencion')===Abordaje.ATENCION[1],
-        alergias:get(i,'alergias').split(',').map(a=>a.trim()).filter(Boolean),bebida:get(i,'bebida'),notas:get(i,'notas')},
-      perfil:{trato:get(i,'trato'),idioma:get(i,'idioma'),atencion:Math.max(0,Abordaje.ATENCION.indexOf(get(i,'atencion'))),motivo:Number(get(i,'motivo'))||0}}))};
+      preferencias:{comida:foods[get(i,'comida')],noMolestar:get(i,'atencion')==='Prefiero descansar sin interrupciones',
+        alergias:get(i,'alergias').split(',').map(a=>a.trim()).filter(Boolean),bebida:get(i,'bebida'),
+        notas:[get(i,'notas'),get(i,'atencion')==='Prefiero que me consulten antes'?'Consultar antes de interrumpir.':''].filter(Boolean).join(' ')}}))};
 }
 async function saveReservation(button,review) {
   if (busy || saved || !form.reportValidity()) return;
@@ -264,11 +245,7 @@ async function saveReservation(button,review) {
     }
     saved=true;
     review.replaceChildren(element('h2','Reserva de prueba confirmada'),element('p',`Localizador: ${result.localizador}`),element('p',result.mensaje));
-    for(const ticket of result.boletos) {
-      const line=element('p',`Asiento ${ticket.asiento} · Boleto ${ticket.numero} · ${ticket.moneda} ${ticket.precio} · `);
-      const pass=element('a','Ver pase de abordar →','enlace-pase');pass.href=`pase.html?${new URLSearchParams({boleto:ticket.numero})}`;
-      line.append(pass);review.append(line);
-    }
+    for(const ticket of result.boletos) review.append(element('p',`Asiento ${ticket.asiento} · Boleto ${ticket.numero} · ${ticket.moneda} ${ticket.precio}`));
     const home=element('a','Volver a vuelos','boton boton-rojo');home.href='index.html#buscar-vuelos';review.append(home);
     const mine=element('a','Mis reservas','boton boton-contorno');mine.href='mis-reservas.html';review.append(mine);
     status.textContent='Reserva guardada en tu cuenta. Los asientos seleccionados ya están ocupados en el prototipo.';
@@ -295,11 +272,9 @@ function renderReview() {
     const person = element('div',undefined,'ticket-persona');
     person.append(element('h3',passengerName(i)),element('span',`Asiento ${seat}`,'ticket-asiento'));
     const details = element('dl',undefined,'ticket-datos');
-    for (const [label, field] of [['Cómo llamarte','trato'],['Idioma','idioma'],['Nacimiento','nacimiento'],['Tipo','tipo'],['País emisor','pais'],['Documento','documento'],['Comida','comida'],['Atención a bordo','atencion'],['Motivo del viaje','motivo'],['Alergias','alergias'],['Bebida','bebida'],['Notas','notas']]) {
+    for (const [label, field] of [['Nacimiento','nacimiento'],['Tipo','tipo'],['País emisor','pais'],['Documento','documento'],['Comida','comida'],['Atención a bordo','atencion'],['Alergias','alergias'],['Bebida','bebida'],['Notas','notas']]) {
       const block = element('div');
-      const control = document.querySelector(`#p${i+1}-${field}`);
-      const shown = control.tagName === 'SELECT' ? control.selectedOptions[0]?.textContent : control.value.trim();
-      block.append(element('dt',label),element('dd',shown || 'No especificado'));
+      block.append(element('dt',label),element('dd',document.querySelector(`#p${i+1}-${field}`).value.trim() || 'No especificadas'));
       details.append(block);
     }
     item.append(person,details); body.append(item);

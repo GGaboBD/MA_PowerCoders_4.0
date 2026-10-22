@@ -24,12 +24,11 @@ async function cancelar(db,cliente,compradorId,id){
   },{readConcern:{level:'snapshot'},writeConcern:{w:'majority'},maxCommitTimeMS:15000});}
   finally{await session.endSession();}
 }
-module.exports=function registrarCancelacion(app,bases){
-  const db=bases.clientes,cliente=bases.mongoClientes;
+module.exports=function registrarCancelacion(app,db,cliente){
   app.post('/api/reservas/:id/cancelar',origenLocal,async(req,res)=>{
     res.set('Cache-Control','no-store');
     try{
-      const usuario=await autenticar(req,bases);
+      const usuario=await autenticar(req,db);
       if(!usuario)throw fallo(401,'Inicia sesión para cancelar tu reserva.');
       if(usuario.tipoCuenta!=='cliente')throw fallo(403,'Esta operación requiere una cuenta de cliente.');
       if(!/^[a-f0-9]{24}$/i.test(req.params.id))throw fallo(400,'El identificador de reserva no es válido.');

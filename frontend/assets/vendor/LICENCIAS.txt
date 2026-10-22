@@ -1,9 +1,0 @@
-Librerías de terceros incluidas localmente (sin CDN) para el pase de abordar QR.
-
-qrcode.js — QR Code Generator for JavaScript 1.4.4
-Copyright (c) 2009 Kazuhiko Arase. Licencia MIT.
-https://github.com/kazuhikoarase/qrcode-generator
-
-jsQR.js — jsQR 1.4.0
-Copyright cozmo. Licencia Apache 2.0.
-https://github.com/cozmo/jsQR
