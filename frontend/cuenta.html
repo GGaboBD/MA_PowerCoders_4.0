@@ -32,7 +32,7 @@
         <button id="tab-registro" role="tab" aria-selected="false" aria-controls="panel-registro" tabindex="-1" type="button">Crear cuenta</button>
       </div>
       <div id="panel-login" role="tabpanel" aria-labelledby="tab-login">
-        <h2>Qué bueno verte.</h2><p class="cuenta-intro">Ingresa el correo y la contraseña de tu cuenta para continuar.</p>
+        <p class="etiqueta cuenta-eyebrow">BIENVENIDO A BORDO</p><h2>Qué bueno verte.</h2><p class="cuenta-intro">Ingresa el correo y la contraseña de tu cuenta para continuar.</p>
         <form id="form-login" method="post" action="/api/login">
           <div class="cuenta-campo"><label for="login-email">Correo electrónico</label><input id="login-email" name="email" type="email" autocomplete="username" placeholder="tu@correo.com" required></div>
           <div class="cuenta-campo"><label for="login-password">Contraseña</label><div class="cuenta-clave"><input id="login-password" name="password" type="password" autocomplete="current-password" required><button type="button" data-password="login-password" aria-label="Mostrar contraseña" aria-pressed="false">Mostrar</button></div></div>
@@ -42,7 +42,7 @@
         <p class="cuenta-cambiar">¿Es tu primera vez? <button type="button" data-switch="registro">Crea tu cuenta</button></p>
       </div>
       <div id="panel-registro" role="tabpanel" aria-labelledby="tab-registro" hidden>
-        <h2>Un viaje más tuyo.</h2><p class="cuenta-intro">Empecemos con tus datos básicos.</p>
+        <p class="etiqueta cuenta-eyebrow">EMPIEZA UNA NUEVA EXPERIENCIA</p><h2>Un viaje más tuyo.</h2><p class="cuenta-intro">Empecemos con tus datos básicos.</p>
         <form id="form-registro" method="post" action="/api/registro">
           <div class="cuenta-nombres">
             <div class="cuenta-campo"><label for="registro-nombre">Nombre</label><input id="registro-nombre" name="nombre" autocomplete="given-name" maxlength="80" required></div>
@@ -56,7 +56,7 @@
         </form>
         <p class="cuenta-cambiar">¿Ya tienes una cuenta? <button type="button" data-switch="login">Inicia sesión</button></p>
       </div>
-      </div><p class="cuenta-demo">El registro guarda tu nombre, apellido, correo y un hash de tu contraseña en la base de datos del proyecto. Usa datos ficticios y una contraseña exclusiva para esta prueba. La sesión dura hasta 8 horas. Puedes cerrarla desde el encabezado.</p>
+      </div><p class="cuenta-demo">Prototipo universitario · Usa datos ficticios y una contraseña exclusiva para esta prueba. La sesión dura hasta 8 horas; puedes cerrarla desde el encabezado.</p>
       <noscript>Activa JavaScript para crear tu cuenta o iniciar sesión.</noscript>
     </section>
   </main>

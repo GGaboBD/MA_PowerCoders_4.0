@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="sesion.css">
   <script src="sesion.js" defer></script>
 </head>
-<body>
+<body class="pagina-inicio">
   <a class="saltar" href="#contenido">Saltar al contenido</a>
 
   <!-- Encabezado: los enlaces recorren este mismo index. -->
@@ -30,11 +30,31 @@
   </header>
 
   <main id="contenido">
+    <!-- Portada editorial: imagen conceptual, no fotografía de una flota real. -->
+    <section class="portada" aria-labelledby="titulo-portada">
+      <img class="avion" src="assets/avion.webp" alt="Visual conceptual de un avión comercial blanco y rojo volando sobre las nubes" width="1536" height="1024" fetchpriority="high">
+      <div class="contenedor portada-contenido">
+        <p class="etiqueta"><span class="punto-rojo" aria-hidden="true"></span> UNA NUEVA PERSPECTIVA DEL VIAJE</p>
+        <h1 id="titulo-portada">El placer<br>de <span>volar.</span></h1>
+        <div class="portada-nota">
+          <span class="linea-roja" aria-hidden="true"></span>
+          <p>Más espacio para ti.<br>Más tiempo para disfrutar.</p>
+        </div>
+        <a class="portada-enlace" href="#buscar-vuelos">Encuentra tu próximo vuelo <span aria-hidden="true">↗</span></a>
+        <div class="portada-pie">
+          <span>EJECUTIVA & PRIMERA CLASE</span>
+          <span>EL CAMINO TAMBIÉN ES EL DESTINO <span aria-hidden="true">↘</span></span>
+        </div>
+      </div>
+    </section>
+
+
+
     <section id="buscar-vuelos" class="buscador contenedor" aria-labelledby="titulo-buscador">
       <div class="buscador-superior">
-        <h2 id="titulo-buscador">Tu próximo viaje</h2>
+        <h2 id="titulo-buscador">¿A dónde te llevamos?</h2>
         <div class="opciones-viaje"><span>Solo ida</span><span>Ejecutiva & primera clase</span></div>
-        <span class="nota-prototipo">Vuelos de muestra</span>
+        <span class="buscador-sello"><span aria-hidden="true">✦</span> Una experiencia a tu medida</span>
       </div>
       <form class="buscador-campos" id="formulario-busqueda">
         <label class="campo campo-origen"><span class="campo-etiqueta">Origen</span><select name="origen" required><option value="SAL">San Salvador (SAL)</option><option value="MIA">Miami (MIA)</option><option value="BOG">Bogotá (BOG)</option><option value="MDE">Medellín (MDE)</option><option value="CLO">Cali (CLO)</option><option value="CTG">Cartagena (CTG)</option></select></label>
@@ -44,31 +64,12 @@
         <label class="campo campo-hora"><span class="campo-etiqueta">Hora desde</span><input name="hora" type="time" value="00:00" required></label>
         <label class="campo campo-cabina"><span class="campo-etiqueta">Cabina</span><select name="cabina"><option value="ejecutiva">Clase ejecutiva</option><option value="primera">Primera clase</option></select></label>
         <label class="campo campo-pasajeros"><span class="campo-etiqueta">Pasajeros</span><select name="pasajeros"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></label>
-        <button class="boton boton-rojo" type="submit">Explorar vuelos</button>
+        <button class="boton boton-rojo" type="submit">Explorar vuelos <span aria-hidden="true">↗</span></button>
       </form>
       <p class="nota-prototipo buscador-nota">Horarios locales del origen · Tarifas y asientos consultados en la base de datos del prototipo. La búsqueda no aparta asientos.</p>
     </section>
 
     <section class="resultados contenedor" id="resultados" aria-live="polite" hidden></section>
-
-    <!-- Portada editorial: imagen conceptual, no fotografía de una flota real. -->
-    <section class="portada" aria-labelledby="titulo-portada">
-      <img class="avion" src="assets/avion.webp" alt="Visual conceptual de un avión comercial blanco y rojo volando sobre las nubes" width="1536" height="1024" fetchpriority="high">
-      <div class="contenedor portada-contenido">
-        <p class="etiqueta">UNA NUEVA PERSPECTIVA DEL VIAJE</p>
-        <h1 id="titulo-portada">El placer<br>de <span>volar.</span></h1>
-        <div class="portada-nota">
-          <span class="linea-roja" aria-hidden="true"></span>
-          <p>Más espacio para ti.<br>Más tiempo para disfrutar.</p>
-        </div>
-        <div class="portada-pie">
-          <span>EJECUTIVA & PRIMERA CLASE</span>
-          <span>El viaje empieza mucho antes de llegar.</span>
-        </div>
-      </div>
-    </section>
-
-
 
     <!-- Beneficios: composición asimétrica y divisores finos, inspirados en DESIGN.md. -->
     <section class="experiencia contenedor seccion" id="experiencia" aria-labelledby="titulo-experiencia">
@@ -78,10 +79,10 @@
         <p>Hay viajes que empiezan con una pausa. Con espacio para estirarte, desconectarte y disfrutar de cada detalle a tu ritmo.</p>
       </div>
       <div class="beneficios">
-        <article><span class="indice">01 /</span><h3>Tu espacio, de verdad.</h3><p>Una propuesta de cabina pensada para descansar, trabajar o simplemente disfrutar del vuelo.</p></article>
-        <article><span class="indice">02 /</span><h3>Viaja sin prisa.</h3><p>Imaginamos una experiencia más tranquila, desde tu llegada al aeropuerto hasta el último tramo.</p></article>
-        <article><span class="indice">03 /</span><h3>El gusto de viajar.</h3><p>Sabores y momentos que convierten el tiempo a bordo en parte de lo que quieres recordar.</p></article>
-        <article><span class="indice">04 /</span><h3>A tu manera.</h3><p>Una atención que empieza por lo esencial: entender cómo te gusta viajar.</p></article>
+        <article><div class="beneficio-top"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="5" y="3" width="11" height="12" rx="3"/><path d="M4 11v8h16v-8M7 19v3m10-3v3"/></svg><span class="indice">01 /</span></div><h3>Tu espacio, de verdad.</h3><p>Una propuesta de cabina pensada para descansar, trabajar o simplemente disfrutar del vuelo.</p></article>
+        <article><div class="beneficio-top"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></svg><span class="indice">02 /</span></div><h3>Viaja sin prisa.</h3><p>Imaginamos una experiencia más tranquila, desde tu llegada al aeropuerto hasta el último tramo.</p></article>
+        <article><div class="beneficio-top"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M4 3v6a3 3 0 0 0 6 0V3M7 3v18M19 3c-4 3-4 8 0 9V3Zm0 9v9"/></svg><span class="indice">03 /</span></div><h3>El gusto de viajar.</h3><p>Sabores y momentos que convierten el tiempo a bordo en parte de lo que quieres recordar.</p></article>
+        <article><div class="beneficio-top"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3"/><circle cx="15" cy="17" r="3"/></svg><span class="indice">04 /</span></div><h3>A tu manera.</h3><p>Una atención que empieza por lo esencial: entender cómo te gusta viajar.</p></article>
       </div>
     </section>
 
@@ -92,7 +93,7 @@
         <div class="cabinas-grid">
           <article class="cabina-ejecutiva">
             <img src="assets/cabina.webp" width="1536" height="1024" loading="lazy" alt="Visual conceptual de un asiento de clase ejecutiva en una cabina iluminada por luz natural">
-            <div class="cabina-texto"><span class="etiqueta">BUSINESS</span><h3>Clase ejecutiva.</h3><p>El equilibrio entre comodidad,<br>privacidad y tiempo para ti.</p><span class="cabina-pie">UN ESPACIO PARA DESCONECTAR</span></div>
+            <div class="cabina-texto"><span class="etiqueta cabina-badge">BUSINESS CLASS</span><h3>Clase ejecutiva.</h3><p>El equilibrio entre comodidad,<br>privacidad y tiempo para ti.</p><span class="cabina-pie">UN ESPACIO PARA DESCONECTAR</span></div>
           </article>
           <article class="cabina-primera">
             <div class="primera-superior"><span class="etiqueta">FIRST</span><span class="sello">CONCEPTO</span></div>
