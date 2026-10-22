@@ -1,7 +1,7 @@
 'use strict';
 const argon2 = require('argon2');
 const { rateLimit } = require('express-rate-limit');
-const { origenLocal } = require('./sesion');
+const { origenLocal, OPCIONES_HASH } = require('./sesion');
 
 function validarRegistro(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('Completa los datos del formulario.');
@@ -28,26 +28,26 @@ async function comprobarEsquema(db) {
   const validator = info?.options?.validator;
   const schema = validator?.$jsonSchema || validator?.$and?.find(r => r.$jsonSchema)?.$jsonSchema;
   if (!schema?.properties?.nombre || !schema?.properties?.apellido) {
-    throw new Error('Ejecuta primero: node --env-file=.env preparar-registro.js');
+    throw new Error('Falta el esquema de usuarios. En una base nueva ejecuta npm run preparar; en la base existente, node --env-file=.env preparar-registro.js');
   }
   const indices = await db.collection('usuarios').listIndexes().toArray();
   if (!indices.some(i => i.unique && Object.keys(i.key).length === 1 && i.key.correo === 1 && i.collation?.locale === 'en' && i.collation?.strength === 2 && !i.partialFilterExpression && !i.sparse)) {
-    throw new Error('Falta el índice único de correo. Ejecuta preparar-registro.js.');
+    throw new Error('Falta el índice único de correo. Ejecuta npm run preparar o preparar-registro.js.');
   }
   if (!await db.collection('roles').findOne({ _id: 'cliente' })) throw new Error('Falta el rol cliente de la base original.');
 }
 
-module.exports = function registrarRegistro(app, db) {
+module.exports = function registrarRegistro(app, bases) {
+  const db = bases?.clientes || bases;
   const limite = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: 'draft-8', legacyHeaders: false,
     message: { ok: false, mensaje: 'Demasiados intentos. Espera 15 minutos antes de intentar nuevamente.' } });
   app.post('/api/registro', origenLocal, limite, async (req, res) => {
     res.set('Cache-Control', 'no-store');
-    // Este servidor se ejecuta únicamente en loopback. No habilitar CORS abierto.
     let datos;
     try { datos = validarRegistro(req.body); }
     catch (error) { return res.status(400).json({ ok: false, mensaje: error.message }); }
     try {
-      const passwordHash = await argon2.hash(datos.password, {
+      const passwordHash = await argon2.hash(datos.password, OPCIONES_HASH || {
         type: argon2.argon2id, memoryCost: 65536, timeCost: 3, parallelism: 1,
       });
       // Lista explícita: nunca copiar roles, estado o tipoCuenta desde req.body.

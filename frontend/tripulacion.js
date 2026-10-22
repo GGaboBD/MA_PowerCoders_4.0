@@ -1,0 +1,505 @@
+/* Panel de tripulación: lector de pases QR + ficha del pasajero + plano de cabina en vivo.
+   Solo para el personal de Avianca: el servidor comprueba el rol en cada consulta. Los pasajeros salen de la
+   base de clientes y el abordaje se guarda en la base de Avianca, compartido entre las tabletas del personal.
+   Usa el lector nativo del navegador (BarcodeDetector) cuando existe y jsQR en los demás casos.
+   Todo el contenido del QR y de la API se trata como texto (textContent): nunca se interpreta como HTML. */
+'use strict';
+(() => {
+  const A = Abordaje;
+  const $ = id => document.getElementById(id);
+  const CLAVE_VUELO = 'avpc-tripulacion-vuelo';
+  const VIAS = { camara: 'cámara', imagen: 'imagen', manual: 'registro sin QR' };
+  const TITULOS = { sin_boleto: 'Boleto no encontrado', alterado: 'Pase alterado', antiguo: 'Pase de la versión anterior', danado: 'Pase dañado', ajeno: 'Código no reconocido', otro_vuelo: 'Pase de otro vuelo' };
+  const video = $('video');
+  const lienzo = document.createElement('canvas');
+  const ctx = lienzo.getContext('2d', { willReadFrequently: true });
+
+  let cuenta = null;      // perfil del personal en sesión
+  let vuelo = null;       // vuelo que se está abordando (resumen de la API)
+  let cabina = null;      // { asientos, pasajeros } del vuelo
+  let porAsiento = new Map();
+  let asientoActivo = null;
+  let fichaActual = null; // { boleto, estado, registrable } de la ficha abierta
+  let sondeo = null;
+
+  const horaCorta = iso => new Date(iso).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false });
+  const sinAcentos = texto => String(texto).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const ordenAsiento = (a, b) => a.localeCompare(b, 'es', { numeric: true });
+  const puede = permiso => Boolean(cuenta?.permisos?.includes(permiso));
+
+  async function api(ruta, { metodo = 'GET', cuerpo } = {}) {
+    const opciones = { method: metodo, credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.timeout(20000) };
+    if (cuerpo !== undefined) { opciones.headers = { 'Content-Type': 'application/json' }; opciones.body = JSON.stringify(cuerpo); }
+    const respuesta = await fetch(ruta, opciones);
+    let datos = {};
+    try { datos = await respuesta.json(); } catch { /* respuesta vacía */ }
+    // Si la sesión venció o cambió de rol, la cabecera y este panel se actualizan solos.
+    if (respuesta.status === 401 || respuesta.status === 403) window.SesionUI?.actualizar();
+    return { ok: respuesta.ok && datos.ok !== false, status: respuesta.status, datos };
+  }
+
+  /* ---------- Acceso por rol ---------- */
+  function configurar(usuario) {
+    const autorizado = usuario?.tipoCuenta === 'personal' && usuario.permisos?.includes('tripulacion.ver');
+    $('acceso-bloqueado').hidden = autorizado;
+    $('panel').hidden = !autorizado;
+    if (!autorizado) {
+      cuenta = null; apagar(); clearInterval(sondeo); sondeo = null; limpiarCabina();
+      $('bloqueado-texto').textContent = !usuario
+        ? 'Este panel es solo para la tripulación y la administración de Avianca. Inicia sesión con tu cuenta del personal.'
+        : 'Tu cuenta no tiene acceso al panel de tripulación. Los pasajeros ven su pase desde Mis reservas.';
+      $('bloqueado-accion').hidden = Boolean(usuario);
+      return;
+    }
+    const nuevo = cuenta?.id !== usuario.id;
+    cuenta = usuario;
+    $('sesion-personal').textContent = `${usuario.nombre} ${usuario.apellido} · ${usuario.rol === 'administrador' ? 'Administración' : 'Tripulación de cabina'}`;
+    if (!nuevo) return;
+    if (!$('fecha-vuelo').value) $('fecha-vuelo').value = A.hoyISO();
+    cargarVuelos();
+    clearInterval(sondeo);
+    // Varias tabletas pueden abordar el mismo vuelo: se sincroniza cada 15 segundos.
+    sondeo = setInterval(() => { if (!document.hidden && vuelo) cargarCabina({ silencioso: true }); }, 15000);
+  }
+
+  /* ---------- Vuelo en abordaje ---------- */
+  function recordarVuelo() {
+    try { localStorage.setItem(CLAVE_VUELO, JSON.stringify({ fecha: $('fecha-vuelo').value, id: $('vuelo').value })); } catch { /* modo privado */ }
+  }
+  function vueloRecordado(fecha) {
+    try { const r = JSON.parse(localStorage.getItem(CLAVE_VUELO) || 'null'); return r?.fecha === fecha ? r.id : null; } catch { return null; }
+  }
+
+  async function cargarVuelos() {
+    const fecha = $('fecha-vuelo').value;
+    const estado = $('vuelo-estado');
+    const selector = $('vuelo');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) { estado.textContent = 'Elige una fecha válida.'; return; }
+    estado.textContent = 'Consultando vuelos…';
+    try {
+      const { ok, datos } = await api(`/api/tripulacion/vuelos?${new URLSearchParams({ fecha })}`);
+      if (!ok) throw new Error(datos.mensaje || 'No pudimos consultar los vuelos.');
+      const anterior = selector.value || vueloRecordado(fecha);
+      selector.replaceChildren(...datos.vuelos.map(v => new Option(`${v.hora} · ${v.codigo} · ${v.origen} → ${v.destino} · ${v.abordados}/${v.pasajeros} a bordo`, v.id)));
+      if (!datos.vuelos.length) {
+        vuelo = null; limpiarCabina();
+        estado.textContent = `No hay vuelos registrados que salgan el ${A.formatearFecha(fecha)}. Prueba con otra fecha.`;
+        return;
+      }
+      const conPasajeros = datos.vuelos.find(v => v.pasajeros > 0);
+      selector.value = datos.vuelos.some(v => v.id === anterior) ? anterior : (conPasajeros || datos.vuelos[0]).id;
+      await cargarCabina();
+    } catch (error) {
+      estado.textContent = error.name === 'TimeoutError' ? 'La consulta tardó demasiado. Pulsa Actualizar.' : error.message;
+    }
+  }
+
+  async function cargarCabina({ silencioso = false } = {}) {
+    const id = $('vuelo').value;
+    if (!id) return;
+    if (!silencioso) $('vuelo-estado').textContent = 'Cargando la cabina…';
+    try {
+      const { ok, datos } = await api(`/api/tripulacion/vuelos/${encodeURIComponent(id)}/cabina`);
+      if (!ok) throw new Error(datos.mensaje || 'No pudimos cargar la cabina.');
+      if ($('vuelo').value !== id) return; // se eligió otro vuelo mientras tanto
+      const cambio = vuelo?.id !== datos.vuelo.id;
+      vuelo = datos.vuelo;
+      cabina = { asientos: datos.asientos, pasajeros: datos.pasajeros };
+      porAsiento = new Map(datos.pasajeros.map(p => [p.asiento, p]));
+      recordarVuelo();
+      if (cambio) { asientoActivo = null; fichaVacia('Esperando un pase.', 'Cuando escanees un código, aquí verás quién es, su asiento y sus preferencias. También puedes tocar un asiento en el plano o buscar al pasajero.'); }
+      pintarCabina();
+      const abordados = datos.pasajeros.filter(p => p.abordaje).length;
+      const opcion = $('vuelo').selectedOptions[0];
+      if (opcion) opcion.textContent = `${vuelo.hora} · ${vuelo.codigo} · ${vuelo.origen} → ${vuelo.destino} · ${abordados}/${datos.pasajeros.length} a bordo`;
+      $('vuelo-estado').textContent = `${vuelo.codigo} · ${A.CIUDADES[vuelo.origen] || vuelo.origen} → ${A.CIUDADES[vuelo.destino] || vuelo.destino} · ${A.formatearFecha(vuelo.fecha)} · ${vuelo.hora} · ${abordados} de ${datos.pasajeros.length} pasajeros a bordo.`;
+      // Mantener al día la ficha abierta (por ejemplo, si otra tableta registró al pasajero).
+      const abierto = fichaActual && !$('ficha-contenido').hidden && datos.pasajeros.find(p => p.boleto === fichaActual.boleto);
+      if (abierto) mostrarFicha(abierto, fichaActual.estado, { registrable: fichaActual.registrable, desplazar: false });
+    } catch (error) {
+      if (!silencioso) $('vuelo-estado').textContent = error.name === 'TimeoutError' ? 'La consulta tardó demasiado. Pulsa Actualizar.' : error.message;
+    }
+  }
+
+  function limpiarCabina() {
+    vuelo = null; cabina = null; porAsiento = new Map(); asientoActivo = null;
+    $('plano-vivo').replaceChildren();
+    $('lista-abordados').replaceChildren();
+    $('lista-vacia').hidden = false;
+    $('lista-vacia').textContent = 'Elige un vuelo para ver a sus pasajeros.';
+    for (const id of ['contador-total', 'contador-primera', 'contador-ejecutiva']) $(id).textContent = '0/0';
+  }
+
+  /* ---------- Registro de abordaje ---------- */
+  let ultimo = { texto: '', momento: 0 };
+  let enviando = false;
+
+  function procesar(texto, via) {
+    const ahora = Date.now();
+    if (texto === ultimo.texto && ahora - ultimo.momento < 4000) return; // la cámara lo sigue viendo
+    ultimo = { texto, momento: ahora };
+    if (!vuelo) { alertar('Elige primero el vuelo que se está abordando.', 'Sin vuelo seleccionado'); avisar('error'); return; }
+    const lectura = A.decodificar(texto);
+    if (!lectura.ok) { alertar(lectura.motivo, TITULOS[lectura.tipo] || 'Pase no válido'); avisar('error'); return; }
+    registrar({ codigo: texto, via });
+  }
+
+  async function registrar(cuerpo) {
+    if (enviando || !vuelo) return;
+    enviando = true;
+    try {
+      const { ok, datos } = await api(`/api/tripulacion/vuelos/${encodeURIComponent(vuelo.id)}/abordajes`, { metodo: 'POST', cuerpo });
+      if (ok) {
+        const p = datos.pasajero;
+        porAsiento.set(p.asiento, p);
+        if (cabina) cabina.pasajeros = cabina.pasajeros.map(x => (x.boleto === p.boleto ? p : x));
+        const hora = horaCorta(p.abordaje.registradoEn);
+        const estado = datos.estado === 'repetido'
+          ? { tipo: 'info', texto: `Este pase ya se registró a las ${hora} (${p.abordaje.registradoPor}).` }
+          : { tipo: 'ok', texto: `Pase válido · registrado a las ${hora} · ${VIAS[cuerpo.via]}.` };
+        avisar('ok');
+        asientoActivo = p.asiento;
+        mostrarFicha(p, estado);
+        pintarCabina();
+        cargarCabina({ silencioso: true });
+      } else if (datos.tipo === 'otro_vuelo' && datos.pasajero) {
+        mostrarFicha(datos.pasajero, { tipo: 'aviso', texto: datos.mensaje }, { registrable: false });
+        avisar('error');
+      } else {
+        alertar(datos.mensaje || 'No pudimos validar el pase.', TITULOS[datos.tipo] || 'Pase no válido');
+        avisar('error');
+      }
+    } catch {
+      alertar('No pudimos comunicarnos con el servidor. Revisa la conexión e inténtalo de nuevo.', 'Sin conexión');
+      avisar('error');
+    } finally {
+      enviando = false;
+    }
+  }
+
+  /* ---------- Ficha del pasajero ---------- */
+  function fichaVacia(titulo, texto) {
+    fichaActual = null;
+    $('ficha-contenido').hidden = true;
+    $('ficha-alerta').hidden = true;
+    const vacia = $('ficha-vacia');
+    vacia.hidden = false;
+    vacia.querySelector('h2').textContent = titulo;
+    vacia.querySelector('p:last-child').textContent = texto;
+  }
+
+  function alertar(mensaje, titulo) {
+    fichaActual = null;
+    $('ficha-vacia').hidden = true;
+    $('ficha-contenido').hidden = true;
+    const alerta = $('ficha-alerta');
+    alerta.replaceChildren();
+    const h = document.createElement('h2'); h.textContent = titulo;
+    const p = document.createElement('p'); p.textContent = mensaje;
+    const s = document.createElement('p'); s.className = 'ficha-sugerencia'; s.textContent = 'Pide al pasajero que abra su pase desde Mis reservas o búscalo en la lista del vuelo.';
+    alerta.append(h, p, s);
+    alerta.hidden = false;
+  }
+
+  function mostrarFicha(p, estado, { registrable = true, desplazar = true } = {}) {
+    const d = A.describir(p);
+    fichaActual = { boleto: p.boleto, estado, registrable };
+    $('ficha-vacia').hidden = true;
+    $('ficha-alerta').hidden = true;
+    $('ficha-contenido').hidden = false;
+    const nodoEstado = $('ficha-estado');
+    nodoEstado.className = `ficha-estado ${estado ? estado.tipo : 'info'}`;
+    nodoEstado.textContent = estado ? estado.texto : '';
+    nodoEstado.hidden = !estado;
+    $('ficha-trato').textContent = p.trato ? `PREFIERE QUE LE LLAMEN · ${d.trato.toUpperCase()}` : 'PASAJERO';
+    $('ficha-nombre').textContent = d.nombreCompleto;
+    $('ficha-ruta').textContent = vuelo ? `${vuelo.codigo} · ${A.CIUDADES[vuelo.origen] || vuelo.origen} → ${A.CIUDADES[vuelo.destino] || vuelo.destino} · ${A.formatearFecha(vuelo.fecha)} · ${vuelo.hora}` : '';
+    $('ficha-asiento').textContent = p.asiento;
+    $('ficha-idioma-corto').textContent = d.idioma;
+    $('ficha-saludo').textContent = `“${d.saludo}”`;
+
+    const insignias = $('ficha-insignias');
+    insignias.replaceChildren();
+    const insignia = (texto, clase) => { const s = document.createElement('span'); s.className = `insignia ${clase}`; s.textContent = texto; insignias.append(s); };
+    insignia(d.cabina, A.claveCabina(p.cabina) === 'P' ? 'primera' : 'ejecutiva');
+    if (p.noMolestar) insignia('No molestar', 'oscura');
+    if (d.alergias) insignia('Revisar alergias', 'alerta');
+    if (p.atencion === 2) insignia('Consultar antes de servir', 'suave');
+
+    const datos = $('ficha-datos');
+    datos.replaceChildren();
+    const filas = [
+      ['Idioma', d.idioma], ['País', d.pais], ['Comida', d.comida], ['Bebida', d.bebida || 'Sin preferencia'],
+      ['Atención a bordo', d.atencion], ['Motivo del viaje', d.motivo],
+      ['Alergias', d.alergias || 'Sin alergias registradas', Boolean(d.alergias)], ['Notas', d.notas || 'Sin notas', false],
+    ];
+    for (const [etiqueta, valor, destacado] of filas) {
+      const div = document.createElement('div');
+      if (destacado) div.className = 'destacado';
+      const dt = document.createElement('dt'); dt.textContent = etiqueta;
+      const dd = document.createElement('dd'); dd.textContent = valor;
+      div.append(dt, dd); datos.append(div);
+    }
+    const pendiente = !p.abordaje;
+    $('ficha-acciones').hidden = !(pendiente && registrable && puede('abordaje.registrar'));
+    $('registrar-manual').dataset.boleto = p.boleto;
+    $('ficha-pie').textContent = p.abordaje
+      ? `A bordo desde las ${horaCorta(p.abordaje.registradoEn)} · ${VIAS[p.abordaje.via] || p.abordaje.via} · ${p.abordaje.registradoPor} · boleto ${p.boleto}`
+      : `Pendiente de abordar · boleto ${p.boleto}`;
+    if (desplazar && window.matchMedia('(max-width: 900px)').matches) $('ficha').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function fichaDeAsiento(asiento) {
+    asientoActivo = asiento;
+    const p = porAsiento.get(asiento);
+    if (p) mostrarFicha(p, null);
+    else fichaVacia(`Asiento ${asiento} libre.`, 'No hay un boleto vigente para este asiento en el vuelo.');
+    pintarCabina();
+  }
+
+  $('registrar-manual').addEventListener('click', event => {
+    const boleto = event.currentTarget.dataset.boleto;
+    if (boleto) registrar({ boleto, via: 'manual' });
+  });
+
+  /* ---------- Plano de cabina y lista de pasajeros ---------- */
+  function pintarCabina() {
+    const plano = $('plano-vivo');
+    if (!cabina) { plano.replaceChildren(); return; }
+    // Filas agrupadas por número; la clase de cada asiento viene del inventario del vuelo.
+    const filas = new Map();
+    for (const asiento of [...cabina.asientos].sort((a, b) => ordenAsiento(a.codigo, b.codigo))) {
+      const numero = asiento.codigo.match(/^\d+/)?.[0] || '—';
+      if (!filas.has(numero)) filas.set(numero, { clase: asiento.clase, asientos: [] });
+      filas.get(numero).asientos.push(asiento);
+    }
+    const contenedor = document.createElement('div');
+    contenedor.className = 'plano-cabina';
+    contenedor.insertAdjacentHTML('beforeend', '<div class="nariz-cabina">FRENTE DEL AVIÓN<br><strong>Cabina de pilotos</strong></div><div class="servicios-cabina"><span>Puerta</span><span>Cocina</span><span>Puerta</span></div>');
+    let claseAnterior = null;
+    for (const [numero, fila] of filas) {
+      if (fila.clase !== claseAnterior) {
+        const s = document.createElement('div'); s.className = 'cabina-separador';
+        s.textContent = fila.clase === 'primera' ? 'PRIMERA CLASE' : 'CLASE EJECUTIVA';
+        contenedor.append(s); claseAnterior = fila.clase;
+      }
+      const div = document.createElement('div');
+      div.className = 'fila-asientos primera';
+      const mitad = Math.ceil(fila.asientos.length / 2);
+      div.style.gridTemplateColumns = `35px repeat(${mitad}, 42px) minmax(26px, 1fr) repeat(${fila.asientos.length - mitad}, 42px)`;
+      const num = document.createElement('span'); num.className = 'numero-fila'; num.textContent = numero; div.append(num);
+      fila.asientos.forEach((asiento, i) => {
+        if (i === mitad) { const pasillo = document.createElement('span'); pasillo.className = 'pasillo'; pasillo.setAttribute('aria-hidden', 'true'); div.append(pasillo); }
+        const p = porAsiento.get(asiento.codigo);
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'asiento'; b.dataset.asiento = asiento.codigo; b.textContent = asiento.codigo;
+        if (p) b.classList.add(p.abordaje ? 'a-bordo' : 'reservado');
+        if (p?.noMolestar) b.classList.add('no-molestar');
+        if (asiento.codigo === asientoActivo) b.classList.add('activo');
+        b.setAttribute('aria-label', p ? `Asiento ${asiento.codigo}, ${p.nombre} ${p.apellido}, ${p.abordaje ? 'a bordo' : 'pendiente de abordar'}` : `Asiento ${asiento.codigo}, libre`);
+        b.setAttribute('aria-pressed', String(asiento.codigo === asientoActivo));
+        div.append(b);
+      });
+      contenedor.append(div);
+    }
+    contenedor.insertAdjacentHTML('beforeend', '<div class="leyenda-vivo"><span><i></i>Libre</span><span><i class="reservado"></i>Por abordar</span><span><i class="a-bordo"></i>A bordo</span><span><i class="a-bordo no-molestar"></i>No molestar</span></div>');
+    plano.replaceChildren(contenedor);
+
+    const enCabina = clave => {
+      const lista = cabina.pasajeros.filter(p => p.cabina === clave);
+      return `${lista.filter(p => p.abordaje).length}/${lista.length}`;
+    };
+    $('contador-total').textContent = `${cabina.pasajeros.filter(p => p.abordaje).length}/${cabina.pasajeros.length}`;
+    $('contador-primera').textContent = enCabina('primera');
+    $('contador-ejecutiva').textContent = enCabina('ejecutiva');
+    pintarLista();
+  }
+
+  // HU01 y HU03: lista de pasajeros del vuelo con búsqueda por nombre, apellido o asiento.
+  function pintarLista() {
+    const lista = $('lista-abordados');
+    const vacia = $('lista-vacia');
+    lista.replaceChildren();
+    if (!cabina) return;
+    const consulta = sinAcentos($('buscar-pasajero').value.trim());
+    const pasajeros = [...cabina.pasajeros].sort((a, b) => ordenAsiento(a.asiento, b.asiento))
+      .filter(p => !consulta || sinAcentos(`${p.nombre} ${p.apellido} ${p.trato} ${p.asiento}`).includes(consulta));
+    for (const p of pasajeros) {
+      const li = document.createElement('li');
+      const b = document.createElement('button');
+      b.type = 'button'; b.dataset.asiento = p.asiento;
+      if (p.asiento === asientoActivo) b.classList.add('activo');
+      const s = document.createElement('strong'); s.textContent = p.asiento;
+      const n = document.createElement('span'); n.textContent = p.trato || `${p.nombre} ${p.apellido}`;
+      const h = document.createElement('small'); h.textContent = p.abordaje ? `a bordo ${horaCorta(p.abordaje.registradoEn)}` : 'por abordar';
+      if (!p.abordaje) h.className = 'pendiente';
+      b.append(s, n, h); li.append(b); lista.append(li);
+    }
+    vacia.hidden = pasajeros.length > 0;
+    vacia.textContent = !cabina.pasajeros.length ? 'Este vuelo todavía no tiene pasajeros con boleto.'
+      : `No encontramos a ningún pasajero con «${$('buscar-pasajero').value.trim()}» en este vuelo.`;
+  }
+
+  document.addEventListener('click', event => {
+    const objetivo = event.target.closest('#plano-vivo [data-asiento], #lista-abordados [data-asiento]');
+    if (objetivo) fichaDeAsiento(objetivo.dataset.asiento);
+  });
+  $('buscar-pasajero').addEventListener('input', pintarLista);
+  $('fecha-vuelo').addEventListener('change', () => cargarVuelos());
+  $('vuelo').addEventListener('change', () => { recordarVuelo(); cargarCabina(); });
+  $('actualizar-cabina').addEventListener('click', () => cargarVuelos());
+
+  // Solo administración (el servidor lo vuelve a comprobar).
+  $('reiniciar').addEventListener('click', async () => {
+    if (!vuelo || !puede('abordaje.reiniciar')) return;
+    if (!window.confirm(`¿Reiniciar el abordaje del vuelo ${vuelo.codigo}? Se borrará su registro de abordaje en la base de Avianca.`)) return;
+    const { ok, datos } = await api(`/api/tripulacion/vuelos/${encodeURIComponent(vuelo.id)}/reiniciar`, { metodo: 'POST', cuerpo: { confirmar: true } });
+    $('vuelo-estado').textContent = datos.mensaje || (ok ? 'Abordaje reiniciado.' : 'No pudimos reiniciar el abordaje.');
+    if (ok) { ultimo = { texto: '', momento: 0 }; fichaVacia('Abordaje reiniciado.', 'El registro de este vuelo quedó vacío. Escanea el primer pase para empezar.'); await cargarCabina({ silencioso: true }); }
+  });
+
+  /* ---------- Respuesta visual, táctil y sonora ---------- */
+  let audio;
+  function avisar(tipo) {
+    const flash = $('visor-flash');
+    flash.className = `visor-flash ${tipo}`;
+    void flash.offsetWidth; flash.classList.add('visible');
+    try { navigator.vibrate?.(tipo === 'ok' ? 60 : [80, 60, 80]); } catch { /* sin vibración */ }
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      const o = audio.createOscillator(), g = audio.createGain();
+      o.frequency.value = tipo === 'ok' ? 880 : 220; g.gain.value = 0.05;
+      o.connect(g).connect(audio.destination); o.start(); o.stop(audio.currentTime + (tipo === 'ok' ? 0.09 : 0.22));
+    } catch { /* sin audio */ }
+    if (window.matchMedia('(max-width: 900px)').matches) $('ficha').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  /* ---------- Lectura de QR ---------- */
+  let detector = null;
+  async function prepararDetector() {
+    if (!('BarcodeDetector' in window)) return null;
+    try {
+      const formatos = await window.BarcodeDetector.getSupportedFormats();
+      return formatos.includes('qr_code') ? new window.BarcodeDetector({ formats: ['qr_code'] }) : null;
+    } catch { return null; }
+  }
+  const textoDesdeBytes = bytes => new TextDecoder('utf-8').decode(new Uint8Array(bytes));
+
+  // Lee un QR de cualquier fuente dibujable (video, imagen). Devuelve el texto o null.
+  async function leer(fuente, ancho, alto, intentoProfundo = false) {
+    if (detector) {
+      try { const r = await detector.detect(fuente); if (r.length) return r[0].rawValue; } catch { /* sigue con jsQR */ }
+    }
+    if (!window.jsQR) return null;
+    const escalas = intentoProfundo ? [1200, 800, 500] : [720];
+    for (const max of escalas) {
+      const f = Math.min(1, max / Math.max(ancho, alto));
+      lienzo.width = Math.round(ancho * f); lienzo.height = Math.round(alto * f);
+      ctx.drawImage(fuente, 0, 0, lienzo.width, lienzo.height);
+      const img = ctx.getImageData(0, 0, lienzo.width, lienzo.height);
+      const r = window.jsQR(img.data, img.width, img.height, { inversionAttempts: intentoProfundo ? 'attemptBoth' : 'dontInvert' });
+      if (r) return textoDesdeBytes(r.binaryData);
+    }
+    return null;
+  }
+
+  /* ---------- Cámara ---------- */
+  let flujo = null, bucle = null, ocupado = false;
+  const boton = $('boton-camara');
+  function indicador(estado, texto) {
+    $('indicador').className = `escaner-indicador ${estado}`;
+    $('indicador-texto').textContent = texto;
+  }
+
+  async function encender(idDispositivo) {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      indicador('error', 'Cámara no disponible');
+      $('escaner-ayuda').textContent = window.isSecureContext
+        ? 'Este navegador no permite usar la cámara. Sube una captura del pase o registra al pasajero desde la lista.'
+        : 'La cámara solo funciona en una página segura (https) o en localhost. Mientras tanto, sube una captura del pase.';
+      return;
+    }
+    apagar();
+    indicador('cargando', 'Solicitando permiso…');
+    boton.disabled = true;
+    try {
+      flujo = await navigator.mediaDevices.getUserMedia({
+        video: idDispositivo ? { deviceId: { exact: idDispositivo } } : { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false
+      });
+      video.srcObject = flujo;
+      await video.play();
+      $('visor').classList.add('encendido');
+      indicador('activo', 'Buscando código…');
+      boton.textContent = 'Detener cámara';
+      await listarCamaras(flujo.getVideoTracks()[0]?.getSettings().deviceId);
+      bucle = setInterval(escanearCuadro, 140);
+    } catch (error) {
+      const negado = error && (error.name === 'NotAllowedError' || error.name === 'SecurityError');
+      indicador('error', negado ? 'Permiso denegado' : 'No se pudo abrir la cámara');
+      $('escaner-ayuda').textContent = negado
+        ? 'El navegador bloqueó la cámara. Permite el acceso desde el ícono junto a la dirección o sube una captura del pase.'
+        : 'No encontramos una cámara disponible. Sube una captura del pase o registra al pasajero desde la lista.';
+      apagar(false);
+    } finally {
+      boton.disabled = false;
+    }
+  }
+
+  function apagar(actualizar = true) {
+    clearInterval(bucle); bucle = null;
+    if (flujo) flujo.getTracks().forEach(t => t.stop());
+    flujo = null; video.srcObject = null;
+    $('visor').classList.remove('encendido');
+    boton.textContent = 'Activar cámara';
+    if (actualizar) indicador('', 'Cámara apagada');
+  }
+
+  async function escanearCuadro() {
+    if (ocupado || video.readyState < 2) return;
+    ocupado = true;
+    try {
+      const texto = await leer(video, video.videoWidth, video.videoHeight);
+      if (texto) procesar(texto, 'camara');
+    } finally { ocupado = false; }
+  }
+
+  async function listarCamaras(actual) {
+    try {
+      const camaras = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
+      const selector = $('camaras');
+      selector.replaceChildren(...camaras.map((c, i) => new Option(c.label || `Cámara ${i + 1}`, c.deviceId)));
+      if (actual) selector.value = actual;
+      $('selector-camara').hidden = camaras.length < 2;
+    } catch { $('selector-camara').hidden = true; }
+  }
+
+  boton.addEventListener('click', () => (flujo ? apagar() : encender()));
+  $('camaras').addEventListener('change', event => encender(event.target.value));
+  document.addEventListener('visibilitychange', () => { if (document.hidden && flujo) apagar(); });
+
+  /* ---------- Imagen subida ---------- */
+  $('archivo').addEventListener('change', async event => {
+    const archivo = event.target.files[0];
+    event.target.value = '';
+    if (!archivo) return;
+    indicador('cargando', 'Leyendo imagen…');
+    try {
+      const imagen = await createImageBitmap(archivo);
+      const texto = await leer(imagen, imagen.width, imagen.height, true);
+      imagen.close?.();
+      ultimo = { texto: '', momento: 0 }; // una imagen subida siempre se procesa
+      if (texto) procesar(texto, 'imagen');
+      else { alertar('No encontramos un código QR en la imagen. Asegúrate de que el código se vea completo y nítido.', 'Sin código QR'); avisar('error'); }
+    } catch {
+      alertar('No pudimos abrir ese archivo. Usa una imagen PNG o JPG.', 'Imagen no válida'); avisar('error');
+    }
+    indicador(flujo ? 'activo' : '', flujo ? 'Buscando código…' : 'Cámara apagada');
+  });
+
+  /* ---------- Inicio ---------- */
+  (async () => { detector = await prepararDetector(); })();
+  window.addEventListener('sesion-cambio', event => configurar(event.detail));
+  const inicial = window.SesionUI?.estado();
+  if (inicial?.listo) configurar(inicial.usuario);
+})();

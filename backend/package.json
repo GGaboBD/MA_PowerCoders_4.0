@@ -1,11 +1,15 @@
 {
   "name": "backend",
-  "version": "1.0.0",
-  "description": "",
+  "version": "2.0.0",
+  "description": "Backend unificado Avianca: reservas de clientes, vuelos, pase de abordar QR y panel de tripulación",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
     "dev": "node --env-file=.env index.js",
+    "preparar": "node --env-file-if-exists=.env scripts/preparar-bases.js",
+    "preparar:registro": "node --env-file-if-exists=.env preparar-registro.js",
+    "personal:crear": "node --env-file-if-exists=.env scripts/crear-personal.js",
+    "demo": "node --env-file-if-exists=.env scripts/semilla-demo.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

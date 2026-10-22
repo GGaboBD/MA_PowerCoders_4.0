@@ -49,7 +49,8 @@ function presentar(vuelo, filtro, ahora) {
   };
 }
 
-module.exports = function registrarVuelos(app, db) {
+module.exports = function registrarVuelos(app, bases) {
+  const db = bases?.clientes || bases;
   app.get('/api/vuelos', async (req, res) => {
     res.set('Cache-Control', 'no-store');
     // Conserva la consulta breve usada durante la primera prueba de conexión.
@@ -95,3 +96,5 @@ module.exports = function registrarVuelos(app, db) {
 };
 module.exports.validar = validar;
 module.exports.presentar = presentar;
+module.exports.zonas = zonas;
+module.exports.horarioLocal = horarioLocal;

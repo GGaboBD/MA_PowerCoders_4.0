@@ -2,8 +2,21 @@
 const { ObjectId } = require('mongodb');
 const { randomUUID, createHash } = require('node:crypto');
 const { origenLocal, autenticar } = require('./sesion');
+const { prepararPerfilesViaje, IDIOMAS } = require('./estructura');
 const fallo = (status, mensaje) => Object.assign(new Error(mensaje), { status });
 const texto = (v, max = 80) => typeof v === 'string' && v.trim().length > 0 && v.trim().length <= max && !/[\u0000-\u001f]/.test(v);
+
+// Cómo quiere ser reconocido el pasajero en este viaje: trato, idioma del saludo, atención a bordo y motivo.
+// Es opcional para no romper clientes anteriores; sin perfil se usan valores neutros.
+function validarPerfil(perfil, preferencias) {
+  if (perfil === undefined) return { trato: '', idioma: 'es', atencion: preferencias.noMolestar ? 1 : 0, motivo: 0 };
+  if (!perfil || typeof perfil !== 'object' || Array.isArray(perfil) || Object.keys(perfil).some(k => !['trato','idioma','atencion','motivo'].includes(k)) ||
+      typeof perfil.trato !== 'string' || perfil.trato.length > 40 || /[\u0000-\u001f]/.test(perfil.trato) || !IDIOMAS.includes(perfil.idioma) ||
+      !Number.isInteger(perfil.atencion) || perfil.atencion < 0 || perfil.atencion > 2 ||
+      !Number.isInteger(perfil.motivo) || perfil.motivo < 0 || perfil.motivo > 3) throw fallo(400,'Revisa cómo prefiere ser atendido cada pasajero.');
+  return { trato: perfil.trato.trim(), idioma: perfil.idioma, atencion: perfil.atencion, motivo: perfil.motivo };
+}
+
 function validar(b) {
   if (!b || !/^[a-f0-9]{24}$/i.test(b.vueloId || '') || !['ejecutiva','primera'].includes(b.clase) ||
       !/^[a-f0-9-]{36}$/i.test(b.solicitudId || '') || !Array.isArray(b.pasajeros) || b.pasajeros.length < 1 || b.pasajeros.length > 6 ||
@@ -18,13 +31,15 @@ function validar(b) {
     if (!pr || !['sin_preferencia','estandar','vegetariana','vegana','sin_gluten','otra'].includes(pr.comida) || typeof pr.noMolestar !== 'boolean' ||
         !Array.isArray(pr.alergias) || pr.alergias.length > 20 || pr.alergias.some(a => !texto(a,80)) ||
         typeof pr.bebida !== 'string' || pr.bebida.length > 80 || typeof pr.notas !== 'string' || pr.notas.length > 1000) throw fallo(400,'Revisa las preferencias del pasajero.');
+    const preferencias = {comida:pr.comida,noMolestar:pr.noMolestar,alergias:[...new Set(pr.alergias.map(a=>a.trim()))],bebida:pr.bebida.trim(),notas:pr.notas.trim()};
     return { nombres:p.nombres.trim(), apellidos:p.apellidos.trim(), fechaNacimiento:fecha,
       documento:{tipo:p.documento.tipo,paisEmisor:p.documento.paisEmisor,numero:p.documento.numero.trim().toUpperCase()}, asiento:p.asiento.trim(),
-      preferencias:{comida:pr.comida,noMolestar:pr.noMolestar,alergias:[...new Set(pr.alergias.map(a=>a.trim()))],bebida:pr.bebida.trim(),notas:pr.notas.trim()} };
+      preferencias, perfil: validarPerfil(p.perfil, preferencias) };
   });
   if (new Set(personas.map(p=>p.asiento)).size !== personas.length || new Set(personas.map(p=>JSON.stringify(p.documento))).size !== personas.length) throw fallo(400,'No repitas pasajeros ni asientos en una compra.');
   return { vueloId:b.vueloId.toLowerCase(), clase:b.clase, solicitudId:b.solicitudId.toLowerCase(), precioAceptado:b.precioAceptado, monedaAceptada:b.monedaAceptada, salidaAceptada:b.salidaAceptada, pasajeros:personas };
 }
+
 async function preparar(db) {
   // No alterar los validadores existentes ni eliminar registros.
   for (const name of ['pasajeros','reservas','boletos','vuelos','auditoria']) {
@@ -38,7 +53,10 @@ async function preparar(db) {
   await db.collection('pasajeros').createIndex({'documento.tipo':1,'documento.paisEmisor':1,'documento.numero':1},{unique:true,name:'documento_pasajero_unico'});
   // El _id compuesto por comprador y solicitud impide duplicar una confirmación.
   if (!(await db.listCollections({name:'solicitudes_reserva'}).toArray()).length) await db.createCollection('solicitudes_reserva');
+  // Colección nueva y propia del perfil de atención (no modifica los validadores de pasajeros ni boletos).
+  await prepararPerfilesViaje(db);
 }
+
 async function comprar(db, cliente, compradorId, datos) {
   const session = cliente.startSession();
   const key = `${compradorId}:${datos.solicitudId}`;
@@ -85,6 +103,7 @@ async function comprar(db, cliente, compradorId, datos) {
         if (await db.collection('boletos').findOne({vueloId,pasajeroId:persona._id,vigente:true},opts)) throw fallo(409,'Uno de los pasajeros ya tiene boleto para este vuelo.');
         const boleto = {_id:new ObjectId(),numero:'DEMO-'+randomUUID(),reservaId:reserva._id,vueloId,pasajeroId:persona._id,asiento:p.asiento,clase:datos.clase,precio:vuelo.tarifas[datos.clase],moneda:vuelo.moneda,estado:'reservado',vigente:true,preferenciasViaje:p.preferencias,creadoEn:ahora};
         await db.collection('boletos').insertOne(boleto,opts);
+        await db.collection('perfiles_viaje').insertOne({_id:boleto._id,pasajeroId:persona._id,...p.perfil,actualizadoEn:ahora},opts);
         boletos.push({numero:boleto.numero,asiento:boleto.asiento,precio:boleto.precio.toString(),moneda:boleto.moneda});
       }
       await db.collection('auditoria').insertOne({_id:new ObjectId(),actorId:compradorId,accion:'reserva_demo.confirmar',coleccion:'reservas',documentoId:reserva._id,fecha:ahora},opts);
@@ -94,12 +113,15 @@ async function comprar(db, cliente, compradorId, datos) {
     },{readConcern:{level:'snapshot'},writeConcern:{w:'majority'},maxCommitTimeMS:15000});
   } finally { await session.endSession(); }
 }
-module.exports = async function registrarReservas(app,db,cliente) {
+
+module.exports = async function registrarReservas(app, bases, clienteDirecto) {
+  const db = bases?.clientes || bases;
+  const cliente = bases?.mongoClientes || clienteDirecto;
   await preparar(db);
   app.post('/api/reservas',origenLocal,async(req,res)=>{
     res.set('Cache-Control','no-store');
     try {
-      const usuario = await autenticar(req,db);
+      const usuario = await autenticar(req,bases);
       if (!usuario) throw fallo(401,'Inicia sesión para confirmar la reserva.');
       if (usuario.tipoCuenta !== 'cliente') throw fallo(403,'Esta compra requiere una cuenta de cliente.');
       const datos = validar(req.body);
@@ -118,4 +140,5 @@ module.exports = async function registrarReservas(app,db,cliente) {
   });
 };
 module.exports.validar=validar;
+module.exports.validarPerfil=validarPerfil;
 module.exports.comprar=comprar;
