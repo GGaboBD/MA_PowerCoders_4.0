@@ -1,11 +1,13 @@
 'use strict';
 const { ObjectId } = require('mongodb');
 const { autenticar } = require('./sesion');
-module.exports = function registrarMisReservas(app, db) {
+
+module.exports = function registrarMisReservas(app, bases) {
+  const db = bases?.clientes || bases;
   app.get('/api/mis-reservas', async (req, res) => {
     res.set('Cache-Control', 'no-store');
     try {
-      const usuario = await autenticar(req, db);
+      const usuario = await autenticar(req, bases);
       if (!usuario) return res.status(401).json({ok:false,mensaje:'Inicia sesión para consultar tus reservas.'});
       if (usuario.tipoCuenta !== 'cliente') return res.status(403).json({ok:false,mensaje:'Esta sección está disponible para cuentas de cliente.'});
       const antes = req.query.antes;

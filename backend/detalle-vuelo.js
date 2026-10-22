@@ -2,7 +2,8 @@
 const { ObjectId } = require('mongodb');
 const { presentar, validar } = require('./vuelos');
 
-module.exports = function registrarDetalle(app, db) {
+module.exports = function registrarDetalle(app, bases) {
+  const db = bases?.clientes || bases;
   app.get('/api/vuelos/:id', async (req, res) => {
     res.set('Cache-Control', 'no-store');
     const { cabina, pasajeros } = req.query;
