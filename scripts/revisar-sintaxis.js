@@ -6,7 +6,7 @@ const { join, relative } = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const raiz = join(__dirname, '..');
-const carpetas = ['frontend', 'backend', 'scripts', 'tests'];
+const carpetas = ['frontend', 'backend', 'scripts', 'tests', 'api'];
 const excluir = new Set(['node_modules', 'vendor', '.git']);
 
 function archivos(carpeta) {
