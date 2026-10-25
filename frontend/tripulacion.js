@@ -134,9 +134,20 @@
 
   /* ---------- Acceso por rol ---------- */
   function configurar(usuario) {
-    const autorizado = usuario?.tipoCuenta === 'personal' && usuario.permisos?.includes('tripulacion.ver');
+    if (usuario && (usuario.tipoCuenta === 'cliente' || usuario.rol === 'cliente') && !usuario.permisos?.includes('tripulacion.ver')) {
+      alert('Acceso denegado (HTTP 403): El panel de tripulación está reservado exclusivamente para el personal de Avianca.');
+      window.location.href = 'index.html';
+      return;
+    }
+    const autorizado = Boolean(
+      (usuario?.tipoCuenta === 'personal' || ['tripulacion', 'azafata', 'administrador'].includes(usuario?.rol)) &&
+      usuario?.permisos?.includes('tripulacion.ver')
+    );
     if (!autorizado) {
-      cargarDemo();
+      $('panel').hidden = true;
+      $('acceso-bloqueado').hidden = false;
+      $('bloqueado-texto').textContent = 'Esta sección es exclusiva para la tripulación de cabina y el personal autorizado de Avianca. Inicia sesión con tus credenciales corporativas.';
+      $('bloqueado-accion').hidden = false;
       return;
     }
     $('acceso-bloqueado').hidden = true;

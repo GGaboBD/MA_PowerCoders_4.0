@@ -116,8 +116,23 @@ loginForm.addEventListener('submit', async event => {
     if (!response.ok || !result.ok) { loginMessage.textContent = result.mensaje || 'No se pudo iniciar sesión.'; return; }
     document.getElementById('login-password').value = '';
     window.SesionUI.autenticar(result.usuario);
-    document.getElementById('sesion-nombre').setAttribute('tabindex', '-1');
-    document.getElementById('sesion-nombre').focus();
+    const params = new URLSearchParams(window.location.search);
+    const esTripulacion = result.usuario && (
+      result.usuario.tipoCuenta === 'personal' ||
+      ['tripulacion', 'azafata', 'administrador'].includes(result.usuario.rol) ||
+      (Array.isArray(result.usuario.permisos) && result.usuario.permisos.includes('tripulacion.ver'))
+    );
+    if (esTripulacion) {
+      window.location.href = 'tripulacion.html';
+      return;
+    }
+    const volver = params.get('volver') || params.get('redirect');
+    if (volver && !volver.includes('tripulacion.html') && !volver.startsWith('http')) {
+      window.location.href = volver;
+      return;
+    }
+    window.location.href = 'index.html';
+    return;
   } catch {
     loginMessage.textContent = 'No pudimos confirmar el acceso. Recarga la página para comprobar si la sesión se inició.';
   } finally {

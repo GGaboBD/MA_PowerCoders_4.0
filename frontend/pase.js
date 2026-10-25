@@ -6,7 +6,8 @@
   const $ = id => document.getElementById(id);
   const estado = $('estado-pase');
   const selector = $('f-boleto');
-  const pedido = new URLSearchParams(location.search).get('boleto');
+  const urlParams = new URLSearchParams(location.search);
+  const pedido = urlParams.get('boleto') || urlParams.get('boletoId') || urlParams.get('reservaId');
   let pases = [];
   let actual = null;
   let textoQR = '';
@@ -77,7 +78,7 @@
       pases = datos.pases;
       if (!pases.length) { mostrarAcceso('Aún no tienes boletos vigentes. Busca un vuelo y confirma una reserva para obtener tu pase.', 'index.html#buscar-vuelos', 'Buscar vuelos'); return; }
       selector.replaceChildren(...pases.map(p => new Option(`${p.vuelo} · ${p.origen} → ${p.destino} · ${A.formatearFecha(p.fecha)} · ${p.asiento} · ${p.nombre} ${p.apellido}`, p.numero)));
-      const elegido = pases.find(p => p.numero === pedido) || pases[0];
+      const elegido = pases.find(p => p.numero === pedido || p.boletoId === pedido || p.id === pedido || p.reservaId === pedido) || pases[0];
       selector.value = elegido.numero;
       $('acceso-pase').hidden = true;
       $('pase-layout').hidden = false;

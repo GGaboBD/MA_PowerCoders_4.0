@@ -10,6 +10,7 @@ const registrarReservas = require('./reservas');
 const registrarMisReservas = require('./mis-reservas');
 const registrarCancelacion = require('./cancelar-reserva');
 const registrarPases = require('./pases');
+const registrarPerfil = require('./perfil');
 const registrarTripulacion = require('./tripulacion');
 const registrarPersonal = require('./personal');
 const { protegerPaginas } = require('./permisos');
@@ -38,6 +39,7 @@ async function crearApp(bases, opciones = {}) {
   registrarMisReservas(app, bases);
   registrarCancelacion(app, bases);
   registrarPases(app, bases);
+  registrarPerfil(app, bases);
 
   // Personal de Avianca (base de Avianca, con lectura de pasajeros en la de clientes).
   if (bases.avianca) {

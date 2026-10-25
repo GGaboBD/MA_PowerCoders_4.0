@@ -59,7 +59,8 @@ const ESQUEMA_PERFILES_VIAJE = objeto(['_id', 'pasajeroId', 'trato', 'idioma', '
 const ESQUEMAS_CLIENTES = {
   usuarios: objeto(['_id', 'correo', 'passwordHash', 'tipoCuenta', 'roles', 'estado', 'creadoEn'], {
     _id: id, nombre: texto(1, 80), apellido: texto(1, 80), correo: texto(3, 254),
-    passwordHash: { bsonType: 'string', pattern: '^\\$argon2id\\$' }, tipoCuenta: { enum: ['cliente'] },
+    passwordHash: { bsonType: 'string', pattern: '^\\$argon2id\\$' }, tipoCuenta: { enum: ['cliente', 'personal', 'trabajador'] },
+    rol: texto(1, 40),
     roles: { bsonType: 'array', items: { bsonType: 'string' } }, estado: { enum: ['activo', 'inactivo', 'bloqueado'] }, creadoEn: fecha,
   }),
   roles: objeto(['_id', 'descripcion'], { _id: { bsonType: 'string' }, descripcion: texto(1, 200) }),

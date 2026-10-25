@@ -4,11 +4,13 @@
 // Los clientes no tienen permisos de tripulación: únicamente operan sobre sus propias reservas y pases.
 const PERMISOS = Object.freeze({
   azafata: Object.freeze(['tripulacion.ver', 'abordaje.registrar']),
+  tripulacion: Object.freeze(['tripulacion.ver', 'abordaje.registrar']),
   administrador: Object.freeze(['tripulacion.ver', 'abordaje.registrar', 'abordaje.reiniciar', 'personal.gestionar']),
 });
 
 const DESCRIPCIONES = Object.freeze({
   azafata: 'Tripulación de cabina: escanea pases, consulta la ficha de cada pasajero y registra el abordaje.',
+  tripulacion: 'Tripulación de cabina: escanea pases, consulta la ficha de cada pasajero y registra el abordaje.',
   administrador: 'Administración: todo lo de la tripulación, además reinicia abordajes y gestiona las cuentas del personal.',
 });
 

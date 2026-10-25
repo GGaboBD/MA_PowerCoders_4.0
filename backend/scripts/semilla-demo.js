@@ -113,6 +113,32 @@ async function main() {
         nombre: c.nombre, apellido: c.apellido, passwordHash, tipoCuenta: 'cliente', roles: ['cliente'], estado: 'activo', creadoEn: new Date(),
       } }, { upsert: true, collation: { locale: 'en', strength: 2 } });
       cuentasNuevas += r.upsertedCount;
+      const uDoc = await usuarios.findOne({ correo: c.correo }, { collation: { locale: 'en', strength: 2 } });
+      if (uDoc) {
+        await bases.clientes.collection('perfiles_usuario').updateOne(
+          { usuarioId: uDoc._id },
+          {
+            $set: {
+              usuarioId: uDoc._id,
+              nombres: c.nombre,
+              apellidos: c.apellido,
+              fechaNacimiento: c.pasajero.fechaNacimiento,
+              documento: c.pasajero.documento,
+              comida: c.pasajero.preferencias.comida,
+              noMolestar: c.pasajero.preferencias.noMolestar,
+              alergias: c.pasajero.preferencias.alergias,
+              bebida: c.pasajero.preferencias.bebida,
+              notas: c.pasajero.preferencias.notas,
+              trato: c.pasajero.perfil.trato,
+              idioma: c.pasajero.perfil.idioma,
+              atencion: c.pasajero.perfil.atencion,
+              motivo: c.pasajero.perfil.motivo,
+              actualizadoEn: new Date(),
+            }
+          },
+          { upsert: true }
+        );
+      }
     }
     for (const p of PERSONAL) {
       if (await bases.avianca.collection('personal').findOne({ correo: p.correo }, { collation: { locale: 'en', strength: 2 } })) continue;

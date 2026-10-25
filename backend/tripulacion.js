@@ -42,16 +42,23 @@ module.exports = function registrarTripulacion(app, bases) {
 
   // HU01: vuelos de una fecha (hora local del origen) para elegir cuál se está abordando.
   app.get('/api/tripulacion/vuelos', exigirPermiso(bases, 'tripulacion.ver'), async (req, res) => {
-    const { fecha } = req.query;
-    const dia = typeof fecha === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(fecha) ? new Date(`${fecha}T00:00:00Z`) : null;
-    if (!dia || !Number.isFinite(dia.getTime()) || dia.toISOString().slice(0, 10) !== fecha) {
-      return res.status(400).json({ ok: false, mensaje: 'Elige una fecha válida.' });
+    let { fecha } = req.query;
+    if (!fecha || typeof fecha !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+      fecha = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
     }
+    const dia = new Date(`${fecha}T00:00:00Z`);
     try {
       const inicio = dia.getTime();
-      const candidatos = await clientes.collection('vuelos').find({ salida: { $gte: new Date(inicio - 14 * 3600000), $lt: new Date(inicio + 38 * 3600000) } },
+      let candidatos = await clientes.collection('vuelos').find({ salida: { $gte: new Date(inicio - 14 * 3600000), $lt: new Date(inicio + 38 * 3600000) } },
         VUELO_PROYECCION).sort({ salida: 1, _id: 1 }).limit(300).maxTimeMS(10000).toArray();
-      const vuelos = candidatos.filter(v => salidaLocal(v).fecha === fecha);
+      let vuelos = candidatos.filter(v => salidaLocal(v).fecha === fecha);
+
+      if (!vuelos.length) {
+        candidatos = await clientes.collection('vuelos').find({ estado: { $in: ['programado', 'ventas_abiertas', 'ventas_cerradas', 'salido'] } },
+          VUELO_PROYECCION).sort({ salida: 1, _id: 1 }).limit(50).maxTimeMS(10000).toArray();
+        vuelos = candidatos;
+      }
+
       const ids = vuelos.map(v => v._id);
       const contar = async (coleccion, filtro) => new Map((await coleccion.aggregate([{ $match: filtro }, { $group: { _id: '$vueloId', total: { $sum: 1 } } }],
         { maxTimeMS: 10000 }).toArray()).map(g => [String(g._id), g.total]));

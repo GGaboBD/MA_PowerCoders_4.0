@@ -10,7 +10,8 @@ function exigirPermiso(bases, permiso) {
     try {
       const cuenta = await autenticar(req, bases);
       if (!cuenta) return res.status(401).json({ ok: false, mensaje: 'Inicia sesión con una cuenta del personal de Avianca.' });
-      if (cuenta.tipo !== 'personal' || !tienePermiso(cuenta.rol, permiso)) {
+      const esPersonal = cuenta.tipo === 'personal' || cuenta.tipoCuenta === 'personal' || ['tripulacion', 'azafata', 'administrador'].includes(cuenta.rol);
+      if (!esPersonal || !tienePermiso(cuenta.rol, permiso)) {
         return res.status(403).json({ ok: false, mensaje: 'Tu cuenta no tiene permiso para esta sección.' });
       }
       req.cuenta = cuenta;
@@ -60,9 +61,12 @@ function protegerPaginas(bases, raiz) {
     if (!pagina) return next();
     try {
       const cuenta = await autenticar(req, bases);
-      res.set('Cache-Control', 'no-store');
-      if (cuenta?.tipo === 'personal' && tienePermiso(cuenta.rol, PAGINAS_PROTEGIDAS[pagina])) {
+      const esPersonal = cuenta && (cuenta.tipo === 'personal' || cuenta.tipoCuenta === 'personal' || ['tripulacion', 'azafata', 'administrador'].includes(cuenta.rol));
+      if (esPersonal && tienePermiso(cuenta.rol, PAGINAS_PROTEGIDAS[pagina])) {
         return res.sendFile(path.join(raiz, pagina));
+      }
+      if (cuenta && cuenta.tipoCuenta === 'cliente') {
+        return res.status(403).send('<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Acceso denegado</title></head><body><script>alert("Acceso denegado (HTTP 403): El panel de tripulación está reservado para el personal de Avianca."); window.location.href="/index.html";</script></body></html>');
       }
       const destino = new URLSearchParams({ acceso: 'personal', volver: pagina });
       if (cuenta) destino.set('motivo', 'permiso');

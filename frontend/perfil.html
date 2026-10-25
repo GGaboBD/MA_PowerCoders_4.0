@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Mi perfil · Preferencias del viajero · Avianca Premium</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23da291c'/%3E%3Ctext x='16' y='24' text-anchor='middle' font-family='Arial' font-size='28' font-weight='700' fill='white'%3Ea%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="reservas.css">
+  <link rel="stylesheet" href="sesion.css">
+  <link rel="stylesheet" href="mis-reservas.css">
+  <script src="sesion.js" defer></script>
+  <script src="perfil.js" defer></script>
+</head>
+<body class="pagina-reservas">
+  <a class="saltar" href="#contenido">Saltar al contenido</a>
+  <header class="encabezado">
+    <div class="contenedor navegacion">
+      <a class="marca" href="index.html">avianca<span class="marca-detalle">PREMIUM CONCEPT</span></a>
+      <div class="acciones-nav">
+        <a class="volver" href="index.html#buscar-vuelos">Buscar vuelos</a>
+        <a class="volver" href="mis-reservas.html">Mis reservas</a>
+        <a class="volver" href="pase.html">Pase de abordar</a>
+        <a class="volver" href="tripulacion.html" data-permiso="tripulacion.ver" hidden>Tripulación</a>
+        <a class="boton boton-oscuro" href="cuenta.html">Mi cuenta</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="contenedor viajes-main" id="contenido">
+    <div class="viajes-heading">
+      <div>
+        <p class="etiqueta"><span class="punto-rojo" aria-hidden="true"></span> FICHA MAESTRA DEL VIAJERO</p>
+        <h1>Mi <span>perfil.</span></h1>
+        <p>Personaliza tus datos, requerimientos gastronómicos y preferencias de descanso para todos tus viajes.</p>
+      </div>
+      <a class="boton boton-contorno" href="mis-reservas.html">Ver mis reservas</a>
+    </div>
+
+    <p class="viajes-aviso" id="perfil-estado" role="status">Comprobando sesión…</p>
+    <div id="perfil-acceso" hidden style="margin-bottom: 24px;">
+      <a class="boton boton-rojo" href="cuenta.html?volver=perfil.html">Iniciar sesión con tu cuenta</a>
+    </div>
+
+    <form id="form-perfil" hidden style="max-width: 860px;">
+      <!-- Bloque 1: Identidad y Contacto -->
+      <section class="pasajero-bloque">
+        <div class="pasajero-titulo">
+          <h2>Información personal y de viaje</h2>
+          <span>Datos maestros para emisión de boletos</span>
+        </div>
+        <div class="campos-pasajero">
+          <div class="campo-form">
+            <label for="perfil-trato">Trato de cortesía preferido</label>
+            <input id="perfil-trato" name="trato" maxlength="40" placeholder="Ej: Ing. Ceballos, Dr., Sra., Mr. Carter">
+          </div>
+          <div class="campo-form">
+            <label for="perfil-nacimiento">Fecha de nacimiento</label>
+            <input id="perfil-nacimiento" name="fechaNacimiento" type="date">
+          </div>
+          <div class="campo-form">
+            <label for="perfil-nombres">Nombres</label>
+            <input id="perfil-nombres" name="nombres" maxlength="80" required>
+          </div>
+          <div class="campo-form">
+            <label for="perfil-apellidos">Apellidos</label>
+            <input id="perfil-apellidos" name="apellidos" maxlength="80" required>
+          </div>
+          <div class="campo-form">
+            <label for="perfil-tipo-doc">Tipo de documento</label>
+            <select id="perfil-tipo-doc" name="tipoDocumento">
+              <option value="pasaporte">Pasaporte internacional</option>
+              <option value="identidad">Documento de identidad nacional</option>
+            </select>
+          </div>
+          <div class="campo-form">
+            <label for="perfil-pais-doc">País emisor (código 2 letras)</label>
+            <input id="perfil-pais-doc" name="paisEmisor" maxlength="2" pattern="[A-Za-z]{2}" placeholder="CO" required>
+          </div>
+          <div class="campo-form" style="grid-column: 1 / -1;">
+            <label for="perfil-num-doc">Número de documento</label>
+            <input id="perfil-num-doc" name="numeroDocumento" maxlength="40" placeholder="Ej: DEMO-CO-1001" required>
+          </div>
+        </div>
+      </section>
+
+      <!-- Bloque 2: Experiencia y Catering -->
+      <section class="pasajero-bloque">
+        <div class="pasajero-titulo">
+          <h2>Experiencia y servicio en cabina</h2>
+          <span>Atención personalizada por la tripulación</span>
+        </div>
+        <div class="campos-pasajero">
+          <div class="campo-form">
+            <label for="perfil-idioma">Idioma de saludo y atención</label>
+            <select id="perfil-idioma" name="idioma">
+              <option value="es">Español</option>
+              <option value="en">English</option>
+              <option value="pt">Português</option>
+              <option value="fr">Français</option>
+            </select>
+          </div>
+          <div class="campo-form">
+            <label for="perfil-comida">Preferencia gastronómica (Catering)</label>
+            <select id="perfil-comida" name="comida">
+              <option value="sin_preferencia">Sin preferencia / Regular</option>
+              <option value="vegetariana">Menú Vegetariano</option>
+              <option value="vegana">Menú Vegano</option>
+              <option value="sin_gluten">Libre de gluten (Celíacos)</option>
+              <option value="otra">Otra dieta especial</option>
+            </select>
+          </div>
+          <div class="campo-form">
+            <label for="perfil-atencion">Nivel de atención a bordo</label>
+            <select id="perfil-atencion" name="atencion">
+              <option value="0">Atención habitual y cálida</option>
+              <option value="1">Descanso prioritario (minimizar interrupciones)</option>
+              <option value="2">Consultar antes de interactuar</option>
+            </select>
+          </div>
+          <div class="campo-form">
+            <label for="perfil-motivo">Motivo habitual de viaje</label>
+            <select id="perfil-motivo" name="motivo">
+              <option value="0">Sin especificar</option>
+              <option value="1">Negocios y trabajo ejecutivo</option>
+              <option value="2">Turismo, ocio y descanso</option>
+              <option value="3">Visita familiar o personal</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <!-- Bloque 3: Bienestar y Requerimientos especiales -->
+      <section class="pasajero-bloque">
+        <div class="pasajero-titulo">
+          <h2>Bienestar, descanso y notas especiales</h2>
+          <span>Detalles para hacer tu viaje perfecto</span>
+        </div>
+        <div class="campos-pasajero">
+          <div class="campo-form">
+            <label for="perfil-bebida">Bebida preferida de bienvenida</label>
+            <input id="perfil-bebida" name="bebida" maxlength="80" placeholder="Ej: Café americano sin azúcar, Champagne, Agua con gas">
+          </div>
+          <div class="campo-form">
+            <label for="perfil-alergias">Alergias o condiciones médicas (separadas por comas)</label>
+            <input id="perfil-alergias" name="alergias" maxlength="160" placeholder="Ej: Frutos secos, mariscos, lactosa">
+          </div>
+          <div class="campo-form" style="grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; margin-block: 6px;">
+            <input type="checkbox" id="perfil-no-molestar" name="noMolestar" style="width: 22px; height: 22px; cursor: pointer;">
+            <label for="perfil-no-molestar" style="margin: 0; cursor: pointer; font-size: 14px;">Activar modo "No molestar" en cabina por defecto (priorizar sueño y descanso continuo)</label>
+          </div>
+          <div class="campo-form" style="grid-column: 1 / -1;">
+            <label for="perfil-notas">Notas o solicitudes especiales para la tripulación</label>
+            <textarea id="perfil-notas" name="notas" maxlength="1000" rows="3" placeholder="Ej: Trabajo con laptop durante el vuelo: agradecería verificar disponibilidad de enchufe al abordar."></textarea>
+          </div>
+        </div>
+      </section>
+
+      <div style="display: flex; gap: 16px; align-items: center; margin-top: 24px;">
+        <button class="boton boton-rojo" type="submit" id="btn-guardar-perfil" style="min-width: 200px;">Guardar preferencias</button>
+        <span id="perfil-guardado-msg" style="color: #007a3d; font-weight: 700; font-size: 13px;" hidden>✔ Preferencias actualizadas correctamente</span>
+      </div>
+    </form>
+  </main>
+</body>
+</html>
