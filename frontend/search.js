@@ -1,5 +1,7 @@
-'use strict';
 const routeNames = { SAL: 'San Salvador', MIA: 'Miami', BOG: 'Bogotá', MDE: 'Medellín', CLO: 'Cali', CTG: 'Cartagena' };
+function getCityName(code) {
+  return routeNames[code] || code || 'Desconocido';
+}
 const form = document.querySelector('#formulario-busqueda');
 const results = document.querySelector('#resultados');
 const button = form.querySelector('[type="submit"]');
@@ -27,7 +29,7 @@ function field(label, value) {
 function render(flights, data, hayMas) {
   const title = element('div', undefined, 'resultados-titulo');
   title.append(element('p', `RESULTADOS · ${data.fecha}`, 'etiqueta'),
-    element('h2', `${routeNames[data.origen]} → ${routeNames[data.destino]}`),
+    element('h2', `${getCityName(data.origen)} → ${getCityName(data.destino)}`),
     element('p', `${data.cabina === 'primera' ? 'Primera clase' : 'Clase ejecutiva'} · ${data.pasajeros} pasajero(s)`));
   results.replaceChildren(title);
   if (!flights.length) {
@@ -51,7 +53,18 @@ function render(flights, data, hayMas) {
       element('p', `Salida: ${flight.fecha} ${flight.hora} (${flight.zonaOrigen}). Llegada: ${flight.llegadaLocal.fecha} ${flight.llegadaLocal.hora} (${flight.zonaDestino}).`),
       element('p', 'La disponibilidad puede cambiar. Elegir un asiento todavía no lo reserva.'));
     const choose = element('a', 'Elegir vuelo', 'boton boton-rojo');
-    choose.href = `compra.html?${new URLSearchParams({ vueloId: flight.id, cabina: data.cabina, pasajeros: data.pasajeros })}`;
+    choose.href = `compra.html?${new URLSearchParams({
+      vueloId: flight.id,
+      vuelo: flight.codigo,
+      origen: flight.origen,
+      destino: flight.destino,
+      fecha: flight.fecha,
+      hora: flight.hora,
+      cabina: data.cabina,
+      pasajeros: data.pasajeros,
+      precio: flight.precio,
+      moneda: flight.moneda
+    })}`;
     const actions = element('div');
     actions.append(choose, detailButton);
     detailButton.addEventListener('click', () => {

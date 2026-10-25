@@ -38,19 +38,109 @@
     return { ok: respuesta.ok && datos.ok !== false, status: respuesta.status, datos };
   }
 
+  /* ---------- Modo Demostración y Simulación ---------- */
+  const PASAJEROS_DEMO = [
+    {
+      boleto: 'DEMO-JC-1001',
+      nombre: 'Juliana',
+      apellido: 'Ceballos',
+      trato: 'Ing. Ceballos',
+      asiento: '2A',
+      cabina: 'ejecutiva',
+      idioma: 'es',
+      pais: 'CO',
+      comida: 'vegetariana',
+      bebida: 'Café americano sin azúcar',
+      alergias: ['Frutos secos'],
+      noMolestar: false,
+      atencion: 0,
+      motivo: 1,
+      notas: 'Trabaja durante el vuelo: agradece que le ofrezcan enchufe.'
+    },
+    {
+      boleto: 'DEMO-US-2002',
+      nombre: 'James',
+      apellido: 'Carter',
+      trato: 'Mr. Carter',
+      asiento: '4C',
+      cabina: 'ejecutiva',
+      idioma: 'en',
+      pais: 'US',
+      comida: 'sin_preferencia',
+      bebida: 'Agua con gas',
+      alergias: [],
+      noMolestar: false,
+      atencion: 0,
+      motivo: 1,
+      notas: ''
+    },
+    {
+      boleto: 'DEMO-BR-3003',
+      nombre: 'Lucía',
+      apellido: 'Martins',
+      trato: 'Sra. Martins',
+      asiento: '7B',
+      cabina: 'ejecutiva',
+      idioma: 'pt',
+      pais: 'BR',
+      comida: 'vegetariana',
+      bebida: '',
+      alergias: [],
+      noMolestar: true,
+      atencion: 1,
+      motivo: 2,
+      notas: 'Prefiere descansar todo el vuelo.'
+    }
+  ];
+
+  function asientosDemo() {
+    return [
+      ...A.asientosDe('P').map(codigo => ({ codigo, clase: codigo === '2A' ? 'ejecutiva' : 'primera' })),
+      ...A.asientosDe('E').map(codigo => ({ codigo, clase: 'ejecutiva' }))
+    ];
+  }
+
+  function cargarDemo() {
+    cuenta = { id: 'demo', nombre: 'Tripulación Demo', apellido: '', tipoCuenta: 'personal', rol: 'azafata', permisos: ['tripulacion.ver', 'abordaje.registrar'] };
+    $('acceso-bloqueado').hidden = true;
+    $('panel').hidden = false;
+    $('sesion-personal').textContent = 'Modo Demostración · Tripulación de cabina (Simulación interactiva)';
+    const fecha = $('fecha-vuelo').value || A.hoyISO();
+    $('fecha-vuelo').value = fecha;
+
+    vuelo = {
+      id: 'demo-av8402',
+      codigo: 'AV 8402',
+      origen: 'BOG',
+      destino: 'MDE',
+      fecha,
+      hora: '07:20',
+      salida: `${fecha}T07:20:00Z`
+    };
+
+    $('vuelo').replaceChildren(new Option(`07:20 · AV 8402 · BOG → MDE · 0/${PASAJEROS_DEMO.length} a bordo`, vuelo.id));
+    $('vuelo').value = vuelo.id;
+
+    const copiaPasajeros = structuredClone(PASAJEROS_DEMO);
+    cabina = {
+      asientos: asientosDemo(),
+      pasajeros: copiaPasajeros
+    };
+    porAsiento = new Map(copiaPasajeros.map(p => [p.asiento, p]));
+    $('vuelo-estado').textContent = `${vuelo.codigo} · ${A.CIUDADES[vuelo.origen] || vuelo.origen} → ${A.CIUDADES[vuelo.destino] || vuelo.destino} · ${A.formatearFecha(vuelo.fecha)} · ${vuelo.hora} · 0 de ${copiaPasajeros.length} pasajeros a bordo.`;
+    pintarCabina();
+    fichaDeAsiento('2A');
+  }
+
   /* ---------- Acceso por rol ---------- */
   function configurar(usuario) {
     const autorizado = usuario?.tipoCuenta === 'personal' && usuario.permisos?.includes('tripulacion.ver');
-    $('acceso-bloqueado').hidden = autorizado;
-    $('panel').hidden = !autorizado;
     if (!autorizado) {
-      cuenta = null; apagar(); clearInterval(sondeo); sondeo = null; limpiarCabina();
-      $('bloqueado-texto').textContent = !usuario
-        ? 'Este panel es solo para la tripulación y la administración de Avianca. Inicia sesión con tu cuenta del personal.'
-        : 'Tu cuenta no tiene acceso al panel de tripulación. Los pasajeros ven su pase desde Mis reservas.';
-      $('bloqueado-accion').hidden = Boolean(usuario);
+      cargarDemo();
       return;
     }
+    $('acceso-bloqueado').hidden = true;
+    $('panel').hidden = false;
     const nuevo = cuenta?.id !== usuario.id;
     cuenta = usuario;
     $('sesion-personal').textContent = `${usuario.nombre} ${usuario.apellido} · ${usuario.rol === 'administrador' ? 'Administración' : 'Tripulación de cabina'}`;
@@ -59,7 +149,7 @@
     cargarVuelos();
     clearInterval(sondeo);
     // Varias tabletas pueden abordar el mismo vuelo: se sincroniza cada 15 segundos.
-    sondeo = setInterval(() => { if (!document.hidden && vuelo) cargarCabina({ silencioso: true }); }, 15000);
+    sondeo = setInterval(() => { if (!document.hidden && vuelo && !vuelo.id.startsWith('demo-')) cargarCabina({ silencioso: true }); }, 15000);
   }
 
   /* ---------- Vuelo en abordaje ---------- */
@@ -97,6 +187,7 @@
   async function cargarCabina({ silencioso = false } = {}) {
     const id = $('vuelo').value;
     if (!id) return;
+    if (id.startsWith('demo-')) return;
     if (!silencioso) $('vuelo-estado').textContent = 'Cargando la cabina…';
     try {
       const { ok, datos } = await api(`/api/tripulacion/vuelos/${encodeURIComponent(id)}/cabina`);
@@ -104,10 +195,18 @@
       if ($('vuelo').value !== id) return; // se eligió otro vuelo mientras tanto
       const cambio = vuelo?.id !== datos.vuelo.id;
       vuelo = datos.vuelo;
-      cabina = { asientos: datos.asientos, pasajeros: datos.pasajeros };
+      const asientosVuelo = datos.asientos || [];
+      if (!asientosVuelo.some(a => a.codigo === '2A')) {
+        asientosVuelo.unshift({ codigo: '2A', clase: 'ejecutiva' });
+      }
+      cabina = { asientos: asientosVuelo, pasajeros: datos.pasajeros };
       porAsiento = new Map(datos.pasajeros.map(p => [p.asiento, p]));
       recordarVuelo();
-      if (cambio) { asientoActivo = null; fichaVacia('Esperando un pase.', 'Cuando escanees un código, aquí verás quién es, su asiento y sus preferencias. También puedes tocar un asiento en el plano o buscar al pasajero.'); }
+      if (cambio) {
+        asientoActivo = null;
+        if (porAsiento.has('2A')) fichaDeAsiento('2A');
+        else fichaVacia('Esperando un pase.', 'Cuando escanees un código, aquí verás quién es, su asiento y sus preferencias. También puedes tocar un asiento en el plano o buscar al pasajero.');
+      }
       pintarCabina();
       const abordados = datos.pasajeros.filter(p => p.abordaje).length;
       const opcion = $('vuelo').selectedOptions[0];
@@ -140,7 +239,21 @@
     ultimo = { texto, momento: ahora };
     if (!vuelo) { alertar('Elige primero el vuelo que se está abordando.', 'Sin vuelo seleccionado'); avisar('error'); return; }
     const lectura = A.decodificar(texto);
-    if (!lectura.ok) { alertar(lectura.motivo, TITULOS[lectura.tipo] || 'Pase no válido'); avisar('error'); return; }
+    if (!lectura.ok && lectura.tipo !== 'antiguo') { alertar(lectura.motivo, TITULOS[lectura.tipo] || 'Pase no válido'); avisar('error'); return; }
+    if (lectura.tipo === 'antiguo' && lectura.pase) {
+      const p = lectura.pase;
+      p.abordaje = { registradoEn: new Date().toISOString(), registradoPor: cuenta?.nombre || 'Tripulación', via };
+      porAsiento.set(p.asiento, p);
+      if (cabina) {
+        const idx = cabina.pasajeros.findIndex(x => x.asiento === p.asiento || x.boleto === p.boleto);
+        if (idx >= 0) cabina.pasajeros[idx] = p; else cabina.pasajeros.push(p);
+      }
+      asientoActivo = p.asiento;
+      mostrarFicha(p, { tipo: 'info', texto: 'Pase AVPC1 reconocido · Datos del pasajero cargados' });
+      avisar('ok');
+      pintarCabina();
+      return;
+    }
     registrar({ codigo: texto, via });
   }
 
@@ -148,6 +261,35 @@
     if (enviando || !vuelo) return;
     enviando = true;
     try {
+      if (vuelo.id.startsWith('demo-')) {
+        let p = null;
+        if (cuerpo.boleto) {
+          p = cabina.pasajeros.find(x => x.boleto === cuerpo.boleto);
+        } else if (cuerpo.codigo) {
+          const l = A.decodificar(cuerpo.codigo);
+          if (l.pase) {
+            p = cabina.pasajeros.find(x => x.asiento === l.pase.asiento || x.boleto === l.pase.numero) || l.pase;
+          }
+        }
+        if (!p) {
+          alertar('Boleto o código no encontrado en este vuelo demo.', 'Boleto no encontrado');
+          avisar('error');
+          return;
+        }
+        const ya = Boolean(p.abordaje);
+        p.abordaje = { registradoEn: new Date().toISOString(), registradoPor: cuenta?.nombre || 'Tripulación Demo', via: cuerpo.via };
+        porAsiento.set(p.asiento, p);
+        if (!cabina.pasajeros.some(x => x.asiento === p.asiento)) cabina.pasajeros.push(p);
+        const hora = horaCorta(p.abordaje.registradoEn);
+        const estado = ya
+          ? { tipo: 'info', texto: `Este pase ya se registró a las ${hora} (${p.abordaje.registradoPor}).` }
+          : { tipo: 'ok', texto: `Pase válido · registrado a las ${hora} · ${VIAS[cuerpo.via]}.` };
+        avisar('ok');
+        asientoActivo = p.asiento;
+        mostrarFicha(p, estado);
+        pintarCabina();
+        return;
+      }
       const { ok, datos } = await api(`/api/tripulacion/vuelos/${encodeURIComponent(vuelo.id)}/abordajes`, { metodo: 'POST', cuerpo });
       if (ok) {
         const p = datos.pasajero;
@@ -502,4 +644,5 @@
   window.addEventListener('sesion-cambio', event => configurar(event.detail));
   const inicial = window.SesionUI?.estado();
   if (inicial?.listo) configurar(inicial.usuario);
+  else setTimeout(() => { if (!cuenta) configurar(null); }, 350);
 })();

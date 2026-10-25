@@ -1,4 +1,14 @@
-const routeNames = { BOG: 'Bogotá', MDE: 'Medellín', CLO: 'Cali', CTG: 'Cartagena' };
+const routeNames = {
+  SAL: 'San Salvador',
+  MIA: 'Miami',
+  BOG: 'Bogotá',
+  MDE: 'Medellín',
+  CLO: 'Cali',
+  CTG: 'Cartagena'
+};
+function getCityName(code) {
+  return routeNames[code] || code || 'Desconocido';
+}
 const schedule = [
   { time: '07:20', number: 'AV 8402', cabin: 'ejecutiva', price: 420000 },
   { time: '11:45', number: 'AV 8418', cabin: 'primera', price: 890000 },
@@ -23,7 +33,7 @@ form.addEventListener('submit', event => {
     return;
   }
   const flights = schedule.filter(f => f.time >= data.get('hora') && f.cabin === data.get('cabina'));
-  const route = `${routeNames[origin]} → ${routeNames[destination]}`;
+  const route = `${getCityName(origin)} → ${getCityName(destination)}`;
   const cabinLabel = data.get('cabina') === 'primera' ? 'Primera clase' : 'Clase ejecutiva';
   if (!flights.length) {
     results.innerHTML = `<div class="resultados-titulo"><p class="etiqueta">RESULTADOS</p><h2>${route}</h2><p>No encontramos salidas de ${cabinLabel.toLowerCase()} a partir de esa hora. Prueba con otra hora.</p></div>`;

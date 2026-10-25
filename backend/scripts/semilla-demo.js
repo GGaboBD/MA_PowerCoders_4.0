@@ -30,9 +30,9 @@ const RUTAS = [
 // Pasajeros de la demo en clase. La Ing. Ceballos es la persona del mapa de historias.
 const CLIENTES = [
   { nombre: 'Juliana', apellido: 'Ceballos', correo: 'juliana.ceballos@demo.avianca.test', pasajero: {
-    asiento: '5A', fechaNacimiento: '1986-04-12', documento: { tipo: 'pasaporte', paisEmisor: 'CO', numero: 'DEMO-CO-1001' },
-    preferencias: { comida: 'sin_gluten', noMolestar: false, alergias: ['Frutos secos'], bebida: 'Café americano sin azúcar', notas: 'Trabaja durante el vuelo: agradece que le ofrezcan enchufe.' },
-    perfil: { trato: 'Ing. Ceballos', idioma: 'es', atencion: 2, motivo: 1 } } },
+    asiento: '2A', fechaNacimiento: '1986-04-12', documento: { tipo: 'pasaporte', paisEmisor: 'CO', numero: 'DEMO-CO-1001' },
+    preferencias: { comida: 'vegetariana', noMolestar: false, alergias: ['Frutos secos'], bebida: 'Café americano sin azúcar', notas: 'Trabaja durante el vuelo: agradece que le ofrezcan enchufe.' },
+    perfil: { trato: 'Ing. Ceballos', idioma: 'es', atencion: 0, motivo: 1 } } },
   { nombre: 'James', apellido: 'Carter', correo: 'james.carter@demo.avianca.test', pasajero: {
     asiento: '4C', fechaNacimiento: '1979-09-30', documento: { tipo: 'pasaporte', paisEmisor: 'US', numero: 'DEMO-US-2002' },
     preferencias: { comida: 'sin_preferencia', noMolestar: false, alergias: [], bebida: 'Agua con gas', notas: '' },
@@ -62,7 +62,7 @@ function instanteLocal(fecha, hora, zona) {
 }
 
 function asientos() {
-  return [...Abordaje.asientosDe('P').map(codigo => ({ codigo, clase: 'primera' })), ...Abordaje.asientosDe('E').map(codigo => ({ codigo, clase: 'ejecutiva' }))];
+  return [...Abordaje.asientosDe('P').map(codigo => ({ codigo, clase: codigo === '2A' ? 'ejecutiva' : 'primera' })), ...Abordaje.asientosDe('E').map(codigo => ({ codigo, clase: 'ejecutiva' }))];
 }
 
 async function sembrarVuelos(db, desde) {

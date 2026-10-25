@@ -45,35 +45,42 @@ function publico(cuenta) {
   return { id: String(cuenta._id), nombre: cuenta.nombre, apellido: cuenta.apellido, correo: cuenta.correo, tipoCuenta: cuenta.tipoCuenta, rol: cuenta.rol, permisos: cuenta.permisos };
 }
 
-function origenLocal(req, res, next) {
-  const port = Number(process.env.PORT || 3000);
-  const permitidos = new Set();
+function esOrigenPermitido(origin) {
+  if (!origin || typeof origin !== 'string') return false;
+  try {
+    const url = new URL(origin);
+    const host = url.hostname.toLowerCase();
 
-  if (!EN_PRODUCCION) {
-    permitidos.add(`http://localhost:${port}`);
-    permitidos.add(`http://127.0.0.1:${port}`);
-  }
+    // Entornos locales (cualquier puerto en localhost o 127.0.0.1)
+    if (host === 'localhost' || host === '127.0.0.1') return true;
 
-  const direcciones = [
-    process.env.RENDER_EXTERNAL_URL,
-    process.env.PUBLIC_ORIGIN,
-  ];
+    // Subdominios de Vercel (producción, preview y ramas)
+    if (url.protocol === 'https:' && (
+      host.endsWith('.vercel.app') ||
+      /^https:\/\/[a-z0-9-]+(\.power-coders)?\.vercel\.app$/i.test(url.origin)
+    )) return true;
 
-  for (const direccion of direcciones) {
-    if (!direccion) continue;
-
-    try {
-      const url = new URL(direccion);
-
-      if (url.protocol === 'https:') {
-        permitidos.add(url.origin);
-      }
-    } catch {
-      // Una dirección mal configurada no se autoriza.
+    // Orígenes configurados por variables de entorno
+    const direcciones = [process.env.PUBLIC_ORIGIN, process.env.RENDER_EXTERNAL_URL];
+    for (const direccion of direcciones) {
+      if (!direccion) continue;
+      try {
+        if (new URL(direccion).origin === url.origin) return true;
+      } catch {}
     }
+  } catch {}
+  return false;
+}
+
+function origenLocal(req, res, next) {
+  let origin = req.get('origin');
+  if (!origin && req.get('referer')) {
+    try {
+      origin = new URL(req.get('referer')).origin;
+    } catch {}
   }
 
-  if (!permitidos.has(req.get('origin'))) {
+  if (!origin || !esOrigenPermitido(origin)) {
     return res.status(403).json({
       ok: false,
       mensaje: 'Abre el formulario desde la dirección de la página del proyecto.',

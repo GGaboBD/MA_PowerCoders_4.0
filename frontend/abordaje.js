@@ -66,11 +66,42 @@ const Abordaje = (() => {
     return `${cuerpo}|${huella(cuerpo)}`;
   }
 
+  function parseV1(crudo) {
+    const partes = crudo.split('|');
+    if (partes.length < 13) return null;
+    const comidaOpciones = ['sin_preferencia', 'estandar', 'vegetariana', 'vegana', 'sin_gluten', 'otra'];
+    const comidaVal = partes[13];
+    const comida = /^\d+$/.test(comidaVal) ? (comidaOpciones[Number(comidaVal)] || 'sin_preferencia') : (comidaVal || 'sin_preferencia');
+    const alergias = partes[16] ? partes[16].split(',').map(s => s.trim()).filter(Boolean) : [];
+    return {
+      boleto: partes[18] ? `V1-${partes[18]}` : `V1-${partes[4] || '0'}`,
+      nombre: partes[1] || '',
+      apellido: partes[2] || '',
+      trato: partes[3] || '',
+      asiento: partes[4] || '',
+      vuelo: partes[5] || '',
+      origen: partes[6] || '',
+      destino: partes[7] || '',
+      fecha: partes[8] || '',
+      hora: partes[9] || '',
+      cabina: partes[10] === 'P' || partes[10] === 'primera' ? 'primera' : 'ejecutiva',
+      idioma: partes[11] || 'es',
+      pais: partes[12] || 'CO',
+      comida,
+      atencion: Number(partes[14]) || 0,
+      motivo: Number(partes[15]) || 0,
+      alergias,
+      noMolestar: partes[17] === '1' || partes[17] === 'true',
+      bebida: '',
+      notas: ''
+    };
+  }
+
   /* Devuelve { ok: true, pase } o { ok: false, tipo, motivo } con un mensaje listo para mostrar. */
   function decodificar(texto) {
     const crudo = String(texto ?? '').trim();
     if (crudo.startsWith(PREFIJO_ANTERIOR + '|')) {
-      return { ok: false, tipo: 'antiguo', motivo: 'Este pase es de la versión anterior del prototipo, sin base de datos. Pide al pasajero que abra su pase desde Mis reservas.' };
+      return { ok: false, tipo: 'antiguo', motivo: 'Este pase es de la versión anterior del prototipo, sin base de datos. Pide al pasajero que abra su pase desde Mis reservas.', pase: parseV1(crudo) };
     }
     if (!crudo.startsWith(PREFIJO + '|')) {
       return { ok: false, tipo: 'ajeno', motivo: 'Este código no es un pase de abordar de Avianca Premium Concept.' };

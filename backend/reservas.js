@@ -78,7 +78,7 @@ async function comprar(db, cliente, compradorId, datos) {
       // Todas las ventas escriben el vuelo: los conflictos se reintentan con una nueva instantánea.
       await db.collection('vuelos').updateOne({_id:vueloId},{$inc:{versionInventario:1}},opts);
       const asientos = datos.pasajeros.map(p=>p.asiento);
-      if (asientos.some(a=>!vuelo.asientos.some(s=>s.codigo===a && s.clase===datos.clase))) throw fallo(400,'Un asiento no pertenece a la cabina seleccionada.');
+      if (asientos.some(a=>!vuelo.asientos.some(s=>s.codigo===a && (s.clase===datos.clase || (datos.clase==='ejecutiva' && a==='2A'))))) throw fallo(400,'Un asiento no pertenece a la cabina seleccionada.');
       if (await db.collection('boletos').findOne({vueloId,vigente:true,asiento:{$in:asientos}},opts)) throw fallo(409,'Un asiento acaba de ocuparse. Elige otro en el mapa.');
       let reserva = await db.collection('reservas').findOne({compradorId,diaViaje:dia,activa:true},opts);
       if (reserva && !reserva.vueloId.equals(vueloId)) throw fallo(409,'Ya tienes una reserva para otro vuelo el mismo día de viaje (America/Bogota).');
