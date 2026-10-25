@@ -1,4 +1,4 @@
-# ADR 0007 · Verificación sintáctica dinámica y modular en CI mediante script de recorrido seguro
+# ADR 0007 - Verificación sintáctica dinámica y modular en CI mediante script de recorrido seguro
 
 Estado: Aceptada · 25 de octubre de 2026
 

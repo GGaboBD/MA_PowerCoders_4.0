@@ -1,4 +1,4 @@
-# ADR 0009 · Configuración de conectividad en la nube con MongoDB Atlas mediante lista de acceso global y variables de entorno
+# ADR 0009 - Configuración de conectividad en la nube con MongoDB Atlas mediante lista de acceso global y variables de entorno
 
 Estado: Aceptada · 25 de octubre de 2026
 
