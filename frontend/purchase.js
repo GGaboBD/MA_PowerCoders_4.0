@@ -80,16 +80,17 @@ function updateSeats(message = "") {
   document.querySelector("#asignaciones").textContent = draft.map((seat, i) => passengerName(i) + ": " + (seat || "pendiente")).join(" · ");
   for (const button of map.querySelectorAll("[data-seat]")) {
     const passenger = draft.indexOf(button.dataset.seat);
-    button.classList.toggle("seleccionado", passenger !== -1);
-    button.setAttribute("aria-pressed", String(passenger !== -1));
-    button.setAttribute("aria-label", "Asiento " + button.dataset.seat + (button.disabled ? ", ocupado" : passenger !== -1 ? ", asignado a " + passengerName(passenger) : ", disponible"));
+    const selected = passenger !== -1;
+    button.classList.toggle("seleccionado", selected);
+    button.setAttribute("aria-pressed", String(selected));
+    button.setAttribute("aria-label", "Asiento " + button.dataset.seat + (button.disabled ? " (Ocupado)" : selected ? " (Seleccionado por ti para " + passengerName(passenger) + ")" : " (Disponible)"));
   }
 }
 
 function drawCabin() {
   map.replaceChildren();
   const plane = element("div", undefined, "plano-cabina");
-  plane.append(element("div", "FRENTE DEL AVIÓN", "nariz-cabina"), element("div", (cabinKey === "primera" ? "Primera clase" : "Clase ejecutiva") + " · Asientos registrados", "cabina-separador"));
+  plane.append(element("div", "FRENTE DEL AVIÓN", "nariz-cabina"), element("div", (cabinKey === "primera" ? "Primera clase" : "Clase ejecutiva") + " · Distribución ejecutiva", "cabina-separador"));
   const groups = new Map();
   for (const seat of [...flight.asientos].sort((a, b) => a.codigo.localeCompare(b.codigo, "es", { numeric: true }))) {
     const row = seat.codigo.match(/^\d+/)?.[0] || "Otros";
@@ -99,17 +100,33 @@ function drawCabin() {
   for (const [row, seats] of groups) {
     const line = element("div", undefined, "fila-inventario");
     line.append(element("span", "Fila " + row, "numero-inventario"));
-    for (const seat of seats) {
-      const button = element("button", seat.codigo, "asiento");
+
+    const leftSeats = seats.filter(s => /[AB]$/.test(s.codigo));
+    const rightSeats = seats.filter(s => /[CD]$/.test(s.codigo));
+    const otherSeats = seats.filter(s => !/[ABCD]$/.test(s.codigo));
+
+    const renderSeat = (seat) => {
+      const button = element("button", seat.codigo, "asiento" + (seat.disponible ? "" : " ocupado"));
       button.type = "button";
       button.dataset.seat = seat.codigo;
       button.disabled = !seat.disponible;
       button.setAttribute("aria-pressed", "false");
-      line.append(button);
+      button.setAttribute("aria-label", "Asiento " + seat.codigo + (seat.disponible ? " (Disponible)" : " (Ocupado)"));
+      return button;
+    };
+
+    if (leftSeats.length || rightSeats.length) {
+      for (const seat of leftSeats) line.append(renderSeat(seat));
+      if (leftSeats.length && rightSeats.length) {
+        line.append(element("span", undefined, "asiento-pasillo"));
+      }
+      for (const seat of rightSeats) line.append(renderSeat(seat));
     }
+    for (const seat of otherSeats) line.append(renderSeat(seat));
+
     plane.append(line);
   }
-  plane.append(element("p", "Distribución esquemática: no representa posiciones físicas exactas.", "cola-cabina"));
+  plane.append(element("p", "Distribución de cabina ejecutiva: selección garantizada al confirmar.", "cola-cabina"));
   map.append(plane);
 }
 
@@ -553,6 +570,39 @@ async function init() {
       const p1Apellido = document.querySelector("#p1-apellido");
       if (p1Nombre && !p1Nombre.value && sesionUsuario.nombre) p1Nombre.value = sesionUsuario.nombre;
       if (p1Apellido && !p1Apellido.value && sesionUsuario.apellido) p1Apellido.value = sesionUsuario.apellido;
+
+      try {
+        const perfilRes = await fetch("/api/perfil", { credentials: "same-origin", cache: "no-store", signal: AbortSignal.timeout(5000) });
+        const perfilData = await perfilRes.json();
+        if (perfilRes.ok && perfilData.ok && perfilData.perfil) {
+          const pf = perfilData.perfil;
+          const setVal = (id, val) => {
+            const el = document.querySelector(id);
+            if (el && val !== undefined && val !== null && val !== "") el.value = val;
+          };
+          if (pf.nombres) setVal("#p1-nombre", pf.nombres);
+          if (pf.apellidos) setVal("#p1-apellido", pf.apellidos);
+          if (pf.fechaNacimiento) setVal("#p1-nacimiento", pf.fechaNacimiento);
+          if (pf.documento) {
+            if (pf.documento.tipo) setVal("#p1-tipo", pf.documento.tipo);
+            if (pf.documento.paisEmisor) setVal("#p1-pais", pf.documento.paisEmisor);
+            if (pf.documento.numero) setVal("#p1-documento", pf.documento.numero);
+          }
+          if (pf.comida) {
+            const comidaMap = { sin_preferencia: "Sin preferencia", estandar: "Sin preferencia", vegetariana: "Vegetariana", vegana: "Vegana", sin_gluten: "Sin gluten", otra: "Otra preferencia" };
+            setVal("#p1-comida", comidaMap[pf.comida] || pf.comida);
+          }
+          if (pf.atencion !== undefined) {
+            const atencionMap = { 0: "Atención habitual", 1: "Prefiero descansar sin interrupciones", 2: "Prefiero que me consulten antes" };
+            setVal("#p1-atencion", atencionMap[pf.atencion] || "Atención habitual");
+          }
+          if (pf.bebida) setVal("#p1-bebida", pf.bebida);
+          if (pf.notas) setVal("#p1-notas", pf.notas);
+          if (Array.isArray(pf.alergias) && pf.alergias.length) {
+            setVal("#p1-alergias", pf.alergias.join(", "));
+          }
+        }
+      } catch { /* mantener datos predeterminados */ }
     } else {
       sesionUsuario = null;
       status.textContent = "Estás navegando como invitado. Completa tus datos y selecciona tus asientos. Para confirmar tu reserva, ";

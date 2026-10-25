@@ -137,11 +137,12 @@
 .nariz-cabina::before { content: ''; display: block; width: 58px; height: 16px; margin: 0 auto 22px; border: 3px solid #afafa4; border-bottom-width: 0; border-radius: 80px 80px 0 0; }
 .cabina-separador { padding: 12px 0; border-block: 1px dashed #d8d8ce; text-align: center; color: var(--gris-texto); font-size: 10px; }
 .fila-inventario { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 25px; margin: 20px 0; }
-.numero-inventario { width: 48px; color: var(--gris-texto); font-size: 11px; }
-.asiento { min-height: 48px; width: 54px; border: 1px solid #929688; border-bottom: 4px solid #929688; border-radius: 9px 9px 4px 4px; color: #4a4f43; background: #fff; font-size: 13px; font-weight: 700; }
-.asiento:hover:not(:disabled) { border-color: var(--rojo); background: var(--rojo-suave); color: var(--rojo); }
-.asiento.seleccionado { border-color: var(--rojo-profundo); background: var(--rojo); color: white; }
-.asiento:disabled { opacity: 1; border-color: #d5d5cc; color: #85857b; background: #e6e6df; }
+.numero-inventario { width: 56px; color: var(--gris-texto); font-size: 11px; font-weight: 700; letter-spacing: -.02em; }
+.asiento-pasillo { display: inline-block; width: 28px; }
+.asiento { min-height: 50px; width: 54px; border: 1px solid #c2c3ba; border-bottom: 4px solid #b2b4a7; border-radius: 9px 9px 5px 5px; color: #383a34; background: #ffffff; font-size: 13px; font-weight: 700; cursor: pointer; transition: all .16s ease-in-out; }
+.asiento:hover:not(:disabled) { border-color: var(--rojo); background: var(--rojo-suave); color: var(--rojo); transform: translateY(-1px); }
+.asiento.seleccionado { border-color: #b81e13 !important; border-bottom-color: #8c140c !important; background: var(--rojo) !important; color: white !important; box-shadow: 0 4px 14px #da291c3d; transform: translateY(-2px); }
+.asiento:disabled, .asiento.ocupado { opacity: 1; border-color: #d5d5cc !important; border-bottom: 4px solid #c8c8bd !important; color: #85857b !important; background: #e6e6df !important; cursor: not-allowed !important; }
 .cola-cabina { margin-top: 20px; text-align: center; font-size: 9px; color: #85857b; }
 .dialog-acciones { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding-top: 22px; }
 .dialog-acciones p { font-size: 12px; color: var(--gris-texto); }

@@ -51,10 +51,19 @@ module.exports = function registrarRegistro(app, bases) {
         type: argon2.argon2id, memoryCost: 65536, timeCost: 3, parallelism: 1,
       });
       // Lista explícita: nunca copiar roles, estado o tipoCuenta desde req.body.
-      await db.collection('usuarios').insertOne({
+      const docUsuario = {
         nombre: datos.nombre, apellido: datos.apellido, correo: datos.correo,
         passwordHash, tipoCuenta: 'cliente', roles: ['cliente'], estado: 'activo', creadoEn: new Date(),
-      });
+      };
+      try {
+        await db.collection('usuarios').insertOne({ ...docUsuario, rol: 'cliente' });
+      } catch (insertErr) {
+        if (insertErr.code === 121) {
+          await db.collection('usuarios').insertOne(docUsuario);
+        } else {
+          throw insertErr;
+        }
+      }
       res.status(201).json({ ok: true, mensaje: 'Cuenta creada. Ya puedes iniciar sesión.' });
     } catch (error) {
       if (error.code === 11000) return res.status(409).json({ ok: false, mensaje: 'Ya existe una cuenta con ese correo. No se creó otra cuenta.' });

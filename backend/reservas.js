@@ -131,7 +131,7 @@ module.exports = async function registrarReservas(app, bases, clienteDirecto) {
         try { resultado=await comprar(db,cliente,usuario._id,datos); break; }
         catch(e) { if(e.code!==11000 || i===2) throw e; }
       }
-      res.json(resultado);
+      res.status(201).json(resultado);
     } catch(e) {
       const status=e.status || (e.code===11000?409:503);
       if (!e.status) console.error('Reserva:',e.name,e.code || 'sin código');

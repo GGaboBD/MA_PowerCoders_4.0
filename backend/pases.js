@@ -25,7 +25,7 @@ async function pasesDe(db, compradorId, numero) {
     const { boletoId, boleto: numero, ...ficha } = fichas[i];
     const salida = salidaLocal(vuelo);
     return [{
-      numero, ...ficha, localizador: localizadores.get(String(boleto.reservaId)) || '',
+      numero, boletoId: String(boleto._id), reservaId: String(boleto.reservaId), ...ficha, localizador: localizadores.get(String(boleto.reservaId)) || '',
       vuelo: vuelo.codigo, origen: vuelo.origen, destino: vuelo.destino, fecha: salida.fecha, hora: salida.hora,
       salida: vuelo.salida, estadoVuelo: vuelo.estado,
     }];
@@ -33,7 +33,7 @@ async function pasesDe(db, compradorId, numero) {
 }
 
 module.exports = function registrarPases(app, bases) {
-  const db = bases.clientes;
+  const db = bases?.clientes || bases;
   const soloClientes = exigirCliente(bases, 'Inicia sesión para ver tu pase de abordar.');
   app.get('/api/pases', soloClientes, async (req, res) => {
     try { res.json({ ok: true, pases: await pasesDe(db, req.cuenta._id) }); }

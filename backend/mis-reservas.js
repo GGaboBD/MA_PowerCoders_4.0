@@ -26,7 +26,7 @@ module.exports = function registrarMisReservas(app, bases) {
         resultado.push({id:String(r._id),localizador:r.localizador,estado:r.estado,creadaEn:r.creadaEn,
           puedeCancelar:Boolean(r.activa && ['pendiente','confirmada'].includes(r.estado) && vuelo && vuelo.salida>new Date() && !['salido','finalizado'].includes(vuelo.estado) && !boletos.some(b=>b.estado==='utilizado')),
           vuelo:vuelo?{codigo:vuelo.codigo,origen:vuelo.origen,destino:vuelo.destino,salida:vuelo.salida,llegada:vuelo.llegada,estado:vuelo.estado}:null,
-          boletos:boletos.map(b=>({numero:b.numero,pasajero:nombres.get(String(b.pasajeroId))||'Pasajero no disponible',asiento:b.asiento,clase:b.clase,precio:b.precio.toString(),moneda:b.moneda,estado:b.estado}))});
+          boletos:boletos.map(b=>({id:String(b._id),reservaId:String(r._id),numero:b.numero,pasajero:nombres.get(String(b.pasajeroId))||'Pasajero no disponible',asiento:b.asiento,clase:b.clase,precio:b.precio.toString(),moneda:b.moneda,estado:b.estado}))});
       }
       res.json({ok:true,reservas:resultado,siguiente:hayMas?String(reservas[9]._id):null});
     } catch { res.status(503).json({ok:false,mensaje:'No pudimos consultar tus reservas. Intenta nuevamente.'}); }

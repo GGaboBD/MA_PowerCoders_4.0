@@ -23,7 +23,7 @@
     for (const nodo of document.querySelectorAll('[data-rol], [data-permiso]')) {
       const roles = (nodo.dataset.rol || '').split(/\s+/).filter(Boolean);
       let visible = Boolean(user);
-      if (visible && roles.length) visible = roles.includes(user.tipoCuenta);
+      if (visible && roles.length) visible = roles.includes(user.tipoCuenta) || roles.includes(user.rol);
       if (visible && nodo.dataset.permiso) visible = Array.isArray(user.permisos) && user.permisos.includes(nodo.dataset.permiso);
       nodo.hidden = !visible;
     }

@@ -34,9 +34,22 @@ function leerToken(req) {
 
 // Cuenta autenticada con lo mínimo que necesitan las rutas protegidas.
 function describirCuenta(tipo, usuario) {
-  const rol = tipo === 'personal' ? usuario.rol : usuario.tipoCuenta === 'cliente' ? 'cliente' : 'sin_rol';
+  let rol = 'sin_rol';
+  if (tipo === 'personal') {
+    rol = usuario.rol || (Array.isArray(usuario.roles) ? usuario.roles[0] : 'tripulacion');
+  } else if (['tripulacion', 'azafata', 'administrador'].includes(usuario.rol)) {
+    rol = usuario.rol;
+  } else if (Array.isArray(usuario.roles) && usuario.roles.some(r => ['tripulacion', 'azafata', 'administrador'].includes(r))) {
+    rol = usuario.roles.find(r => ['tripulacion', 'azafata', 'administrador'].includes(r));
+  } else if (usuario.tipoCuenta === 'cliente' || usuario.rol === 'cliente' || !usuario.rol) {
+    rol = 'cliente';
+  } else {
+    rol = usuario.rol;
+  }
+  const esPersonal = tipo === 'personal' || ['tripulacion', 'azafata', 'administrador'].includes(rol) || usuario.tipoCuenta === 'trabajador';
+  const tipoCuenta = esPersonal ? 'personal' : (usuario.tipoCuenta || 'cliente');
   return {
-    _id: usuario._id, tipo, tipoCuenta: tipo === 'personal' ? 'personal' : usuario.tipoCuenta, rol, permisos: permisosDe(rol),
+    _id: usuario._id, tipo: esPersonal ? 'personal' : 'cliente', tipoCuenta, rol, permisos: permisosDe(rol),
     nombre: usuario.nombre || '', apellido: usuario.apellido || '', correo: usuario.correo,
   };
 }
@@ -133,7 +146,7 @@ async function autenticar(req, bases) {
     const sesion = await db.collection(cfg.sesiones).findOne({ _id: id, expiraEn: { $gt: ahora } });
     if (!sesion) continue;
     const usuario = await db.collection(cfg.usuarios).findOne({ _id: sesion[cfg.campo], estado: 'activo' },
-      { projection: { nombre: 1, apellido: 1, correo: 1, tipoCuenta: 1, rol: 1 } });
+      { projection: { nombre: 1, apellido: 1, correo: 1, tipoCuenta: 1, rol: 1, roles: 1 } });
     if (!usuario || (tipo === 'personal' && !ROLES_PERSONAL.includes(usuario.rol))) return null;
     return describirCuenta(tipo, usuario);
   }
@@ -169,7 +182,7 @@ module.exports = async function registrarSesion(app, bases, opciones = {}) {
   const limiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: opciones.limiteLogin ?? 15, skipSuccessfulRequests: true, standardHeaders: 'draft-8', legacyHeaders: false,
     message: { ok: false, mensaje: 'Demasiados intentos. Espera 15 minutos para volver a intentar.' } });
   app.use(['/api/login', '/api/sesion', '/api/logout'], (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
-  // acceso: "cliente" (predeterminado) busca en la base de clientes; "personal" en la base de Avianca.
+  // acceso: "cliente" o "personal" (o sin especificar: auto-detecta entre usuarios y personal).
   app.post('/api/login', origenLocal, limiter, async (req, res) => {
     const body = req.body;
     if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).some(k => !['correo', 'password', 'acceso'].includes(k)) ||
@@ -178,18 +191,55 @@ module.exports = async function registrarSesion(app, bases, opciones = {}) {
       return res.status(400).json({ ok: false, mensaje: 'Introduce un correo y una contraseña válidos.' });
     }
     try {
-      const tipo = body.acceso || 'cliente';
-      const db = tipo === 'cliente' ? baseClientes : baseAvianca;
+      const correo = body.correo.trim().toLowerCase();
+      let tipo = body.acceso;
+      let usuario = null;
+      let cfg = null;
+      let db = null;
+
+      if (tipo === 'personal') {
+        if (baseAvianca) {
+          const u = await baseAvianca.collection('personal').findOne({ correo }, { collation: { locale: 'en', strength: 2 } });
+          if (u) { usuario = u; cfg = CUENTAS.personal; db = baseAvianca; }
+        }
+        if (!usuario && baseClientes) {
+          const u = await baseClientes.collection('usuarios').findOne({ correo }, { collation: { locale: 'en', strength: 2 } });
+          if (u && (['tripulacion', 'azafata', 'administrador'].includes(u.rol) || u.tipoCuenta === 'trabajador' || (Array.isArray(u.roles) && u.roles.some(r => ['tripulacion', 'azafata', 'administrador'].includes(r))))) {
+            usuario = u; tipo = 'cliente'; cfg = CUENTAS.cliente; db = baseClientes;
+          }
+        }
+      } else if (tipo === 'cliente') {
+        if (baseClientes) {
+          const u = await baseClientes.collection('usuarios').findOne({ correo }, { collation: { locale: 'en', strength: 2 } });
+          if (u) { usuario = u; cfg = CUENTAS.cliente; db = baseClientes; }
+        }
+      } else {
+        // Auto-detección cuando el formulario unificado no envía acceso
+        if (baseClientes) {
+          const u = await baseClientes.collection('usuarios').findOne({ correo }, { collation: { locale: 'en', strength: 2 } });
+          if (u) { usuario = u; tipo = 'cliente'; cfg = CUENTAS.cliente; db = baseClientes; }
+        }
+        if (!usuario && baseAvianca) {
+          const u = await baseAvianca.collection('personal').findOne({ correo }, { collation: { locale: 'en', strength: 2 } });
+          if (u) { usuario = u; tipo = 'personal'; cfg = CUENTAS.personal; db = baseAvianca; }
+        }
+      }
+
+      if (!db || !cfg) {
+        tipo = tipo || 'cliente';
+        db = tipo === 'cliente' ? baseClientes : baseAvianca;
+        cfg = CUENTAS[tipo];
+      }
+
       if (!db) {
         return res.status(503).json({ ok: false, mensaje: 'La base de datos requerida no está disponible.' });
       }
-      const cfg = CUENTAS[tipo];
-      const correo = body.correo.trim().toLowerCase();
-      const usuario = await db.collection(cfg.usuarios).findOne({ correo }, { collation: { locale: 'en', strength: 2 } });
+
       const hash = typeof usuario?.passwordHash === 'string' && usuario.passwordHash.startsWith('$argon2id$') ? usuario.passwordHash : dummyHash;
       let correcto = false;
       try { correcto = await argon2.verify(hash, body.password); } catch { correcto = false; }
-      const habilitado = usuario && usuario.estado === 'activo' && (tipo !== 'personal' || ROLES_PERSONAL.includes(usuario.rol));
+      const esRolValido = tipo !== 'personal' || ROLES_PERSONAL.includes(usuario?.rol);
+      const habilitado = usuario && usuario.estado === 'activo' && esRolValido;
       if (!habilitado || hash === dummyHash || !correcto) {
         return res.status(401).json({ ok: false, mensaje: 'Correo o contraseña incorrectos, o cuenta no habilitada.' });
       }
