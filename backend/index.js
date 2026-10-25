@@ -6,6 +6,23 @@ const PORT = Number(process.env.PORT || 3000);
 const EN_RENDER = process.env.RENDER === 'true';
 const HOST = EN_RENDER ? '0.0.0.0' : '127.0.0.1';
 
+let appPromise = null;
+
+async function obtenerApp() {
+  if (!appPromise) {
+    appPromise = (async () => {
+      const config = leerConfiguracion();
+      const bases = await conectarBases(config);
+      console.log(`Conexión con MongoDB exitosa: clientes en "${config.dbClientes}" y Avianca en "${config.dbAvianca}".`);
+      return await crearApp(bases);
+    })().catch(error => {
+      appPromise = null;
+      throw error;
+    });
+  }
+  return appPromise;
+}
+
 async function iniciarServidor() {
   let bases;
   try {
@@ -36,4 +53,31 @@ async function iniciarServidor() {
   }
 }
 
-iniciarServidor();
+// Handler serverless para Vercel
+async function handler(req, res) {
+  try {
+    if (req.url && !req.url.startsWith('/api') && !req.url.startsWith('/frontend')) {
+      req.url = '/api' + (req.url.startsWith('/') ? req.url : '/' + req.url);
+    }
+    const app = await obtenerApp();
+    return app(req, res);
+  } catch (error) {
+    console.error('Error al inicializar la aplicación en Vercel:', error);
+    if (!res.headersSent) {
+      res.status(500).json({
+        ok: false,
+        mensaje: 'No se pudo conectar a la base de datos o inicializar la API.',
+        error: error.message
+      });
+    }
+  }
+}
+
+if (require.main === module && !process.env.VERCEL) {
+  iniciarServidor();
+}
+
+module.exports = handler;
+module.exports.handler = handler;
+module.exports.obtenerApp = obtenerApp;
+module.exports.iniciarServidor = iniciarServidor;

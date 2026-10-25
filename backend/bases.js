@@ -7,13 +7,14 @@ const { MongoClient } = require('mongodb');
 // Pueden vivir en el mismo clúster de Atlas (misma URI, distinto nombre de base) o en clústeres distintos.
 function leerConfiguracion(env = process.env) {
   const uriClientes = env.MONGODB_URI;
-  const dbClientes = env.MONGODB_DB;
+  if (!uriClientes) {
+    throw new Error('Falta MONGODB_URI (cadena de conexión de MongoDB Atlas) en las variables de entorno.');
+  }
+  const dbClientes = env.MONGODB_DB || 'avianca';
   const uriAvianca = env.MONGODB_URI_AVIANCA || uriClientes;
-  const dbAvianca = env.MONGODB_DB_AVIANCA || (dbClientes ? `${dbClientes}_operaciones` : undefined);
-  if (!uriClientes || !dbClientes) throw new Error('Falta MONGODB_URI o MONGODB_DB (base de clientes) en .env');
-  if (!dbAvianca) throw new Error('Falta MONGODB_DB_AVIANCA (base de Avianca: personal y abordaje) en .env');
+  let dbAvianca = env.MONGODB_DB_AVIANCA || `${dbClientes}_operaciones`;
   if (uriAvianca === uriClientes && dbAvianca === dbClientes) {
-    throw new Error('MONGODB_DB_AVIANCA debe ser una base distinta de MONGODB_DB.');
+    dbAvianca = `${dbClientes}_operaciones`;
   }
   return { uriClientes, dbClientes, uriAvianca, dbAvianca };
 }
