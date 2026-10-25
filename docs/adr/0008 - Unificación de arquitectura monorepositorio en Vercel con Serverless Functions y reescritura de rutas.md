@@ -1,4 +1,4 @@
-# ADR 0008 · Unificación de arquitectura monorepositorio en Vercel con Serverless Functions y reescritura de rutas
+# ADR 0008 - Unificación de arquitectura monorepositorio en Vercel con Serverless Functions y reescritura de rutas
 
 Estado: Aceptada · 25 de octubre de 2026
 
