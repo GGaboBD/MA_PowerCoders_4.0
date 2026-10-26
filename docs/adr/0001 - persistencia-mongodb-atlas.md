@@ -1,23 +1,35 @@
 # ADR 0001 · Persistencia centralizada en MongoDB Atlas con respaldo local en localStorage
 
-Estado: Aceptada · 20 de octubre de 2026
-
 ## Contexto
-### Qué decisiones tomamos y qué estábamos pensando cuando tomamos esa decisión
-Teníamos encima la entrega y debíamos demostrar que los datos del caso de la Ing. Juliana Ceballos (asiento 2A) no se perdían al recargar la página. Al principio teníamos una desconexión: o dejábamos los datos guardados en el navegador del usuario (`localStorage`) —lo cual impedía que la azafata en su tableta viera lo que seleccionaba el pasajero— o montábamos una base de datos relacional en SQL. Diseñar tablas rígidas en SQL nos iba a consumir demasiado tiempo entre normalizaciones, llaves foráneas y migraciones, un tiempo que no teníamos si queríamos entregar software funcionando esa misma semana. Además, Calvo ya se había adelantado en su máquina creando la base de datos en MongoDB Atlas y conectando las reservas para destrabar el trabajo.
 
-### Quién decidió, quién aprobó y posturas en el equipo
-- **Quién decidió:** Calvo tomó la iniciativa técnica en su máquina local, montó el clúster en MongoDB Atlas y programó los controladores en Express para avanzar con el login y las reservas.
-- **Quién aprobó:** Paniagua y Diego aprobaron la decisión para asegurar el cumplimiento del criterio de persistencia real de la Definition of Done y no frenar el sprint.
-- **Quiénes estaban de acuerdo:** Todo el equipo estaba de acuerdo con la decision de usar una base de datos en MongoDB
-- **El consenso alcanzado:** Se acordó una persistencia híbrida: MongoDB Atlas como fuente principal en la nube y `localStorage` en el navegador como respaldo para mantener la aplicación operativa si se pierde la conexión wifi en cabina.
+Cuando empezamos a conectar las funcionalidades del proyecto, nos dimos cuenta de que necesitábamos guardar los datos de los pasajeros de una forma que permitiera consultarlos desde diferentes dispositivos. Por ejemplo, queríamos que las preferencias de la Ing. Juliana Ceballos, del asiento 2A, se mantuvieran aunque recargáramos la página y que la tripulación pudiera consultarlas desde su tableta.
+
+Al principio utilizábamos `localStorage`, que nos servía para guardar información en el navegador, pero no para compartirla directamente entre dispositivos. También consideramos usar una base de datos SQL, aunque eso implicaba dedicar más tiempo a diseñar tablas, relaciones y configuraciones.
+
+Como teníamos poco tiempo para completar la entrega y Fernando ya había avanzado con MongoDB Atlas y la conexión de las reservas, decidimos aprovechar ese trabajo en lugar de comenzar otra integración desde cero.
+
+## Quién decidió
+
+Fernando tomó la iniciativa técnica de configurar MongoDB Atlas y desarrollar la conexión con el backend en Express. Su avance permitió que el equipo contara con una base para trabajar con datos reales.
+
+## Quién aprobó
+
+Javier y Diego dieron el visto bueno a la decisión para no retrasar el sprint y cumplir con el requisito de persistencia de datos.
+
+Según el acuerdo registrado, el resto del equipo también estaba de acuerdo con utilizar MongoDB.
 
 ## Decisión
-Usaremos MongoDB Atlas en la nube operado mediante una API en Node.js/Express como base de datos central, apoyado con `localStorage` como memoria local de contingencia. Descartamos el uso de bases de datos relacionales en SQL y descartamos depender únicamente del almacenamiento del navegador.
+
+Decidimos utilizar **MongoDB Atlas como nuestra base de datos principal**, conectada mediante una API desarrollada con Node.js y Express.
+
+También mantendríamos `localStorage` como apoyo local para ciertas funcionalidades cuando hubiera problemas de conexión, sin depender exclusivamente de él para guardar la información.
+
+De esta manera, descartamos desarrollar una base de datos SQL y dejamos de utilizar el almacenamiento del navegador como única fuente de datos.
 
 ## Consecuencias
-+ **Qué se gana:** Centralización real de la información entre la tableta de la tripulación y la pantalla del pasajero.
-+ **Qué se gana:** Flexibilidad en el esquema para añadir alergias, idiomas y notas especiales a los pasajeros sin necesidad de ejecutar migraciones de base de datos.
-+ **Qué se gana:** Tolerancia básica a fallos de red en el aula gracias al respaldo en el navegador.
-− **Qué se pierde:** Cambiar de motor de base de datos a estas alturas exigiría reescribir por completo los controladores del backend y las pruebas automatizadas.
-− **Qué se pierde:** Riesgo de inconsistencias entre la información guardada localmente en el navegador y los registros en la nube si no se sincronizan de inmediato.
+
+- **Qué ganamos:** Podemos guardar la información de los pasajeros en una base centralizada y consultarla desde distintos dispositivos.
+- **Qué ganamos:** Tenemos flexibilidad para agregar datos como alergias, idiomas, preferencias de comida y solicitudes especiales.
+- **Qué ganamos:** El almacenamiento local puede servir como respaldo temporal para determinadas funciones si falla la conexión.
+- **Qué sacrificamos:** Cambiar de base de datos después requeriría modificar una parte importante del backend y sus pruebas.
+- **Qué sacrificamos:** Existe el riesgo de que la información local y la información de MongoDB sean diferentes si no se sincronizan correctamente.
