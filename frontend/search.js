@@ -38,6 +38,7 @@ function render(flights, data, hayMas) {
   }
   const list = element('div', undefined, 'lista-vuelos');
   for (const flight of flights) {
+    const card = element('article', undefined, 'vuelo-card');
     const price = flight.moneda === 'COP'
       ? `$ ${new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(Number(flight.precio))} COP`
       : `$ ${new Intl.NumberFormat('es-SV', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(flight.precio))} USD`;
