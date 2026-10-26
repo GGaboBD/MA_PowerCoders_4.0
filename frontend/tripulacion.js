@@ -94,10 +94,30 @@
   ];
 
   function asientosDemo() {
-    return [
-      ...A.asientosDe('P').map(codigo => ({ codigo, clase: codigo === '2A' ? 'ejecutiva' : 'primera' })),
-      ...A.asientosDe('E').map(codigo => ({ codigo, clase: 'ejecutiva' }))
-    ];
+    const lista = [];
+    for (let f = 1; f <= 3; f++) {
+      for (const l of ['A', 'B', 'C', 'D']) {
+        const codigo = `${f}${l}`;
+        lista.push({ codigo, clase: codigo === '2A' ? 'ejecutiva' : 'primera' });
+      }
+    }
+    for (let f = 4; f <= 11; f++) {
+      for (const l of ['A', 'B', 'C', 'D']) {
+        lista.push({ codigo: `${f}${l}`, clase: 'ejecutiva' });
+      }
+    }
+    return lista;
+  }
+
+  function normalizarAsientosCabina(asientosBase) {
+    const mapa = new Map((asientosBase || []).map(a => [a.codigo, a]));
+    const completos = asientosDemo();
+    for (const def of completos) {
+      if (!mapa.has(def.codigo)) {
+        mapa.set(def.codigo, def);
+      }
+    }
+    return Array.from(mapa.values());
   }
 
   function cargarDemo() {
@@ -206,10 +226,7 @@
       if ($('vuelo').value !== id) return; // se eligió otro vuelo mientras tanto
       const cambio = vuelo?.id !== datos.vuelo.id;
       vuelo = datos.vuelo;
-      const asientosVuelo = datos.asientos || [];
-      if (!asientosVuelo.some(a => a.codigo === '2A')) {
-        asientosVuelo.unshift({ codigo: '2A', clase: 'ejecutiva' });
-      }
+      const asientosVuelo = normalizarAsientosCabina(datos.asientos);
       cabina = { asientos: asientosVuelo, pasajeros: datos.pasajeros };
       porAsiento = new Map(datos.pasajeros.map(p => [p.asiento, p]));
       recordarVuelo();
@@ -422,11 +439,13 @@
   function pintarCabina() {
     const plano = $('plano-vivo');
     if (!cabina) { plano.replaceChildren(); return; }
-    // Filas agrupadas por número; la clase de cada asiento viene del inventario del vuelo.
+    // Filas agrupadas por número; la clase de cada fila viene de la regla de cabina (1-3 Primera, 4-11 Ejecutiva)
     const filas = new Map();
     for (const asiento of [...cabina.asientos].sort((a, b) => ordenAsiento(a.codigo, b.codigo))) {
       const numero = asiento.codigo.match(/^\d+/)?.[0] || '—';
-      if (!filas.has(numero)) filas.set(numero, { clase: asiento.clase, asientos: [] });
+      const numFila = parseInt(numero, 10);
+      const claseFila = numFila <= 3 ? 'primera' : 'ejecutiva';
+      if (!filas.has(numero)) filas.set(numero, { clase: claseFila, asientos: [] });
       filas.get(numero).asientos.push(asiento);
     }
     const contenedor = document.createElement('div');
@@ -440,7 +459,7 @@
         contenedor.append(s); claseAnterior = fila.clase;
       }
       const div = document.createElement('div');
-      div.className = 'fila-asientos primera';
+      div.className = `fila-asientos ${fila.clase}`;
       const mitad = Math.ceil(fila.asientos.length / 2);
       div.style.gridTemplateColumns = `35px repeat(${mitad}, 42px) minmax(26px, 1fr) repeat(${fila.asientos.length - mitad}, 42px)`;
       const num = document.createElement('span'); num.className = 'numero-fila'; num.textContent = numero; div.append(num);

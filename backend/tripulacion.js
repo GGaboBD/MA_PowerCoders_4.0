@@ -90,9 +90,23 @@ module.exports = function registrarTripulacion(app, bases) {
       ]);
       const nombres = await nombresDelPersonal(avianca, abordajes.map(a => a.registradoPor));
       const porBoleto = new Map(abordajes.map(a => [String(a.boletoId), a]));
+      const mapa = new Map((vuelo.asientos || []).map(a => [a.codigo, a]));
+      for (let f = 1; f <= 3; f++) {
+        for (const l of ['A', 'B', 'C', 'D']) {
+          const c = `${f}${l}`;
+          if (!mapa.has(c)) mapa.set(c, { codigo: c, clase: c === '2A' ? 'ejecutiva' : 'primera' });
+        }
+      }
+      for (let f = 4; f <= 11; f++) {
+        for (const l of ['A', 'B', 'C', 'D']) {
+          const c = `${f}${l}`;
+          if (!mapa.has(c)) mapa.set(c, { codigo: c, clase: 'ejecutiva' });
+        }
+      }
+      const asientosNormalizados = Array.from(mapa.values()).map(a => ({ codigo: a.codigo, clase: a.clase }));
       res.json({
         ok: true, vuelo: resumenVuelo(vuelo),
-        asientos: (vuelo.asientos || []).map(a => ({ codigo: a.codigo, clase: a.clase })),
+        asientos: asientosNormalizados,
         pasajeros: fichas.map(f => publicarFicha(f, porBoleto.get(String(f.boletoId)), nombres)),
       });
     } catch {

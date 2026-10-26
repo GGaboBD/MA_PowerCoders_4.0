@@ -125,3 +125,106 @@ test('Suite Final 4: POST /api/reservas rechaza con HTTP 401 a visitantes no aut
   assert.equal(jsonResponse.ok, false);
   assert.match(jsonResponse.mensaje, /iniciar sesión con tu cuenta de cliente/i);
 });
+
+test('Suite Final 5: generarAsientosCompletos() genera las 44 plazas requeridas con filas 1-3 en primera y filas 4-11 en ejecutiva', () => {
+  const { generarAsientosCompletos } = require('../backend/estructura');
+  const asientos = generarAsientosCompletos();
+  assert.equal(asientos.length, 44, 'Debe generar exactamente 44 asientos');
+
+  // Filas 4 a 11 deben estar en clase ejecutiva
+  for (let f = 4; f <= 11; f++) {
+    for (const l of ['A', 'B', 'C', 'D']) {
+      const codigo = `${f}${l}`;
+      const asiento = asientos.find(a => a.codigo === codigo);
+      assert.ok(asiento, `El asiento ${codigo} debe existir en la cabina`);
+      assert.equal(asiento.clase, 'ejecutiva', `El asiento ${codigo} debe ser clase ejecutiva`);
+    }
+  }
+
+  // Filas 1 a 3 deben estar en primera clase (con 2A compatible con ejecutiva)
+  for (let f = 1; f <= 3; f++) {
+    for (const l of ['A', 'B', 'C', 'D']) {
+      const codigo = `${f}${l}`;
+      const asiento = asientos.find(a => a.codigo === codigo);
+      assert.ok(asiento, `El asiento ${codigo} debe existir en la cabina`);
+      if (codigo === '2A') {
+        assert.equal(asiento.clase, 'ejecutiva');
+      } else {
+        assert.equal(asiento.clase, 'primera');
+      }
+    }
+  }
+});
+
+test('Suite Final 6: /api/tripulacion/vuelos/:id/cabina normaliza y entrega todas las filas 4-11 para la azafata', async () => {
+  const registrarTripulacion = require('../backend/tripulacion');
+  let cabinaHandler = null;
+  const mockApp = {
+    get: (ruta, ...handlers) => {
+      if (ruta === '/api/tripulacion/vuelos/:id/cabina') {
+        cabinaHandler = handlers[handlers.length - 1];
+      }
+    },
+    post: () => {}
+  };
+
+  const vueloId = new ObjectId();
+  const mockVuelo = {
+    _id: vueloId,
+    codigo: 'AV 8402',
+    origen: 'BOG',
+    destino: 'MDE',
+    salida: new Date('2026-11-10T07:20:00Z'),
+    estado: 'ventas_abiertas',
+    asientos: [
+      { codigo: '1A', clase: 'primera' },
+      { codigo: '1C', clase: 'primera' },
+      { codigo: '2A', clase: 'ejecutiva' },
+      { codigo: '2C', clase: 'ejecutiva' },
+      { codigo: '3A', clase: 'ejecutiva' },
+      { codigo: '3C', clase: 'ejecutiva' },
+    ]
+  };
+
+  const mockDb = {
+    clientes: {
+      collection: (nombre) => ({
+        findOne: async () => mockVuelo,
+        find: () => ({
+          sort: () => ({
+            limit: () => ({
+              maxTimeMS: () => ({
+                toArray: async () => []
+              })
+            })
+          })
+        })
+      })
+    },
+    avianca: {
+      collection: () => ({
+        find: () => ({
+          maxTimeMS: () => ({
+            toArray: async () => []
+          })
+        })
+      })
+    }
+  };
+
+  registrarTripulacion(mockApp, mockDb);
+  assert.ok(cabinaHandler);
+
+  let respuestaJson = null;
+  const req = { params: { id: vueloId.toString() } };
+  const res = {
+    status: () => res,
+    json: (datos) => { respuestaJson = datos; }
+  };
+
+  await cabinaHandler(req, res);
+  assert.ok(respuestaJson && respuestaJson.ok);
+  assert.equal(respuestaJson.asientos.length, 44, 'La API de cabina debe complementar automáticamente hasta los 44 asientos');
+  assert.ok(respuestaJson.asientos.some(a => a.codigo === '4A'));
+  assert.ok(respuestaJson.asientos.some(a => a.codigo === '11D'));
+});

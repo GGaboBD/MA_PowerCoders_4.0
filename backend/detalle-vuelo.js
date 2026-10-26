@@ -42,7 +42,21 @@ module.exports = function registrarDetalle(app, bases) {
       if (vuelo.codigo === 'AV 8402') {
         ocupados.add('2A');
       }
-      const asientos = vuelo.asientos.filter(a => a.clase === cabina || (cabina === 'ejecutiva' && a.codigo === '2A')).map(a => ({
+      const mapa = new Map((vuelo.asientos || []).map(a => [a.codigo, a]));
+      for (let f = 1; f <= 3; f++) {
+        for (const l of ['A', 'B', 'C', 'D']) {
+          const c = `${f}${l}`;
+          if (!mapa.has(c)) mapa.set(c, { codigo: c, clase: c === '2A' ? 'ejecutiva' : 'primera' });
+        }
+      }
+      for (let f = 4; f <= 11; f++) {
+        for (const l of ['A', 'B', 'C', 'D']) {
+          const c = `${f}${l}`;
+          if (!mapa.has(c)) mapa.set(c, { codigo: c, clase: 'ejecutiva' });
+        }
+      }
+      const asientosBase = Array.from(mapa.values());
+      const asientos = asientosBase.filter(a => a.clase === cabina || (cabina === 'ejecutiva' && a.codigo === '2A')).map(a => ({
         codigo: a.codigo, clase: a.codigo === '2A' ? 'ejecutiva' : a.clase, disponible: !ocupados.has(a.codigo),
       }));
       res.json({ ok: true, vuelo: { ...detalle, asientos } });
