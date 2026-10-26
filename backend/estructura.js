@@ -255,7 +255,7 @@ const RUTAS_CATALOGO = [
 ];
 
 async function sembrarVuelosCatalogo(db) {
-  const { Decimal128 } = require('mongodb');
+  const { ObjectId, Decimal128, Int32 } = require('mongodb');
   const diaBogota = instante => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).format(instante);
   const sumarDias = (fecha, dias) => new Date(Date.parse(`${fecha}T12:00:00Z`) + dias * 86400000).toISOString().slice(0, 10);
   const hoy = diaBogota(new Date());
@@ -268,6 +268,7 @@ async function sembrarVuelosCatalogo(db) {
         const zonaOrigen = ZONAS_HORARIAS[ruta.origen] || 'America/Bogota';
         const salida = instanteLocal(fecha, hora, zonaOrigen);
         const vuelo = {
+          _id: new ObjectId(),
           codigo,
           origen: ruta.origen,
           destino: ruta.destino,
@@ -281,11 +282,13 @@ async function sembrarVuelosCatalogo(db) {
           moneda: ruta.moneda,
           asientos: asientosLista,
           diaViaje: diaBogota(salida),
-          versionInventario: 0,
+          versionInventario: new Int32(0),
         };
         try {
           await db.collection('vuelos').updateOne({ codigo, salida }, { $setOnInsert: vuelo }, { upsert: true });
-        } catch {}
+        } catch (e) {
+          console.error(`Error al sembrar vuelo ${codigo}:`, e.message);
+        }
       }
     }
   }

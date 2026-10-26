@@ -6,7 +6,7 @@
 const { parseArgs } = require('node:util');
 const { randomBytes, randomUUID } = require('node:crypto');
 const argon2 = require('argon2');
-const { Decimal128 } = require('mongodb');
+const { Decimal128, ObjectId, Int32 } = require('mongodb');
 const { leerConfiguracion, conectarBases } = require('../bases');
 const { prepararAvianca, prepararClientes } = require('../estructura');
 const { horarioLocal, zonas } = require('../vuelos');
@@ -83,9 +83,10 @@ async function sembrarVuelos(db, desde) {
       for (const [codigo, hora] of ruta.salidas) {
         const salida = instanteLocal(fecha, hora, zonas[ruta.origen]);
         const vuelo = {
+          _id: new ObjectId(),
           origen: ruta.origen, destino: ruta.destino, llegada: new Date(salida.getTime() + ruta.minutos * 60000), estado: 'ventas_abiertas',
           tarifas: { ejecutiva: Decimal128.fromString(ruta.tarifas[0]), primera: Decimal128.fromString(ruta.tarifas[1]) },
-          moneda: ruta.moneda, asientos: asientos(), diaViaje: diaBogota(salida), versionInventario: 0,
+          moneda: ruta.moneda, asientos: asientos(), diaViaje: diaBogota(salida), versionInventario: new Int32(0),
         };
         try {
           const r = await db.collection('vuelos').updateOne({ codigo, salida }, { $setOnInsert: vuelo }, { upsert: true });
