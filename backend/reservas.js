@@ -409,7 +409,10 @@ async function comprar(db, cliente, compradorId, datos) {
     };
 
     const boletos = [];
-    for (const p of datos.pasajeros) {
+    for (let pIdx = 0; pIdx < datos.pasajeros.length; pIdx++) {
+      const p = datos.pasajeros[pIdx];
+      const esTitular = (pIdx === 0 && Boolean(compradorId));
+
       const alergiasLimpias = Array.isArray(p.preferencias?.alergias)
         ? [...new Set(p.preferencias.alergias.map(a => String(a).trim()).filter(Boolean))]
         : (typeof p.preferencias?.alergias === 'string' && p.preferencias.alergias.trim()
@@ -429,25 +432,43 @@ async function comprar(db, cliente, compradorId, datos) {
         fechaNacObj = new Date('1990-01-01T00:00:00Z');
       }
 
-      let persona = await db.collection('pasajeros').findOne({
-        'documento.tipo': p.documento.tipo,
-        'documento.paisEmisor': p.documento.paisEmisor,
-        'documento.numero': p.documento.numero,
-      });
+      let persona = null;
+      if (esTitular) {
+        persona = await db.collection('pasajeros').findOne({
+          $or: [
+            {
+              'documento.tipo': p.documento.tipo,
+              'documento.paisEmisor': p.documento.paisEmisor,
+              'documento.numero': p.documento.numero,
+            },
+            { usuarioTitularId: compradorId },
+          ],
+        });
+      } else {
+        persona = await db.collection('pasajeros').findOne({
+          'documento.tipo': p.documento.tipo,
+          'documento.paisEmisor': p.documento.paisEmisor,
+          'documento.numero': p.documento.numero,
+        });
+      }
 
       if (persona) {
+        const updateDoc = {
+          nombres: p.nombres,
+          apellidos: p.apellidos,
+          fechaNacimiento: fechaNacObj,
+          'documento.tipo': p.documento.tipo,
+          'documento.paisEmisor': p.documento.paisEmisor,
+          'documento.numero': p.documento.numero,
+          preferencias: prefPasajero,
+          preferenciasActualizadasEn: ahora,
+        };
+        if (esTitular) {
+          updateDoc.usuarioTitularId = compradorId;
+        }
         await db.collection('pasajeros').updateOne(
           { _id: persona._id },
-          {
-            $set: {
-              nombres: p.nombres,
-              apellidos: p.apellidos,
-              fechaNacimiento: fechaNacObj,
-              preferencias: prefPasajero,
-              preferenciasActualizadasEn: ahora,
-              usuarioTitularId: compradorId,
-            },
-          }
+          { $set: updateDoc }
         ).catch(() => {});
       } else {
         persona = {
@@ -462,21 +483,74 @@ async function comprar(db, cliente, compradorId, datos) {
           },
           preferencias: prefPasajero,
           preferenciasActualizadasEn: ahora,
-          usuarioTitularId: compradorId,
         };
+        if (esTitular) {
+          persona.usuarioTitularId = compradorId;
+        }
+
         try {
           await db.collection('pasajeros').insertOne(persona);
         } catch (pErr) {
           if (pErr.code === 11000) {
             persona = await db.collection('pasajeros').findOne({
-              'documento.tipo': p.documento.tipo,
-              'documento.paisEmisor': p.documento.paisEmisor,
-              'documento.numero': p.documento.numero,
+              $or: [
+                {
+                  'documento.tipo': p.documento.tipo,
+                  'documento.paisEmisor': p.documento.paisEmisor,
+                  'documento.numero': p.documento.numero,
+                },
+                ...(esTitular ? [{ usuarioTitularId: compradorId }] : []),
+              ],
             });
+
+            if (!persona) {
+              const sinTitular = {
+                _id: new ObjectId(),
+                nombres: p.nombres,
+                apellidos: p.apellidos,
+                fechaNacimiento: fechaNacObj,
+                documento: {
+                  tipo: p.documento.tipo,
+                  paisEmisor: p.documento.paisEmisor,
+                  numero: p.documento.numero,
+                },
+                preferencias: prefPasajero,
+                preferenciasActualizadasEn: ahora,
+              };
+              try {
+                await db.collection('pasajeros').insertOne(sinTitular);
+                persona = sinTitular;
+              } catch {
+                persona = await db.collection('pasajeros').findOne({
+                  'documento.numero': p.documento.numero,
+                });
+              }
+            }
           } else {
             throw pErr;
           }
         }
+      }
+
+      if (!persona || !persona._id) {
+        persona = {
+          _id: new ObjectId(),
+          nombres: p.nombres,
+          apellidos: p.apellidos,
+          fechaNacimiento: fechaNacObj,
+          documento: {
+            tipo: p.documento.tipo,
+            paisEmisor: p.documento.paisEmisor,
+            numero: p.documento.numero,
+          },
+          preferencias: prefPasajero,
+          preferenciasActualizadasEn: ahora,
+        };
+        await db.collection('pasajeros').insertOne(persona).catch(async () => {
+          persona = (await db.collection('pasajeros').findOne({
+            'documento.numero': p.documento.numero,
+          })) || persona;
+        });
       }
 
       if (typeof db.collection('boletos').updateMany === 'function') {
@@ -689,7 +763,7 @@ module.exports = async function registrarReservas(app, bases, clienteDirecto) {
 
         if (!u) {
           const passwordHash = await argon2.hash(randomBytes(16).toString('hex'), OPCIONES_HASH);
-          const nuevoUsuario = {
+          const usuarioCompleto = {
             _id: new ObjectId(),
             nombre: p1Nombre,
             apellido: p1Apellido,
@@ -702,11 +776,33 @@ module.exports = async function registrarReservas(app, bases, clienteDirecto) {
             creadoEn: new Date()
           };
           try {
-            await db.collection('usuarios').insertOne(nuevoUsuario);
-            u = nuevoUsuario;
-          } catch {
-            u = await db.collection('usuarios').findOne({ correo: correoAuto }) ||
-                await db.collection('usuarios').findOne({ tipoCuenta: 'cliente' });
+            await db.collection('usuarios').insertOne(usuarioCompleto);
+            u = usuarioCompleto;
+          } catch (uErr) {
+            if (uErr.code === 121) {
+              const usuarioOriginal = {
+                _id: usuarioCompleto._id,
+                correo: correoAuto,
+                passwordHash,
+                tipoCuenta: 'cliente',
+                roles: ['cliente'],
+                estado: 'activo',
+                creadoEn: new Date()
+              };
+              try {
+                await db.collection('usuarios').insertOne(usuarioOriginal);
+                u = usuarioOriginal;
+              } catch {
+                u = await db.collection('usuarios').findOne({ correo: correoAuto });
+              }
+            } else if (uErr.code === 11000) {
+              u = await db.collection('usuarios').findOne({ correo: correoAuto });
+            }
+          }
+
+          if (!u) {
+            u = await db.collection('usuarios').findOne({ tipoCuenta: 'cliente' }) ||
+                await db.collection('usuarios').findOne({});
           }
         }
 

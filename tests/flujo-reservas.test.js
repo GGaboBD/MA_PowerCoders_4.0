@@ -1,9 +1,11 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { ObjectId } = require('mongodb');
+const { ObjectId, MongoClient, Decimal128 } = require('mongodb');
+const { MongoMemoryServer } = require('mongodb-memory-server');
 const { comprar, validar } = require('../backend/reservas');
 const { completarBoletos } = require('../backend/fichas');
+const { prepararPerfilesViaje } = require('../backend/estructura');
 
 function crearFakeDb(datosIniciales = {}) {
   const colecciones = {
@@ -562,6 +564,161 @@ test('Integración 6: Persistencia estricta con validadores $jsonSchema reales e
   assert.equal(fichas[0].nombre, 'Juliana');
   assert.equal(fichas[0].trato, 'Ing. Ceballos');
   assert.equal(fichas[0].comida, 'vegetariana');
+
+  await client.close();
+  await mongod.stop();
+});
+
+test('Integración 7: Múltiples pasajeros y reservas consecutivas sin colisión de índice usuarioTitularId', async () => {
+  const mongod = await MongoMemoryServer.create();
+  const client = new MongoClient(mongod.getUri());
+  await client.connect();
+  const db = client.db('avianca_prueba_multi');
+
+  const texto = { bsonType: 'string', minLength: 1 };
+  const referencia = { bsonType: 'objectId' };
+  const fecha = { bsonType: 'date' };
+  const dia = { bsonType: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' };
+  const listaTexto = { bsonType: 'array', items: texto, uniqueItems: true };
+  const preferencias = {
+    bsonType: 'object', additionalProperties: false,
+    required: ['comida', 'noMolestar', 'alergias', 'bebida', 'notas'],
+    properties: {
+      comida: { enum: ['sin_preferencia', 'estandar', 'vegetariana', 'vegana', 'sin_gluten', 'otra'] },
+      noMolestar: { bsonType: 'bool' },
+      alergias: listaTexto,
+      bebida: { bsonType: 'string' },
+      notas: { bsonType: 'string', maxLength: 1000 }
+    }
+  };
+  function estructura(required, properties) {
+    return { bsonType: 'object', additionalProperties: false,
+      required: ['_id', ...required], properties: { _id: referencia, ...properties } };
+  }
+
+  await db.createCollection('pasajeros', {
+    validator: {
+      $jsonSchema: estructura(
+        ['nombres', 'apellidos', 'fechaNacimiento', 'documento', 'preferencias', 'preferenciasActualizadasEn'], {
+          nombres: texto, apellidos: texto, fechaNacimiento: fecha,
+          usuarioTitularId: referencia,
+          documento: {
+            bsonType: 'object', additionalProperties: false,
+            required: ['tipo', 'paisEmisor', 'numero'],
+            properties: { tipo: { enum: ['pasaporte', 'identidad'] }, paisEmisor: texto, numero: texto }
+          },
+          preferencias, preferenciasActualizadasEn: fecha
+        }
+      )
+    }
+  });
+  // Índice único parcial exacto de Atlas
+  await db.collection('pasajeros').createIndex(
+    { usuarioTitularId: 1 },
+    { unique: true, name: 'pasajero_titular_unico', partialFilterExpression: { usuarioTitularId: { $type: 'objectId' } } }
+  );
+
+  await db.createCollection('reservas');
+  await db.createCollection('boletos');
+  await db.createCollection('auditoria');
+  await db.createCollection('vuelos');
+  await db.createCollection('usuarios');
+  await db.createCollection('solicitudes_reserva');
+  await prepararPerfilesViaje(db);
+
+  const vueloId = new ObjectId();
+  await db.collection('vuelos').insertOne({
+    _id: vueloId,
+    codigo: 'AV 8402',
+    origen: 'BOG',
+    destino: 'MDE',
+    salida: new Date('2026-11-10T14:00:00Z'),
+    llegada: new Date('2026-11-10T15:05:00Z'),
+    estado: 'ventas_abiertas',
+    tarifas: { ejecutiva: Decimal128.fromString('420000.00'), primera: Decimal128.fromString('890000.00') },
+    moneda: 'COP',
+    asientos: [
+      { codigo: '4A', clase: 'ejecutiva' },
+      { codigo: '4B', clase: 'ejecutiva' },
+      { codigo: '4C', clase: 'ejecutiva' },
+      { codigo: '4D', clase: 'ejecutiva' }
+    ],
+    diaViaje: '2026-11-10',
+    versionInventario: 1
+  });
+
+  const compradorId = new ObjectId();
+
+  // Reserva 1: Dos pasajeros (titular y acompañante)
+  const datosReserva1 = {
+    vueloId: String(vueloId),
+    vuelo: 'AV 8402',
+    fecha: '2026-11-10',
+    diaViaje: '2026-11-10',
+    clase: 'ejecutiva',
+    precio: 420000,
+    moneda: 'COP',
+    solicitudId: 'sol-multi-1',
+    pasajeros: [
+      {
+        nombres: 'Juliana',
+        apellidos: 'Ceballos',
+        asiento: '4A',
+        fechaNacimiento: '1986-04-12',
+        documento: { tipo: 'pasaporte', paisEmisor: 'CO', numero: 'DOC-TITULAR-1' },
+        preferencias: { comida: 'vegetariana', noMolestar: false, alergias: ['Nueces'], bebida: 'Agua', notas: '' }
+      },
+      {
+        nombres: 'Carlos',
+        apellidos: 'Acompañante',
+        asiento: '4B',
+        fechaNacimiento: '1992-08-20',
+        documento: { tipo: 'identidad', paisEmisor: 'CO', numero: 'DOC-ACOMP-1' },
+        preferencias: { comida: 'estandar', noMolestar: false, alergias: [], bebida: 'Café', notas: '' }
+      }
+    ]
+  };
+
+  const res1 = await comprar(db, client, compradorId, datosReserva1);
+  assert.equal(res1.ok, true);
+  assert.equal(res1.boletos.length, 2);
+
+  // Reserva 2: El mismo comprador compra otro pasaje con documento diferente (sin colisión de titular)
+  const datosReserva2 = {
+    vueloId: String(vueloId),
+    vuelo: 'AV 8402',
+    fecha: '2026-11-10',
+    diaViaje: '2026-11-10',
+    clase: 'ejecutiva',
+    precio: 420000,
+    moneda: 'COP',
+    solicitudId: 'sol-multi-2',
+    pasajeros: [
+      {
+        nombres: 'Juliana María',
+        apellidos: 'Ceballos Nieto',
+        asiento: '4C',
+        fechaNacimiento: '1986-04-12',
+        documento: { tipo: 'identidad', paisEmisor: 'CO', numero: 'DOC-TITULAR-NUEVO' },
+        preferencias: { comida: 'vegana', noMolestar: true, alergias: [], bebida: 'Té', notas: 'Preferencias actualizadas' }
+      }
+    ]
+  };
+
+  const compradorId2 = new ObjectId();
+  const res2 = await comprar(db, client, compradorId2, datosReserva2);
+  assert.equal(res2.ok, true);
+  assert.equal(res2.boletos.length, 1);
+
+  // Verificar que la tripulación puede leer todos los pasajeros con sus preferencias
+  const todosBoletos = await db.collection('boletos').find({ vueloId, vigente: true }).toArray();
+  assert.equal(todosBoletos.length, 3);
+  const fichas = await completarBoletos(db, todosBoletos);
+  assert.equal(fichas.length, 3);
+
+  const nombres = fichas.map(f => f.nombre);
+  assert.ok(nombres.includes('Juliana') || nombres.includes('Juliana María'));
+  assert.ok(nombres.includes('Carlos'));
 
   await client.close();
   await mongod.stop();
