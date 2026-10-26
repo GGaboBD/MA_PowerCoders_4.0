@@ -77,7 +77,7 @@ const ESQUEMAS_CLIENTES = {
     tarifas: objeto(['ejecutiva', 'primera'], { ejecutiva: { bsonType: 'decimal' }, primera: { bsonType: 'decimal' } }),
     moneda: MONEDA,
     asientos: { bsonType: 'array', minItems: 1, items: objeto(['codigo', 'clase'], { codigo: { bsonType: 'string', pattern: '^[0-9]{1,2}[A-Z]$' }, clase: CLASE }) },
-    diaViaje: DIA, versionInventario: { bsonType: ['int', 'long'] },
+    diaViaje: DIA, zonaDiaViaje: { enum: ['America/Bogota'] }, versionInventario: { bsonType: ['int', 'long', 'double'] },
   }),
   pasajeros: objeto(['_id', 'nombres', 'apellidos', 'fechaNacimiento', 'documento', 'preferencias'], {
     _id: id, nombres: texto(1, 80), apellidos: texto(1, 80), fechaNacimiento: fecha,
@@ -283,6 +283,7 @@ async function sembrarVuelosCatalogo(db) {
           moneda: ruta.moneda,
           asientos: asientosLista,
           diaViaje: diaBogota(salida),
+          zonaDiaViaje: 'America/Bogota',
           versionInventario: new Int32(0),
         });
       }
@@ -361,13 +362,20 @@ async function prepararClientes(db) {
           }
         ];
         for (const p of pasajerosDemo) {
-          const pasId = new ObjectId();
-          const bolId = new ObjectId();
-          await db.collection('pasajeros').insertOne({
-            _id: pasId, usuarioTitularId: compradorId, nombres: p.nombre, apellidos: p.apellido,
-            fechaNacimiento: new Date('1988-01-01T00:00:00Z'), documento: p.documento,
-            preferencias: p.preferencias, preferenciasActualizadasEn: ahora
+          let pas = await db.collection('pasajeros').findOne({
+            'documento.tipo': p.documento.tipo,
+            'documento.paisEmisor': p.documento.paisEmisor,
+            'documento.numero': p.documento.numero
           });
+          const pasId = pas ? pas._id : new ObjectId();
+          if (!pas) {
+            await db.collection('pasajeros').insertOne({
+              _id: pasId, usuarioTitularId: compradorId, nombres: p.nombre, apellidos: p.apellido,
+              fechaNacimiento: new Date('1988-01-01T00:00:00Z'), documento: p.documento,
+              preferencias: p.preferencias, preferenciasActualizadasEn: ahora
+            });
+          }
+          const bolId = new ObjectId();
           await db.collection('boletos').insertOne({
             _id: bolId, numero: `BOL-${randomUUID().slice(0, 8).toUpperCase()}`, reservaId, vueloId: vueloDemo._id,
             pasajeroId: pasId, asiento: p.asiento, clase: 'ejecutiva',

@@ -86,7 +86,7 @@ async function sembrarVuelos(db, desde) {
           _id: new ObjectId(),
           origen: ruta.origen, destino: ruta.destino, llegada: new Date(salida.getTime() + ruta.minutos * 60000), estado: 'ventas_abiertas',
           tarifas: { ejecutiva: Decimal128.fromString(ruta.tarifas[0]), primera: Decimal128.fromString(ruta.tarifas[1]) },
-          moneda: ruta.moneda, asientos: asientos(), diaViaje: diaBogota(salida), versionInventario: new Int32(0),
+          moneda: ruta.moneda, asientos: asientos(), diaViaje: diaBogota(salida), zonaDiaViaje: 'America/Bogota', versionInventario: new Int32(0),
         };
         try {
           const r = await db.collection('vuelos').updateOne({ codigo, salida }, { $setOnInsert: vuelo }, { upsert: true });
