@@ -153,6 +153,9 @@ function autoAssignDefaultSeats() {
     const fila4Plus = asientosDisponibles.filter(a => a.codigo !== "2A" && /^([4-9]|1[0-1])[A-D]$/.test(a.codigo));
     if (fila4Plus.length > 0) {
       candidatos = fila4Plus.map(a => a.codigo);
+    } else if (asientosDisponibles.length > 0) {
+      const otrosDisp = asientosDisponibles.filter(a => a.codigo !== "2A");
+      candidatos = otrosDisp.length > 0 ? otrosDisp.map(a => a.codigo) : asientosDisponibles.map(a => a.codigo);
     } else {
       candidatos = [
         "4A", "4B", "4C", "4D",
@@ -169,6 +172,8 @@ function autoAssignDefaultSeats() {
     const primeraDisp = asientosDisponibles.filter(a => /^[1-3][A-D]$/.test(a.codigo));
     if (primeraDisp.length > 0) {
       candidatos = primeraDisp.map(a => a.codigo);
+    } else if (asientosDisponibles.length > 0) {
+      candidatos = asientosDisponibles.map(a => a.codigo);
     } else {
       candidatos = ["1A", "1B", "1C", "1D", "2A", "2B", "2C", "2D", "3A", "3B", "3C", "3D"];
     }
@@ -429,12 +434,7 @@ async function saveReservation(button, review) {
   if (busy || saved || !form.reportValidity()) return;
 
   if (!sesionUsuario) {
-    status.textContent = "Para confirmar la reserva necesitas iniciar sesión con tu cuenta de cliente. ";
-    const link = document.createElement("a");
-    link.href = "cuenta.html?volver=" + encodeURIComponent(location.pathname + location.search);
-    link.textContent = "Iniciar sesión aquí";
-    status.append(link);
-    return;
+    status.textContent = "Confirmando tu reserva y registrando tu cuenta de cliente…";
   }
 
   const payload = buildPayload();
@@ -497,6 +497,9 @@ async function saveReservation(button, review) {
       throw new Error(errorMsg);
     }
     saved = true;
+    if (result.usuario) {
+      sesionUsuario = result.usuario;
+    }
     form.hidden = true;
     const progressNav = document.querySelector(".compra-progreso");
     if (progressNav) progressNav.hidden = true;

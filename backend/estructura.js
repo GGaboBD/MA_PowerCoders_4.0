@@ -160,6 +160,27 @@ async function prepararAvianca(db) {
   for (const rol of ROLES_PERSONAL) {
     await db.collection('roles').updateOne({ _id: rol }, { $set: { descripcion: DESCRIPCIONES[rol], permisos: permisosDe(rol) } }, { upsert: true });
   }
+  const cuentaAzafata = await db.collection('personal').findOne({ correo: 'azafata@avianca.com' });
+  if (!cuentaAzafata) {
+    try {
+      const { ObjectId } = require('mongodb');
+      const argon2 = require('argon2');
+      const passwordHash = await argon2.hash('Tripulacion2026!', { type: argon2.argon2id, memoryCost: 65536, timeCost: 3, parallelism: 1 });
+      await db.collection('personal').insertOne({
+        _id: new ObjectId(),
+        nombre: 'Azafata',
+        apellido: 'Cabina',
+        correo: 'azafata@avianca.com',
+        passwordHash,
+        rol: 'tripulacion',
+        estado: 'activo',
+        creadoEn: new Date(),
+        creadoPor: null,
+        actualizadoEn: new Date(),
+        ultimoAcceso: new Date(),
+      });
+    } catch {}
+  }
   return reporte;
 }
 

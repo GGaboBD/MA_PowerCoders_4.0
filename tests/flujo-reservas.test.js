@@ -219,11 +219,12 @@ test('Integración 2: Persistencia completa y vinculada en reservas, boletos, pa
   assert.equal(boletoDoc.asiento, '4A');
   assert.equal(String(boletoDoc.reservaId), String(resultado.reservaId));
   assert.equal(boletoDoc.vigente, true);
-  assert.ok(boletoDoc.textoQR.startsWith('AVPC2|'));
+  assert.ok(resultado.boletos[0].textoQR.startsWith('AVPC2|'));
 
   // 3. Perfil de viaje vinculado
   const perfilDoc = fakeDb._colecciones.perfiles_viaje.get(String(boletoId));
   assert.ok(perfilDoc, 'Debe existir el documento en perfiles_viaje');
+  assert.ok(perfilDoc.textoQR.startsWith('AVPC2|'));
   assert.equal(perfilDoc.comida, 'vegetariana');
   assert.equal(perfilDoc.bebida, 'Café');
   assert.deepEqual(perfilDoc.alergias, ['Maní']);
@@ -387,4 +388,181 @@ test('Integración 5: Sincronización en vivo con cabina de tripulación y lectu
   assert.deepEqual(ficha.alergias, ['Gluten', 'Lactosa']);
   assert.equal(ficha.notas, 'Pasajero VIP');
   assert.equal(ficha.trato, 'Don Carlos');
+});
+
+// 6. Prueba 6 (Persistencia estricta en Atlas con validadores $jsonSchema reales):
+test('Integración 6: Persistencia estricta con validadores $jsonSchema reales en MongoDB (MongoMemoryServer)', async () => {
+  const { MongoMemoryServer } = require('mongodb-memory-server');
+  const { MongoClient, Decimal128 } = require('mongodb');
+  const { prepararPerfilesViaje } = require('../backend/estructura');
+
+  const mongod = await MongoMemoryServer.create();
+  const client = new MongoClient(mongod.getUri());
+  await client.connect();
+  const db = client.db('avianca_test');
+
+  const texto = { bsonType: 'string', minLength: 1 };
+  const referencia = { bsonType: 'objectId' };
+  const fecha = { bsonType: 'date' };
+  const clase = { enum: ['ejecutiva', 'primera'] };
+  const dia = { bsonType: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' };
+  const listaTexto = { bsonType: 'array', items: texto, uniqueItems: true };
+  const preferencias = {
+    bsonType: 'object', additionalProperties: false,
+    required: ['comida', 'noMolestar', 'alergias', 'bebida', 'notas'],
+    properties: {
+      comida: { enum: ['sin_preferencia', 'estandar', 'vegetariana', 'vegana', 'sin_gluten', 'otra'] },
+      noMolestar: { bsonType: 'bool' },
+      alergias: listaTexto,
+      bebida: { bsonType: 'string' },
+      notas: { bsonType: 'string', maxLength: 1000 }
+    }
+  };
+  function estructura(required, properties) {
+    return { bsonType: 'object', additionalProperties: false,
+      required: ['_id', ...required], properties: { _id: referencia, ...properties } };
+  }
+
+  await db.createCollection('pasajeros', {
+    validator: { $jsonSchema: estructura(
+      ['nombres', 'apellidos', 'fechaNacimiento', 'documento', 'preferencias', 'preferenciasActualizadasEn'], {
+        nombres: texto, apellidos: texto, fechaNacimiento: fecha,
+        usuarioTitularId: referencia,
+        documento: {
+          bsonType: 'object', additionalProperties: false,
+          required: ['tipo', 'paisEmisor', 'numero'],
+          properties: { tipo: { enum: ['pasaporte', 'identidad'] }, paisEmisor: texto, numero: texto }
+        },
+        preferencias, preferenciasActualizadasEn: fecha
+      })
+    }
+  });
+
+  await db.createCollection('reservas', {
+    validator: {
+      $and: [
+        { $jsonSchema: estructura(
+          ['localizador', 'compradorId', 'vueloId', 'diaViaje', 'estado', 'activa', 'creadaEn'], {
+            localizador: texto, compradorId: referencia, vueloId: referencia, diaViaje: dia,
+            estado: { enum: ['pendiente', 'confirmada', 'completada', 'cancelada'] },
+            activa: { bsonType: 'bool' }, creadaEn: fecha
+          })
+        },
+        { $expr: { $eq: ['$activa', { $ne: ['$estado', 'cancelada'] }] } }
+      ]
+    }
+  });
+
+  await db.createCollection('boletos', {
+    validator: {
+      $and: [
+        { $jsonSchema: estructura(
+          ['numero', 'reservaId', 'vueloId', 'pasajeroId', 'asiento', 'clase', 'precio', 'moneda', 'estado', 'vigente', 'preferenciasViaje', 'creadoEn'], {
+            numero: texto, reservaId: referencia, vueloId: referencia, pasajeroId: referencia,
+            asiento: texto, clase, precio: { bsonType: 'decimal', minimum: 0 },
+            moneda: { enum: ['USD', 'COP'] },
+            estado: { enum: ['reservado', 'emitido', 'utilizado', 'cancelado'] },
+            vigente: { bsonType: 'bool' }, preferenciasViaje: preferencias, creadoEn: fecha
+          })
+        },
+        { $expr: { $eq: ['$vigente', { $ne: ['$estado', 'cancelado'] }] } }
+      ]
+    }
+  });
+
+  await db.createCollection('auditoria', {
+    validator: {
+      $jsonSchema: estructura(['actorId', 'accion', 'coleccion', 'documentoId', 'fecha'], {
+        actorId: referencia, accion: texto, coleccion: texto, documentoId: referencia, fecha
+      })
+    }
+  });
+
+  await db.createCollection('vuelos');
+  await db.createCollection('usuarios');
+  await db.createCollection('solicitudes_reserva');
+  await prepararPerfilesViaje(db);
+
+  const vueloId = new ObjectId();
+  await db.collection('vuelos').insertOne({
+    _id: vueloId,
+    codigo: 'AV 8402',
+    origen: 'BOG',
+    destino: 'MDE',
+    salida: new Date('2026-11-10T14:00:00Z'),
+    llegada: new Date('2026-11-10T15:05:00Z'),
+    estado: 'ventas_abiertas',
+    tarifas: { ejecutiva: Decimal128.fromString('420000.00'), primera: Decimal128.fromString('890000.00') },
+    moneda: 'COP',
+    asientos: [
+      { codigo: '4A', clase: 'ejecutiva' },
+      { codigo: '4B', clase: 'ejecutiva' }
+    ],
+    diaViaje: '2026-11-10',
+    versionInventario: 1
+  });
+
+  const compradorId = new ObjectId();
+  const datos = {
+    vueloId: String(vueloId),
+    vuelo: 'AV 8402',
+    fecha: '2026-11-10',
+    diaViaje: '2026-11-10',
+    clase: 'ejecutiva',
+    precio: 420000,
+    moneda: 'COP',
+    solicitudId: 'sol-real-schema',
+    pasajeros: [{
+      nombres: 'Juliana',
+      apellidos: 'Ceballos',
+      asiento: '4A',
+      fechaNacimiento: '1986-04-12',
+      documento: { tipo: 'pasaporte', paisEmisor: 'CO', numero: 'DEMO-CO-1001' },
+      preferencias: {
+        comida: 'vegetariana',
+        noMolestar: false,
+        alergias: ['Frutos secos'],
+        bebida: 'Café americano sin azúcar',
+        notas: 'Trabaja durante el vuelo.'
+      },
+      perfil: { trato: 'Ing. Ceballos', idioma: 'es', atencion: 0, motivo: 1 }
+    }]
+  };
+
+  const resultado = await comprar(db, client, compradorId, datos);
+  assert.equal(resultado.ok, true);
+  assert.ok(resultado.localizador.startsWith('AV-'));
+  assert.equal(resultado.boletos.length, 1);
+  assert.equal(resultado.boletos[0].asiento, '4A');
+
+  // Verificar persistencia exacta en las colecciones
+  const reservaDoc = await db.collection('reservas').findOne({ compradorId });
+  assert.ok(reservaDoc);
+  assert.equal(reservaDoc.activa, true);
+  assert.equal(reservaDoc.estado, 'confirmada');
+  assert.equal(reservaDoc.diaViaje, '2026-11-10');
+
+  const boletoDoc = await db.collection('boletos').findOne({ reservaId: reservaDoc._id });
+  assert.ok(boletoDoc);
+  assert.equal(boletoDoc.vigente, true);
+  assert.equal(boletoDoc.asiento, '4A');
+  assert.ok(boletoDoc.precio instanceof Decimal128);
+
+  const perfilDoc = await db.collection('perfiles_viaje').findOne({ _id: boletoDoc._id });
+  assert.ok(perfilDoc);
+  assert.equal(perfilDoc.trato, 'Ing. Ceballos');
+  assert.equal(perfilDoc.comida, 'vegetariana');
+  assert.deepEqual(perfilDoc.alergias, ['Frutos secos']);
+  assert.ok(perfilDoc.textoQR.includes('AVPC2|'));
+
+  // Consultar desde tripulación
+  const fichas = await completarBoletos(db, [boletoDoc]);
+  assert.equal(fichas.length, 1);
+  assert.equal(fichas[0].asiento, '4A');
+  assert.equal(fichas[0].nombre, 'Juliana');
+  assert.equal(fichas[0].trato, 'Ing. Ceballos');
+  assert.equal(fichas[0].comida, 'vegetariana');
+
+  await client.close();
+  await mongod.stop();
 });

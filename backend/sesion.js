@@ -291,3 +291,7 @@ module.exports.borrarSesionesDePersonal = borrarSesionesDePersonal;
 module.exports.auditarPersonal = auditarPersonal;
 module.exports.OPCIONES_HASH = OPCIONES_HASH;
 module.exports.CUENTAS = CUENTAS;
+module.exports.COOKIE = COOKIE;
+module.exports.cookieOptions = cookieOptions;
+module.exports.digest = digest;
+module.exports.DURACION = DURACION;
