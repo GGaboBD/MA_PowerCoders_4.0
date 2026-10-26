@@ -1,30 +1,34 @@
-# ADR 0007 - Verificación sintáctica dinámica y modular en CI mediante script de recorrido seguro
+# ADR 0007 · Revisamos la sintaxis con un script recursivo
 
 Estado: Aceptada · 25 de octubre de 2026
 
+Revisión documental: 26 de octubre de 2026 (UTC), sobre `c14954e`. La fecha y el estado originales se conservan como metadatos; no acreditan una aprobación del equipo. Se retiraron las atribuciones personales sin respaldo verificable.
+
 ## Contexto
-### Qué decisiones tomamos y qué estábamos pensando cuando tomamos esa decisión
-Al ejecutar el flujo de integración continua en GitHub Actions para validar la integración de las ramas de trabajo, el pipeline (`integracion`) falló de inmediato en el paso `Run npm run check:syntax` con el error `Error: Cannot find module '/home/runner/work/MA_PowerCoders_4.0/MA_PowerCoders_4.0/scripts/revisar-sintaxis.js' code: 'MODULE_NOT_FOUND'`.
 
-El manifiesto `package.json` invocaba un script que no existía en el árbol del repositorio tras las reorganizaciones previas. Teníamos dos caminos para solucionar el bloqueo:
-1. Reemplazar el comando por una cadena estática con `node --check` listando archivos puntuales (por ejemplo: `node --check search.js && node --check purchase.js...`).
-2. Implementar el script modular `scripts/revisar-sintaxis.js` para recorrer de forma recursiva y segura los archivos JavaScript en la raíz, `frontend/`, `backend/`, `scripts/` y `tests/`, omitiendo `node_modules`.
+Una lista fija de archivos para `check:syntax` puede quedar desactualizada al reorganizar carpetas. El script actual recorre las carpetas del proyecto para construir esa lista.
 
-La opción de la cadena estática era frágil: cualquier renombre o movimiento de archivos entre carpetas volvería a quebrar el pipeline en GitHub Actions.
+## Decisión y alcance actual
 
-### Quién decidió, quién aprobó y posturas en el equipo
-- **Quién decidió:** Gabriel identificó la causa exacta en los logs de error del runner y solicitó a través del agente Antigravity crear el script modular tolerante a cambios de carpetas.
-- **Quién aprobó:** Aprobado por Paniagua y Diego para estabilizar el pipeline de CI y cumplir con la Definition of Done antes de continuar con la integración.
-- **Quiénes estaban de acuerdo:** Gabriel y Paniagua respaldaron la solución modular porque evita tocar el `package.json` cada vez que se agrega una vista o controlador. Calvo estuvo de acuerdo al ver que sus archivos de backend quedaban analizados automáticamente.
-- **Quiénes no estaban de acuerdo:** Charlie prefería la lista directa quemada en `package.json` para no agregar más scripts al repositorio y evitar dependencias de utilidades internas.
-- **Por qué se aprobó:** La inspección dinámica evita falsos positivos por archivos movidos y permitió que `npm run check:syntax` revisara 35 archivos sin fallar, dejando 21 pruebas unitarias en verde (`npm test`) en el commit `635964e`.
+Ejecutamos `node scripts/revisar-sintaxis.js` desde `npm run check:syntax`. El script usa `node --check` sobre archivos `.js`, `.mjs` y `.cjs` de la raíz y de `frontend/`, `backend/`, `scripts/`, `tests/` y `api/`. Excluye `node_modules`, `vendor` y `.git`.
 
-## Decisión
-Crearemos y mantendremos el módulo `scripts/revisar-sintaxis.js` invocado por el comando canónico `"check:syntax": "node scripts/revisar-sintaxis.js"` en `package.json`. Este script inspecciona dinámicamente archivos `.js`, `.mjs` y `.cjs` en todas las carpetas clave del proyecto sin lanzar excepciones si alguna carpeta auxiliar no existe. Descartamos encadenar comandos manuales de `node --check` en `package.json`.
+CI corre esta comprobación después de instalar dependencias y antes de `npm test`. La revisión comprueba sintaxis; no sustituye un linter, pruebas funcionales ni una prueba del despliegue.
 
 ## Consecuencias
-+ **Qué se gana:** Robustez en el pipeline de CI; mover o renombrar componentes entre `frontend/` y `backend/` no rompe la verificación de sintaxis.
-+ **Qué se gana:** Verificación automatizada y sin mantenimiento manual de 35 archivos del proyecto previo a la ejecución de las pruebas unitarias.
-+ **Qué se gana:** Desbloqueo del pipeline de GitHub Actions, alcanzando el estado verde en la rama `main`.
-− **Qué se pierde (Puerta de dos vías):** Introduce un archivo adicional de mantenimiento en `scripts/` que depende del motor de Node.js configurado en el proyecto.
-− **Qué se pierde:** Si en el futuro se adopta un linter formal como ESLint o Biome, este script quedará redundante y deberá eliminarse junto con su configuración.
+
+- Agregar archivos en las carpetas cubiertas no exige enumerarlos en `package.json`.
+- Una carpeta nueva fuera de esa lista requiere actualizar el recorrido.
+- Las carpetas ausentes se omiten. El código también omite errores de lectura con `catch`, por lo que un recorrido incompleto podría no hacer fallar la comprobación.
+- Un resultado verde acredita los archivos y pruebas ejecutados en ese commit, no la corrección de todas las funciones de la aplicación.
+
+## Revisión pendiente
+
+Cada resultado de CI debe consultarse con su enlace, fecha y commit. Los recuentos de archivos y pruebas cambian con el repositorio; esta revisión no fija una cifra permanente ni usa el CI de la base como validación del nuevo commit.
+
+## Referencias
+
+- [`scripts/revisar-sintaxis.js`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/c14954e2183d323b6dbde20b66b3ad0cd0f89ace/scripts/revisar-sintaxis.js)
+- [`.github/workflows/ci.yml`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/c14954e2183d323b6dbde20b66b3ad0cd0f89ace/.github/workflows/ci.yml)
+- [`package.json`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/c14954e2183d323b6dbde20b66b3ad0cd0f89ace/package.json)
+
+Seguimiento de la revisión: [PCA-197](https://avianca-powercoders.atlassian.net/browse/PCA-197). La revisión por pares sigue pendiente.

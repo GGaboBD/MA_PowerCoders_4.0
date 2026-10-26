@@ -1,30 +1,44 @@
-# ADR 0014 - Arquitectura multi-vuelo del panel de tripulación con sincronización en vivo y registro de abordaje QR persistido
+# ADR 0014 · Consultamos varios vuelos y persistimos el abordaje
 
 Estado: Aceptada · 25 de octubre de 2026
 
+Revisión documental: 26 de octubre de 2026 (UTC), sobre `c14954e`. La fecha y el estado originales se conservan como metadatos; no acreditan una aprobación del equipo. Se retiraron las atribuciones personales sin respaldo verificable.
+
 ## Contexto
-### Qué decisiones tomamos y qué estábamos pensando cuando tomamos esa decisión
-En el diseño preliminar del proyecto, la pantalla de la azafata (`tripulacion.html`) estaba atada de forma rígida a un único vuelo con datos estáticos, impidiendo evaluar escenarios donde la tripulación debe cambiar de ruta o atender vuelos en diferentes horarios (como el AV 8402 o el AV 8436). Adicionalmente, el escáner de códigos QR (`jsQR.js`) operaba de manera cosmética: leía el código del pase de abordar y emitía una alerta visual en el navegador, pero no modificaba el estado de abordaje en la base de datos ni actualizaba el mapa de cabina en tiempo real, lo que impedía verificar la llegada del pasajero desde otros dispositivos.
 
-Debíamos decidir entre dos enfoques arquitectónicos:
-1. Mantener el panel monovuelo con abordaje local volátil para no alterar los controladores existentes de tripulación.
-2. Convertir el panel en un sistema multi-vuelo dinámico con selector de itinerario en vivo conectado a MongoDB Atlas, y conectar el escáner QR a un endpoint transaccional (`POST /api/tripulacion/vuelos/:id/abordajes`) que persista el estado «A bordo» en la base de datos y refresque el mapa de asientos instantáneamente.
+El panel necesita consultar pasajeros de distintos vuelos y compartir el estado de abordaje entre los dispositivos del personal. Se eligió consultar la API y guardar los registros en la base de Avianca, en lugar de depender solo del estado de un navegador.
 
-El primer enfoque incumplía el objetivo pedagógico de la cátedra, pues el valor de la simulación radica en comprobar que cuando la azafata escanea el boleto de la Ing. Juliana Ceballos en el asiento 2A, su estado pasa de «Por abordar» a «A bordo» tanto en la tableta como en el registro central de la aerolínea.
+## Decisión y alcance actual
 
-### Quién decidió, quién aprobó y posturas en el equipo
-- **Quién decidió:** Gabriel solicitó a Antigravity habilitar el selector multi-vuelo y conectar el lector QR con persistencia en Atlas para que el abordaje fuera auditable en la base de datos.
-- **Quién aprobó:** Aprobado por Paniagua y Diego para cumplir con la historia HU01 (consulta dinámica de vuelo) y el flujo de abordaje con escaneo en vivo.
-- **Quiénes estaban de acuerdo:** Gabriel y Calvo apoyaron conectar la ruta de abordaje con MongoDB Atlas para que la colección `abordajes` registre la marca temporal de entrada del pasajero. Diego respaldó el cambio porque permite alternar entre vuelos de prueba sin reiniciar el servidor.
-- **Quiénes no estaban de acuerdo:** Charlie expresó preocupación por la dependencia de la cámara física del dispositivo durante la presentación, temiendo que fallara el permiso de hardware en el aula.
-- **Por qué se aprobó:** Se mitigó el riesgo de hardware manteniendo un mecanismo dual de escaneo (cámara web en vivo y subida directa de imagen o código manual), garantizando que el abordaje en MongoDB Atlas pueda demostrarse bajo cualquier circunstancia durante la evaluación.
+El selector consulta `GET /api/tripulacion/vuelos` y la cabina se obtiene desde la API del vuelo elegido. Para registrar el abordaje se usa `POST /api/tripulacion/vuelos/:id/abordajes`, con comprobación de sesión y permiso.
 
-## Decisión
-Transformaremos `tripulacion.html` en un panel multi-vuelo dotado de un selector dinámico alimentado por `GET /api/tripulacion/vuelos`, el cual consulta los itinerarios activos en MongoDB Atlas y dibuja en tiempo real el mapa de cabina ejecutiva con sus cuatro estados normados (Libre, Por abordar, A bordo y No molestar). Conectaremos el escáner QR (`assets/vendor/jsQR.js`) al endpoint `POST /api/tripulacion/vuelos/:id/abordajes` para persistir el abordaje en Atlas y actualizar la interfaz sin recargas forzadas. Descartamos mantener pantallas atadas a un solo vuelo quemado en código y descartamos escaneos QR puramente visuales sin impacto en base de datos.
+La API busca un boleto vigente por número y, si no lo encuentra y el pase incluye asiento, intenta encontrarlo por asiento y vuelo. Admite ciertos pases antiguos; solo compara vuelo, fecha, asiento y apellido del QR cuando el pase contiene `verificacion`. Por ello, no todos los formatos pasan por la misma comprobación de datos. Se admiten cámara, imagen y registro manual por boleto. Un índice único evita repetir el registro del boleto y el endpoint reconoce los abordajes repetidos.
+
+El panel actualiza su vista después de operar y consulta la cabina cada 15 segundos cuando la pestaña está visible y el vuelo no es de demostración. No usa WebSockets ni garantiza actualización simultánea entre tabletas.
+
+El endpoint inserta el abordaje y después escribe la auditoría en la base de Avianca. Luego intenta marcar el boleto `a_bordo` en la base de clientes y silencia el fallo de esa actualización. Son operaciones separadas, sin transacción conjunta. Reiniciar el abordaje elimina sus registros y añade auditoría, pero no revierte ese estado del boleto.
+
+El listado de vuelos intenta filtrar por fecha; si no obtiene resultados, devuelve hasta 50 vuelos de varios estados sin repetir ese filtro. La fecha solicitada no garantiza que todos los resultados correspondan a ese día.
+
+El frontend todavía contiene datos y funciones de simulación (`PASAJEROS_DEMO`, `cargarDemo` y un camino de registro local); su presencia no prueba que ese modo esté activado en el despliegue.
 
 ## Consecuencias
-+ **Qué se gana:** Fidelidad operativa real; la tripulación puede gestionar múltiples vuelos del itinerario y verificar los asientos ocupados correspondientes a cada ruta.
-+ **Qué se gana:** Persistencia comprobable del abordaje; el escaneo del pase QR emitido en `pase.html` actualiza el estado en MongoDB Atlas y cambia el color del asiento en la cabina de inmediato.
-+ **Qué se gana:** Preservación del caso de prueba canónico de la Ing. Juliana Ceballos (asiento 2A, vuelo AV 8402, menú vegetariano y alerta de frutos secos) listo para demostraciones en vivo.
-− **Qué se pierde (Puerta de dos vías):** Aumenta el tráfico de consultas sobre el clúster de Atlas al requerir lecturas completas de boletos cada vez que se cambia de vuelo en el selector.
-− **Qué se pierde:** Si la cámara del dispositivo presenta problemas de permisos en navegadores con políticas estrictas de seguridad (HTTPS), el operador debe recurrir manualmente a la carga de imagen del código QR.
+
+- Los registros persistidos se pueden consultar desde varias tabletas.
+- Otro dispositivo verá el cambio cuando complete su siguiente consulta; la red y la visibilidad de la pestaña afectan ese tiempo.
+- La lectura por imagen y el registro manual ofrecen alternativas si la cámara falla, sin garantizar una demostración bajo cualquier condición.
+- Un fallo de auditoría puede ocurrir después de guardar el abordaje; un reintento reconoce el duplicado sin reconstruir esa auditoría. También puede divergir el estado del boleto, incluso después de un reinicio. Esos casos requieren un criterio de recuperación.
+- El caso de la Ing. Ceballos debe comprobarse con la semilla y la base del entorno de demostración; la existencia de datos de muestra no acredita por sí sola el flujo persistido.
+
+## Revisión pendiente
+
+Quedan pendientes pruebas de registro repetido, fallo entre abordaje y auditoría, y sincronización entre dispositivos. Esta revisión documenta el comportamiento sin cambiarlo.
+
+## Referencias
+
+- [`backend/tripulacion.js`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/c14954e2183d323b6dbde20b66b3ad0cd0f89ace/backend/tripulacion.js)
+- [`backend/estructura.js`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/c14954e2183d323b6dbde20b66b3ad0cd0f89ace/backend/estructura.js)
+- [`frontend/tripulacion.js`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/c14954e2183d323b6dbde20b66b3ad0cd0f89ace/frontend/tripulacion.js)
+- [`frontend/abordaje.js`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/c14954e2183d323b6dbde20b66b3ad0cd0f89ace/frontend/abordaje.js)
+
+Seguimiento de la revisión: [PCA-197](https://avianca-powercoders.atlassian.net/browse/PCA-197). La revisión por pares sigue pendiente.

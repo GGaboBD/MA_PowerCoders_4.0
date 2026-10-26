@@ -1,30 +1,45 @@
-# ADR 0013 - Centralización del perfil maestro del viajero (`perfiles_usuario`) y autocompletado en el flujo de reserva
+# ADR 0013 · Guardamos el perfil y prellenamos al primer pasajero
 
 Estado: Aceptada · 25 de octubre de 2026
 
+Revisión documental: 26 de octubre de 2026 (UTC), sobre `c14954e`. La fecha y el estado originales se conservan como metadatos; no acreditan una aprobación del equipo. Se retiraron las atribuciones personales sin respaldo verificable.
+
 ## Contexto
-### Qué decisiones tomamos y qué estábamos pensando cuando tomamos esa decisión
-En el flujo original de la aplicación, cada vez que un usuario registrado intentaba adquirir un vuelo en `compra.html`, debía reescribir manualmente todos sus datos personales, trato de cortesía, documento de identidad, preferencias de comida (vegetariana, sin gluten), nivel de atención y alertas médicas. Además de generar una experiencia de compra tediosa que incrementaba la tasa de abandono en la simulación, provocaba que las preferencias de servicio no estuvieran vinculadas a una fuente de verdad duradera del pasajero, perdiéndose la coherencia con el perfil ejecutivo exigido en el User Story Map.
 
-Frente a esto, consideramos dos alternativas:
-1. Almacenar temporalmente los datos del formulario en el almacenamiento local del navegador (`localStorage`) para recordarlos en la máquina cliente.
-2. Diseñar un módulo independiente de perfil (`perfil.html`, `perfil.js`) respaldado por una nueva colección en MongoDB Atlas (`perfiles_usuario`) expuesta mediante los endpoints `GET /api/perfil` y `PUT /api/perfil`, integrando autocompletado automático al abrir `compra.html`.
+Guardar los datos del viajero en la base permite recuperarlos al iniciar sesión desde otro navegador. El código usa un perfil asociado al usuario, en lugar de depender exclusivamente de `localStorage` o volver a pedir todos los datos en cada compra.
 
-La alternativa de `localStorage` volvía a caer en el problema de persistencia volátil: si el usuario cambiaba de equipo o abría la sesión en modo incógnito, sus preferencias no existían, impidiendo que la azafata pudiera consultar su ficha histórica.
+## Decisión y alcance actual
 
-### Quién decidió, quién aprobó y posturas en el equipo
-- **Quién decidió:** Gabriel propuso crear el módulo de perfil centralizado para que el usuario configure una sola vez su trato, alimentación y alergias, resolviendo simultáneamente el autocompletado de compra y la alimentación de la ficha de cabina.
-- **Quién aprobó:** Paniagua y Diego aprobaron la creación de los endpoints de perfil al comprobar que daba soporte directo a las historias de usuario de preferencias (HU05 y HU06).
-- **Quiénes estaban de acuerdo:** Gabriel y Calvo apoyaron la creación de la colección `perfiles_usuario` en MongoDB Atlas porque desacopla los datos estáticos de autenticación (correo y clave hash en `usuarios`) de las preferencias dinámicas y cambiantes de viaje del pasajero. Diego valoró la reducción de errores de digitación en las pruebas.
-- **Quiénes no estaban de acuerdo:** Charlie temía que agregar una pantalla completa adicional (`perfil.html`) sobrecargara el alcance del Sprint 3 a pocos días de la entrega final.
-- **Por qué se aprobó:** Centralizar el perfil en la base de datos permite que el Pasajero 1 se prellene de forma transparente al iniciar una compra y garantiza que los casos de prueba (como la dieta vegetariana y la alergia a frutos secos de la Ing. Juliana Ceballos) se mantengan consistentes en todo el sistema.
+`GET /api/perfil` y `PUT /api/perfil` acceden a `perfiles_usuario` con la identidad de la cuenta de cliente. Si no hay perfil guardado, la consulta intenta recuperar datos del pasajero vinculado al titular.
 
-## Decisión
-Crearemos la vista `perfil.html` y los endpoints `GET /api/perfil` y `PUT /api/perfil` respaldados por la colección `perfiles_usuario` en MongoDB Atlas, estructurada en tres secciones maestras: Identidad y Contacto, Experiencia y Catering a Bordo, y Bienestar/Requerimientos Especiales (alergias y modo "No molestar"). Conectaremos `purchase.js` para consultar este endpoint al detectar sesión activa y autocompletar el formulario del Pasajero 1. Descartamos guardar preferencias exclusivamente en `localStorage` y descartamos obligar al usuario a digitar sus datos en cada compra.
+Existen `perfil.html` y el formulario de preferencias en `cuenta.html`/`cuenta.js`; los archivos de la vista anterior siguen presentes. La compra consulta el perfil para prellenar al primer pasajero, con datos de identidad, documento, comida, atención, bebida, notas y alergias.
+
+El prellenado no conserva todos los campos maestros: al construir la reserva, `purchase.js` forma el trato con nombre y apellido y fija idioma `es` y motivo `1`. No presentamos esa transferencia como una copia completa del perfil.
+
+Al guardar el perfil general, el backend actualiza `perfiles_usuario`, nombres en `usuarios` y datos de los pasajeros vinculados mediante escrituras sucesivas. No hay una transacción común para esas actualizaciones ni una actualización equivalente de todos los perfiles de viaje y boletos existentes.
+
+Al comprar, `reservas.js` guarda preferencias en el boleto y en `perfiles_viaje`, y devuelve el QR del boleto en la respuesta. `completarBoletos` da prioridad al perfil de viaje y usa como respaldo las preferencias del boleto y del pasajero. Esa copia por viaje no implica que una edición posterior del perfil general actualice todas las reservas.
 
 ## Consecuencias
-+ **Qué se gana:** Experiencia de usuario ágil y sin fricciones; los usuarios autenticados reservan su vuelo sin volver a ingresar documentos o dietas repetitivamente.
-+ **Qué se gana:** Trazabilidad unificada de requerimientos especiales y catering; la ficha que lee la azafata proviene de las preferencias oficiales guardadas por el pasajero en su perfil.
-+ **Qué se gana:** Cobertura de pruebas unitarias automatizadas (`tests/perfil-rbac.test.js`) que validan la normalización y sanitización de datos antes de persistir en Atlas.
-− **Qué se pierde (Puerta de dos vías):** Incrementa el número de archivos a mantener en el repositorio (`perfil.html`, `perfil.js` y `backend/perfil.js`).
-− **Qué se pierde:** Añade una petición HTTP adicional (`GET /api/perfil`) al inicializar la pantalla de compra, requiriendo manejo de estados de carga silenciosos para no congelar la interfaz.
+
+- El usuario puede recuperar preferencias persistidas y evitar repetir parte del formulario.
+- La consulta añade una petición al abrir la compra. Si falla, el formulario mantiene los datos disponibles y permite completarlos.
+- Un fallo entre escrituras puede dejar información distinta entre colecciones.
+- Hay que decidir qué datos pertenecen al perfil general y cuáles deben conservarse como datos de cada viaje, especialmente para reservas ya emitidas.
+- `tests/perfil-rbac.test.js` comprueba normalización, permisos y una compra con dobles de colecciones, incluida la lectura de preferencias del viaje. No acredita guardado HTTP, transacciones reales, sincronización de ediciones del perfil ni persistencia en Atlas.
+
+## Revisión pendiente
+
+Quedan pendientes la política de copia perfil→viaje, el tratamiento de actualizaciones parciales y si se mantiene la vista antigua. No se modifican formularios ni persistencia en esta revisión.
+
+## Referencias
+
+- [`backend/reservas.js`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/c14954e2183d323b6dbde20b66b3ad0cd0f89ace/backend/reservas.js)
+- [`backend/fichas.js`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/c14954e2183d323b6dbde20b66b3ad0cd0f89ace/backend/fichas.js)
+- [`backend/perfil.js`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/c14954e2183d323b6dbde20b66b3ad0cd0f89ace/backend/perfil.js)
+- [`frontend/cuenta.js`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/c14954e2183d323b6dbde20b66b3ad0cd0f89ace/frontend/cuenta.js)
+- [`frontend/perfil.html`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/c14954e2183d323b6dbde20b66b3ad0cd0f89ace/frontend/perfil.html)
+- [`frontend/purchase.js`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/c14954e2183d323b6dbde20b66b3ad0cd0f89ace/frontend/purchase.js)
+- [`tests/perfil-rbac.test.js`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/c14954e2183d323b6dbde20b66b3ad0cd0f89ace/tests/perfil-rbac.test.js)
+
+Seguimiento de la revisión: [PCA-197](https://avianca-powercoders.atlassian.net/browse/PCA-197). La revisión por pares sigue pendiente.
