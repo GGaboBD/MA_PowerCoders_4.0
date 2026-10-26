@@ -261,13 +261,14 @@ async function sembrarVuelosCatalogo(db) {
   const hoy = diaBogota(new Date());
   const asientosLista = generarAsientosCompletos();
 
+  const documentos = [];
   for (let d = 0; d < 7; d++) {
     const fecha = sumarDias(hoy, d);
     for (const ruta of RUTAS_CATALOGO) {
       for (const [codigo, hora] of ruta.salidas) {
         const zonaOrigen = ZONAS_HORARIAS[ruta.origen] || 'America/Bogota';
         const salida = instanteLocal(fecha, hora, zonaOrigen);
-        const vuelo = {
+        documentos.push({
           _id: new ObjectId(),
           codigo,
           origen: ruta.origen,
@@ -283,14 +284,15 @@ async function sembrarVuelosCatalogo(db) {
           asientos: asientosLista,
           diaViaje: diaBogota(salida),
           versionInventario: new Int32(0),
-        };
-        try {
-          await db.collection('vuelos').updateOne({ codigo, salida }, { $setOnInsert: vuelo }, { upsert: true });
-        } catch (e) {
-          console.error(`Error al sembrar vuelo ${codigo}:`, e.message);
-        }
+        });
       }
     }
+  }
+
+  if (documentos.length > 0) {
+    try {
+      await db.collection('vuelos').insertMany(documentos, { ordered: false });
+    } catch {}
   }
 }
 
@@ -386,4 +388,4 @@ async function prepararClientes(db) {
   return reporte;
 }
 
-module.exports = { prepararAvianca, prepararClientes, prepararPerfilesViaje, ESQUEMAS_AVIANCA, ESQUEMAS_CLIENTES, ESQUEMA_PERFILES_VIAJE, IDIOMAS, generarAsientosCompletos };
+module.exports = { prepararAvianca, prepararClientes, prepararPerfilesViaje, ESQUEMAS_AVIANCA, ESQUEMAS_CLIENTES, ESQUEMA_PERFILES_VIAJE, IDIOMAS, generarAsientosCompletos, sembrarVuelosCatalogo };

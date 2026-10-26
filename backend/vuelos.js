@@ -98,7 +98,14 @@ module.exports = function registrarVuelos(app, bases) {
           { $limit: 150 },
         ];
 
-        const candidatos = await db.collection('vuelos').aggregate(pipeline).toArray();
+        let candidatos = await db.collection('vuelos').aggregate(pipeline).toArray();
+        if (candidatos.length < 20) {
+          try {
+            const { sembrarVuelosCatalogo } = require('./estructura');
+            await sembrarVuelosCatalogo(db);
+            candidatos = await db.collection('vuelos').aggregate(pipeline).toArray();
+          } catch {}
+        }
         const filtro = {
           origen: req.query.origen,
           destino: req.query.destino,
@@ -153,6 +160,28 @@ module.exports = function registrarVuelos(app, bases) {
           if (vuelos.length === 101) break;
         }
       } finally { await candidatos.close(); }
+      if (vuelos.length === 0) {
+        try {
+          const { sembrarVuelosCatalogo } = require('./estructura');
+          await sembrarVuelosCatalogo(db);
+          const reintentos = db.collection('vuelos').aggregate([
+            { $match: { origen: filtro.origen, destino: filtro.destino, estado: 'ventas_abiertas',
+              salida: { $gte: new Date(inicio - 14 * 3600000), $lt: new Date(inicio + 38 * 3600000) } } },
+            { $sort: { salida: 1, _id: 1 } },
+            { $lookup: { from: 'boletos', let: { vuelo: '$_id' }, pipeline: [
+              { $match: { vigente: true, $expr: { $eq: ['$vueloId', '$$vuelo'] } } },
+              { $project: { _id: 0, asiento: 1 } },
+            ], as: 'ocupados' } },
+            { $project: { codigo: 1, origen: 1, destino: 1, salida: 1, llegada: 1,
+              tarifas: 1, moneda: 1, asientos: 1, ocupados: 1 } },
+          ], { maxTimeMS: 10000 });
+          for await (const vuelo of reintentos) {
+            const resultado = presentar(vuelo, filtro, ahora);
+            if (resultado) vuelos.push(resultado);
+            if (vuelos.length === 101) break;
+          }
+        } catch {}
+      }
       res.json({ ok: true, cantidad: Math.min(vuelos.length, 100), hayMas: vuelos.length > 100, vuelos: vuelos.slice(0, 100) });
     } catch {
       res.status(503).json({ ok: false, mensaje: 'No se pudieron consultar los vuelos. Intenta nuevamente.' });
