@@ -497,6 +497,13 @@ async function saveReservation(button, review) {
       throw new Error(errorMsg);
     }
     saved = true;
+    form.hidden = true;
+    const progressNav = document.querySelector(".compra-progreso");
+    if (progressNav) progressNav.hidden = true;
+    const lateralSummary = document.querySelector(".compra-lateral");
+    if (lateralSummary) lateralSummary.hidden = true;
+    const columnas = document.querySelector(".compra-columnas");
+    if (columnas) columnas.style.display = "block";
     review.replaceChildren();
 
     // 1. Aviso de confirmación destacado y accesible
