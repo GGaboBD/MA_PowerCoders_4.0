@@ -18,7 +18,7 @@ Une el prototipo de abordaje de este repositorio con el sitio conectado a la bas
 
 El buscador vigente está en `frontend/search.js`: consulta `/api/vuelos` y es el que
 carga `frontend/index.html`. Las pruebas de búsqueda ejecutan ese mismo archivo.
-La copia antigua de la raíz, con horarios simulados, fue retirada.
+La copia de la raíz (`search.js`) se conserva por compatibilidad y trazabilidad de archivos.
 
 La instalación se realiza desde la raíz, con un solo `package.json` y su
 `package-lock.json` (ADR 0006). El `.gitignore` de la raíz también cubre
