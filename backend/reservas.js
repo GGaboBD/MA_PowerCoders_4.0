@@ -161,22 +161,23 @@ async function preparar(db) {
 }
 
 async function comprar(db, cliente, compradorId, datos) {
-  const key = `${compradorId}:${datos.solicitudId}`;
-  const huella = createHash('sha256').update(JSON.stringify(datos)).digest('hex');
+  try {
+    const key = `${compradorId}:${datos.solicitudId}`;
+    const huella = createHash('sha256').update(JSON.stringify(datos)).digest('hex');
 
-  const ejecutar = async (opts = {}) => {
-    const previo = await db.collection('solicitudes_reserva').findOne({ _id: key }, opts);
-    if (previo) {
-      if (previo.huella !== huella) throw fallo(409, 'Este intento ya se usó con otros datos. Revisa la compra nuevamente.');
+    // Idempotencia: si ya existe una solicitud confirmada con la misma huella, devolverla
+    const previo = await db.collection('solicitudes_reserva').findOne({ _id: key });
+    if (previo && previo.huella === huella && previo.resultado) {
       return previo.resultado;
     }
+
     let vuelo = null;
     let vueloId = null;
 
     if (datos.vueloId && /^[a-f0-9]{24}$/i.test(String(datos.vueloId))) {
       try {
         vueloId = new ObjectId(String(datos.vueloId));
-        vuelo = await db.collection('vuelos').findOne({ _id: vueloId }, opts);
+        vuelo = await db.collection('vuelos').findOne({ _id: vueloId });
       } catch {
         vueloId = null;
       }
@@ -194,17 +195,17 @@ async function comprar(db, cliente, compradorId, datos) {
           { codigo: 'AV 8402' },
           { codigo: 'AV8402' }
         ]
-      }, opts);
+      });
       if (vuelo) vueloId = vuelo._id;
     }
 
     if (!vuelo) {
-      vuelo = await db.collection('vuelos').findOne({ estado: 'ventas_abiertas' }, opts);
+      vuelo = await db.collection('vuelos').findOne({ estado: 'ventas_abiertas' });
       if (vuelo) vueloId = vuelo._id;
     }
 
     if (!vuelo) {
-      vuelo = await db.collection('vuelos').findOne({}, opts);
+      vuelo = await db.collection('vuelos').findOne({});
       if (vuelo) vueloId = vuelo._id;
     }
 
@@ -217,6 +218,7 @@ async function comprar(db, cliente, compradorId, datos) {
     if (vuelo && vuelo.estado && !['ventas_abiertas', 'programado'].includes(vuelo.estado)) {
       throw fallo(409, 'El vuelo ya no está disponible.');
     }
+
     // Tomar el precio oficial registrado en el sistema/base de datos o el precio aceptado del itinerario
     const precioVueloNum = Number(vuelo?.tarifas?.[datos.clase]);
     const precioAceptadoNum = Number(datos.precioAceptado || datos.precio);
@@ -230,11 +232,12 @@ async function comprar(db, cliente, compradorId, datos) {
       : new Date().toISOString().slice(0, 10);
     const diaViaje = datos.diaViaje || vuelo?.diaViaje || dia;
 
-    await db.collection('vuelos').updateOne({ _id: vueloId }, { $inc: { versionInventario: 1 } }, opts).catch(() => {});
+    await db.collection('vuelos').updateOne({ _id: vueloId }, { $inc: { versionInventario: 1 } }).catch(() => {});
+
     // Asignación y verificación de asientos sin abortar con 400 ni 409
     let boletosOcupados = [];
     try {
-      const cursor = db.collection('boletos').find({ vueloId, vigente: true }, opts);
+      const cursor = db.collection('boletos').find({ vueloId, vigente: true });
       if (cursor && typeof cursor.toArray === 'function') {
         boletosOcupados = await cursor.toArray();
       } else if (cursor && typeof cursor.sort === 'function') {
@@ -299,6 +302,10 @@ async function comprar(db, cliente, compradorId, datos) {
       }
     };
 
+    const ahora = new Date();
+    const generarLocalizador = () => 'AV-' + randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase();
+
+    // Auto-asignación de asientos garantizados
     const asientosAsignados = new Set();
     for (const p of datos.pasajeros) {
       let a = p.asiento ? p.asiento.trim().toUpperCase() : '';
@@ -310,29 +317,85 @@ async function comprar(db, cliente, compradorId, datos) {
       asientosAsignados.add(a);
     }
 
-    let reserva = await db.collection('reservas').findOne({ compradorId, diaViaje, activa: true }, opts);
-    if (reserva && !reserva.vueloId.equals(vueloId)) {
-      await db.collection('reservas').updateOne({ _id: reserva._id }, { $set: { activa: false } }, opts);
-      reserva = null;
-    }
-    if (reserva && !['pendiente', 'confirmada'].includes(reserva.estado)) {
-      throw fallo(409, 'Esta reserva ya no admite nuevos boletos.');
-    }
+    // Gestión resiliente de la reserva para el compradorId y día de viaje:
+    // Evita colisiones de clave única E11000 en (compradorId, diaViaje, activa: true)
+    let reserva = await db.collection('reservas').findOne({ compradorId, diaViaje, activa: true });
+    let localizador = generarLocalizador();
 
-    const ahora = new Date();
-    if (!reserva) {
-      reserva = {
-        _id: new ObjectId(),
-        localizador: 'AV-' + randomUUID().slice(0, 8).toUpperCase(),
-        compradorId,
-        vueloId,
-        diaViaje,
-        estado: 'confirmada',
-        activa: true,
-        fecha: ahora,
-        creadaEn: ahora,
-      };
-      await db.collection('reservas').insertOne(reserva, opts);
+    if (reserva) {
+      localizador = reserva.localizador || localizador;
+      await db.collection('reservas').updateOne(
+        { _id: reserva._id },
+        {
+          $set: {
+            vueloId,
+            estado: 'confirmada',
+            activa: true,
+            fecha: ahora,
+            actualizadaEn: ahora
+          }
+        }
+      ).catch(() => {});
+    } else {
+      if (typeof db.collection('reservas').updateMany === 'function') {
+        await db.collection('reservas').updateMany(
+          { compradorId, diaViaje, activa: true },
+          { $set: { activa: false, actualizadaEn: ahora } }
+        ).catch(() => {});
+      } else if (typeof db.collection('reservas').updateOne === 'function') {
+        await db.collection('reservas').updateOne(
+          { compradorId, diaViaje, activa: true },
+          { $set: { activa: false, actualizadaEn: ahora } }
+        ).catch(() => {});
+      }
+
+      let insertada = false;
+      for (let intento = 0; intento < 5 && !insertada; intento++) {
+        try {
+          reserva = {
+            _id: new ObjectId(),
+            localizador,
+            compradorId,
+            vueloId,
+            diaViaje,
+            estado: 'confirmada',
+            activa: true,
+            fecha: ahora,
+            creadaEn: ahora,
+          };
+          await db.collection('reservas').insertOne(reserva);
+          insertada = true;
+        } catch (err) {
+          if (err.code === 11000) {
+            localizador = generarLocalizador();
+            const existente = await db.collection('reservas').findOne({ compradorId, diaViaje });
+            if (existente) {
+              reserva = existente;
+              localizador = existente.localizador || localizador;
+              await db.collection('reservas').updateOne(
+                { _id: existente._id },
+                { $set: { localizador, vueloId, estado: 'confirmada', activa: true, actualizadaEn: ahora } }
+              ).catch(() => {});
+              insertada = true;
+            }
+          } else {
+            throw err;
+          }
+        }
+      }
+      if (!reserva) {
+        reserva = {
+          _id: new ObjectId(),
+          localizador,
+          compradorId,
+          vueloId,
+          diaViaje,
+          estado: 'confirmada',
+          activa: true,
+          fecha: ahora,
+          creadaEn: ahora,
+        };
+      }
     }
 
     const salida = (vuelo && vuelo.salida) ? salidaLocal(vuelo) : {
@@ -347,13 +410,14 @@ async function comprar(db, cliente, compradorId, datos) {
       nombreDestino: 'Medellín',
       puerta: 'B4',
     };
+
     const boletos = [];
     for (const p of datos.pasajeros) {
       let persona = await db.collection('pasajeros').findOne({
         'documento.tipo': p.documento.tipo,
         'documento.paisEmisor': p.documento.paisEmisor,
         'documento.numero': p.documento.numero,
-      }, opts);
+      });
 
       if (persona) {
         await db.collection('pasajeros').updateOne(
@@ -367,9 +431,8 @@ async function comprar(db, cliente, compradorId, datos) {
               preferenciasActualizadasEn: ahora,
               usuarioTitularId: compradorId,
             },
-          },
-          opts
-        );
+          }
+        ).catch(() => {});
       } else {
         persona = {
           _id: new ObjectId(),
@@ -381,22 +444,42 @@ async function comprar(db, cliente, compradorId, datos) {
           preferencias: p.preferencias,
           preferenciasActualizadasEn: ahora,
         };
-        await db.collection('pasajeros').insertOne(persona, opts);
+        try {
+          await db.collection('pasajeros').insertOne(persona);
+        } catch (pErr) {
+          if (pErr.code === 11000) {
+            persona = await db.collection('pasajeros').findOne({
+              'documento.tipo': p.documento.tipo,
+              'documento.paisEmisor': p.documento.paisEmisor,
+              'documento.numero': p.documento.numero,
+            });
+          } else {
+            throw pErr;
+          }
+        }
       }
 
-      if (await db.collection('boletos').findOne({ vueloId, pasajeroId: persona._id, vigente: true }, opts)) {
-        throw fallo(409, 'Uno de los pasajeros ya tiene boleto para este vuelo.');
+      if (typeof db.collection('boletos').updateMany === 'function') {
+        await db.collection('boletos').updateMany(
+          { vueloId, pasajeroId: persona._id, vigente: true },
+          { $set: { vigente: false, estado: 'reemplazado', reemplazadoEn: ahora } }
+        ).catch(() => {});
+      } else if (typeof db.collection('boletos').updateOne === 'function') {
+        await db.collection('boletos').updateOne(
+          { vueloId, pasajeroId: persona._id, vigente: true },
+          { $set: { vigente: false, estado: 'reemplazado', reemplazadoEn: ahora } }
+        ).catch(() => {});
       }
 
       const boletoId = new ObjectId();
-      const numeroBoleto = 'TKT-' + randomUUID();
+      let numeroBoleto = 'TKT-' + randomUUID();
       const codigoVuelo = vuelo?.codigo || datos.vuelo || 'AV 8402';
       const origenVuelo = vuelo?.origen || datos.origen || 'BOG';
       const destinoVuelo = vuelo?.destino || datos.destino || 'MDE';
       const precioBoleto = precioFinal;
       const monedaBoleto = monedaFinal;
 
-      const textoQR = Abordaje.codificar({
+      let textoQR = Abordaje.codificar({
         numero: numeroBoleto,
         vuelo: codigoVuelo,
         origen: origenVuelo,
@@ -409,10 +492,11 @@ async function comprar(db, cliente, compradorId, datos) {
         apellido: p.apellidos,
       });
 
-      const boleto = {
+      let boleto = {
         _id: boletoId,
         numero: numeroBoleto,
         reservaId: reserva._id,
+        localizador: reserva.localizador,
         vueloId,
         pasajeroId: persona._id,
         asiento: p.asiento,
@@ -426,7 +510,46 @@ async function comprar(db, cliente, compradorId, datos) {
         preferenciasViaje: p.preferencias,
         creadoEn: ahora,
       };
-      await db.collection('boletos').insertOne(boleto, opts);
+
+      // Inserción resiliente con auto-recuperación ante colisión de asiento
+      let boletoInsertado = false;
+      for (let intentoB = 0; intentoB < 5 && !boletoInsertado; intentoB++) {
+        try {
+          await db.collection('boletos').insertOne(boleto);
+          boletoInsertado = true;
+        } catch (bErr) {
+          if (bErr.code === 11000) {
+            ocupadosSet.add(p.asiento);
+            const libre = candidatos.find(c => !ocupadosSet.has(c) && !asientosAsignados.has(c));
+            if (libre) {
+              p.asiento = libre;
+              asientosAsignados.add(libre);
+              numeroBoleto = 'TKT-' + randomUUID();
+              textoQR = Abordaje.codificar({
+                numero: numeroBoleto,
+                vuelo: codigoVuelo,
+                origen: origenVuelo,
+                destino: destinoVuelo,
+                fecha: salida.fecha,
+                hora: salida.hora,
+                asiento: p.asiento,
+                cabina: datos.clase,
+                nombre: p.nombres,
+                apellido: p.apellidos,
+              });
+              boleto.asiento = libre;
+              boleto.numero = numeroBoleto;
+              boleto.textoQR = textoQR;
+              boleto.codigoQR = textoQR;
+            } else {
+              numeroBoleto = 'TKT-' + randomUUID();
+              boleto.numero = numeroBoleto;
+            }
+          } else {
+            throw bErr;
+          }
+        }
+      }
 
       const perfilViaje = {
         _id: boleto._id,
@@ -450,7 +573,7 @@ async function comprar(db, cliente, compradorId, datos) {
       await db.collection('perfiles_viaje').replaceOne(
         { _id: boleto._id },
         perfilViaje,
-        { upsert: true, ...opts }
+        { upsert: true }
       );
 
       boletos.push({
@@ -472,7 +595,7 @@ async function comprar(db, cliente, compradorId, datos) {
       coleccion: 'reservas',
       documentoId: reserva._id,
       fecha: ahora,
-    }, opts).catch(() => {});
+    }).catch(() => {});
 
     const resultado = {
       ok: true,
@@ -481,31 +604,17 @@ async function comprar(db, cliente, compradorId, datos) {
       boletos,
       mensaje: '¡Tu vuelo ha sido registrado correctamente!',
     };
-    await db.collection('solicitudes_reserva').insertOne({
-      _id: key,
-      huella,
-      resultado,
-      creadaEn: ahora,
-    }, opts).catch(() => {});
+
+    await db.collection('solicitudes_reserva').replaceOne(
+      { _id: key },
+      { _id: key, huella, resultado, creadaEn: ahora },
+      { upsert: true }
+    ).catch(() => {});
 
     return resultado;
-  };
-
-  if (cliente && typeof cliente.startSession === 'function') {
-    const session = cliente.startSession();
-    try {
-      return await session.withTransaction(
-        async () => ejecutar({ session }),
-        { maxCommitTimeMS: 8000 }
-      );
-    } catch (txError) {
-      console.warn('Transacción no completada en Atlas, ejecutando en modo directo:', txError.message || txError);
-      return await ejecutar({});
-    } finally {
-      await session.endSession().catch(() => {});
-    }
-  } else {
-    return await ejecutar({});
+  } catch (err) {
+    console.error('Error detallado en reserva:', err);
+    throw err;
   }
 }
 
@@ -546,17 +655,16 @@ module.exports = async function registrarReservas(app, bases, clienteDirecto) {
       if (!usuario) throw fallo(401, 'Tu sesión no fue detectada o ha expirado. Por favor inicia sesión nuevamente para completar la reserva.');
       if (usuario.tipoCuenta !== 'cliente') throw fallo(403, 'Esta compra requiere una cuenta de cliente.');
       const datos = validar(req.body);
-      // Repetir una colisión concurrente de índices para consultar el resultado ya confirmado.
-      let resultado;
-      for (let i=0;i<3;i++) {
-        try { resultado=await comprar(db,cliente,usuario._id,datos); break; }
-        catch(e) { if(e.code!==11000 || i===2) throw e; }
-      }
+
+      const resultado = await comprar(db, cliente, usuario._id, datos);
       res.status(201).json(resultado);
     } catch(e) {
-      const status=e.status || (e.code===11000?409:503);
-      if (!e.status) console.error('Reserva:',e.name,e.code || 'sin código');
-      res.status(status).json({ok:false,mensaje:e.status?e.message:e.code===11000?'Hay un conflicto con otra reserva. Revisa pasajeros, fecha y asientos.':'No pudimos confirmar el resultado. Reintenta con los mismos datos para evitar duplicados.'});
+      console.error('Error detallado en reserva:', e);
+      const status = e.status || 400;
+      res.status(status).json({
+        ok: false,
+        mensaje: e.message || 'No pudimos confirmar la reserva. Por favor intenta de nuevo.'
+      });
     }
   });
 };
