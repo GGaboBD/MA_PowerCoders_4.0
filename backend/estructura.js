@@ -49,11 +49,18 @@ const MONEDA = { enum: ['USD', 'COP'] };
 const CLASE = { enum: ['ejecutiva', 'primera'] };
 
 // Cómo quiere ser reconocido el pasajero en este viaje (Design Thinking, caso Ing. Ceballos).
-// Colección nueva y propia: no altera los validadores existentes de pasajeros ni de boletos.
-const ESQUEMA_PERFILES_VIAJE = objeto(['_id', 'pasajeroId', 'trato', 'idioma', 'atencion', 'motivo', 'actualizadoEn'], {
-  _id: id, pasajeroId: id, trato: texto(0, 40), idioma: { enum: IDIOMAS },
-  atencion: entero(0, 2), motivo: entero(0, 3), actualizadoEn: fecha,
-});
+// Colección nueva y propia: guarda las preferencias de servicio específicas de cada viaje.
+const ESQUEMA_PERFILES_VIAJE = {
+  bsonType: 'object',
+  additionalProperties: true,
+  required: ['_id', 'pasajeroId'],
+  properties: {
+    _id: id, pasajeroId: id, boletoId: id, vueloId: id, reservaId: id, asiento: texto(1, 10),
+    trato: texto(0, 80), idioma: { bsonType: 'string' }, atencion: entero(0, 2), motivo: entero(0, 3),
+    comida: texto(0, 80), menu: texto(0, 80), bebida: texto(0, 120), noMolestar: { bsonType: 'bool' },
+    alergias: { bsonType: 'array', items: texto(0, 80) }, notas: texto(0, 1000), actualizadoEn: fecha,
+  },
+};
 
 // Solo para entornos nuevos (local, pruebas o una base vacía). Reproduce la forma que usa el backend.
 const ESQUEMAS_CLIENTES = {
@@ -79,15 +86,27 @@ const ESQUEMAS_CLIENTES = {
     }),
     preferencias: PREFERENCIAS, preferenciasActualizadasEn: fecha, usuarioTitularId: id,
   }),
-  reservas: objeto(['_id', 'localizador', 'compradorId', 'vueloId', 'diaViaje', 'estado', 'activa', 'creadaEn'], {
-    _id: id, localizador: texto(4, 40), compradorId: id, vueloId: id, diaViaje: DIA,
-    estado: { enum: ['pendiente', 'confirmada', 'completada', 'cancelada'] }, activa: { bsonType: 'bool' }, creadaEn: fecha,
-  }),
-  boletos: objeto(['_id', 'numero', 'reservaId', 'vueloId', 'pasajeroId', 'asiento', 'clase', 'precio', 'moneda', 'estado', 'vigente', 'creadoEn'], {
-    _id: id, numero: texto(4, 64), reservaId: id, vueloId: id, pasajeroId: id, asiento: texto(2, 4), clase: CLASE,
-    precio: { bsonType: 'decimal' }, moneda: MONEDA, estado: { enum: ['reservado', 'emitido', 'utilizado', 'cancelado'] },
-    vigente: { bsonType: 'bool' }, preferenciasViaje: PREFERENCIAS, creadoEn: fecha,
-  }),
+  reservas: {
+    bsonType: 'object',
+    additionalProperties: true,
+    required: ['_id', 'localizador', 'compradorId', 'vueloId', 'diaViaje', 'estado', 'activa', 'creadaEn'],
+    properties: {
+      _id: id, localizador: texto(4, 40), compradorId: id, vueloId: id, diaViaje: DIA,
+      estado: { enum: ['pendiente', 'confirmada', 'completada', 'cancelada'] }, activa: { bsonType: 'bool' }, creadaEn: fecha,
+      fecha: fecha,
+    },
+  },
+  boletos: {
+    bsonType: 'object',
+    additionalProperties: true,
+    required: ['_id', 'numero', 'reservaId', 'vueloId', 'pasajeroId', 'asiento', 'clase', 'precio', 'moneda', 'estado', 'vigente', 'creadoEn'],
+    properties: {
+      _id: id, numero: texto(4, 64), reservaId: id, vueloId: id, pasajeroId: id, asiento: texto(2, 4), clase: CLASE,
+      precio: { bsonType: 'decimal' }, moneda: MONEDA, estado: { enum: ['reservado', 'emitido', 'utilizado', 'cancelado', 'a_bordo'] },
+      vigente: { bsonType: 'bool' }, preferenciasViaje: PREFERENCIAS, creadoEn: fecha,
+      codigoQR: { bsonType: 'string' }, textoQR: { bsonType: 'string' },
+    },
+  },
   auditoria: objeto(['_id', 'actorId', 'accion', 'fecha'], {
     _id: id, actorId: id, accion: texto(1, 60), coleccion: texto(1, 60), documentoId: id, fecha,
   }),

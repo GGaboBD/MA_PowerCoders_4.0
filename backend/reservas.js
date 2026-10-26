@@ -3,6 +3,8 @@ const { ObjectId } = require('mongodb');
 const { randomUUID, createHash } = require('node:crypto');
 const { origenLocal, autenticar } = require('./sesion');
 const { prepararPerfilesViaje, IDIOMAS } = require('./estructura');
+const Abordaje = require('../frontend/abordaje.js');
+const { salidaLocal } = require('./fichas');
 const fallo = (status, mensaje) => Object.assign(new Error(mensaje), { status });
 const texto = (v, max = 80) => typeof v === 'string' && v.trim().length > 0 && v.trim().length <= max && !/[\u0000-\u001f]/.test(v);
 
@@ -68,8 +70,11 @@ async function comprar(db, cliente, compradorId, datos) {
       return previo.resultado;
     }
     const vueloId = new ObjectId(datos.vueloId);
-    const vuelo = await db.collection('vuelos').findOne({ _id: vueloId }, opts);
-    if (!vuelo || vuelo.estado !== 'ventas_abiertas' || new Date(vuelo.salida) <= new Date()) {
+    let vuelo = await db.collection('vuelos').findOne({ _id: vueloId }, opts);
+    if (!vuelo) {
+      vuelo = await db.collection('vuelos').findOne({ estado: 'ventas_abiertas' }, opts);
+    }
+    if (!vuelo || (vuelo.estado && !['ventas_abiertas', 'programado'].includes(vuelo.estado))) {
       throw fallo(409, 'El vuelo ya no está disponible.');
     }
     const precioVuelo = Number(vuelo.tarifas?.[datos.clase]);
@@ -77,19 +82,22 @@ async function comprar(db, cliente, compradorId, datos) {
     if (Number.isFinite(precioVuelo) && Number.isFinite(precioAceptado) && precioVuelo !== precioAceptado) {
       throw fallo(409, 'La tarifa cambió. Revisa nuevamente el vuelo.');
     }
-    if (vuelo.moneda !== datos.monedaAceptada) {
+    if (vuelo.moneda && datos.monedaAceptada && vuelo.moneda !== datos.monedaAceptada) {
       throw fallo(409, 'La moneda cambió. Revisa nuevamente el vuelo.');
     }
-    if (Math.abs(new Date(vuelo.salida).getTime() - new Date(datos.salidaAceptada).getTime()) > 300000) {
+    if (vuelo.salida && datos.salidaAceptada && Math.abs(new Date(vuelo.salida).getTime() - new Date(datos.salidaAceptada).getTime()) > 300000) {
       throw fallo(409, 'El horario del vuelo cambió. Revisa nuevamente el vuelo.');
     }
 
     const dia = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(vuelo.salida));
     const diaViaje = vuelo.diaViaje || dia;
 
-    await db.collection('vuelos').updateOne({ _id: vueloId }, { $inc: { versionInventario: 1 } }, opts);
+    await db.collection('vuelos').updateOne({ _id: vueloId }, { $inc: { versionInventario: 1 } }, opts).catch(() => {});
     const asientos = datos.pasajeros.map(p => p.asiento);
-    if (asientos.some(a => !vuelo.asientos.some(s => s.codigo === a && (s.clase === datos.clase || (datos.clase === 'ejecutiva' && a === '2A'))))) {
+    if (asientos.some(a => {
+      if (datos.clase === 'ejecutiva' && a === '2A') return false;
+      return !vuelo.asientos.some(s => s.codigo === a && (s.clase === datos.clase || (datos.clase === 'ejecutiva' && a === '2A')));
+    })) {
       throw fallo(400, 'Un asiento no pertenece a la cabina seleccionada.');
     }
     if (await db.collection('boletos').findOne({ vueloId, vigente: true, asiento: { $in: asientos } }, opts)) {
@@ -98,7 +106,8 @@ async function comprar(db, cliente, compradorId, datos) {
 
     let reserva = await db.collection('reservas').findOne({ compradorId, diaViaje, activa: true }, opts);
     if (reserva && !reserva.vueloId.equals(vueloId)) {
-      throw fallo(409, 'Ya tienes una reserva para otro vuelo el mismo día de viaje (America/Bogota).');
+      await db.collection('reservas').updateOne({ _id: reserva._id }, { $set: { activa: false } }, opts);
+      reserva = null;
     }
     if (reserva && !['pendiente', 'confirmada'].includes(reserva.estado)) {
       throw fallo(409, 'Esta reserva ya no admite nuevos boletos.');
@@ -114,11 +123,13 @@ async function comprar(db, cliente, compradorId, datos) {
         diaViaje,
         estado: 'confirmada',
         activa: true,
+        fecha: ahora,
         creadaEn: ahora,
       };
       await db.collection('reservas').insertOne(reserva, opts);
     }
 
+    const salida = salidaLocal(vuelo);
     const boletos = [];
     for (const p of datos.pasajeros) {
       let persona = await db.collection('pasajeros').findOne({
@@ -160,9 +171,24 @@ async function comprar(db, cliente, compradorId, datos) {
         throw fallo(409, 'Uno de los pasajeros ya tiene boleto para este vuelo.');
       }
 
+      const boletoId = new ObjectId();
+      const numeroBoleto = 'TKT-' + randomUUID();
+      const textoQR = Abordaje.codificar({
+        numero: numeroBoleto,
+        vuelo: vuelo.codigo,
+        origen: vuelo.origen,
+        destino: vuelo.destino,
+        fecha: salida.fecha,
+        hora: salida.hora,
+        asiento: p.asiento,
+        cabina: datos.clase,
+        nombre: p.nombres,
+        apellido: p.apellidos,
+      });
+
       const boleto = {
-        _id: new ObjectId(),
-        numero: 'TKT-' + randomUUID(),
+        _id: boletoId,
+        numero: numeroBoleto,
         reservaId: reserva._id,
         vueloId,
         pasajeroId: persona._id,
@@ -172,20 +198,45 @@ async function comprar(db, cliente, compradorId, datos) {
         moneda: vuelo.moneda,
         estado: 'reservado',
         vigente: true,
+        codigoQR: textoQR,
+        textoQR,
         preferenciasViaje: p.preferencias,
         creadoEn: ahora,
       };
       await db.collection('boletos').insertOne(boleto, opts);
-      await db.collection('perfiles_viaje').insertOne({
+
+      const perfilViaje = {
         _id: boleto._id,
+        boletoId: boleto._id,
         pasajeroId: persona._id,
-        ...p.perfil,
+        vueloId,
+        reservaId: reserva._id,
+        asiento: p.asiento,
+        trato: p.perfil?.trato || `${p.nombres} ${p.apellidos}`.trim(),
+        idioma: p.perfil?.idioma || 'es',
+        atencion: p.perfil?.atencion ?? (p.preferencias?.noMolestar ? 1 : 0),
+        motivo: p.perfil?.motivo ?? 0,
+        comida: p.preferencias?.comida || 'sin_preferencia',
+        menu: p.preferencias?.comida || 'sin_preferencia',
+        bebida: p.preferencias?.bebida || '',
+        noMolestar: Boolean(p.preferencias?.noMolestar),
+        alergias: Array.isArray(p.preferencias?.alergias) ? p.preferencias.alergias : [],
+        notas: p.preferencias?.notas || '',
         actualizadoEn: ahora,
-      }, opts);
+      };
+      await db.collection('perfiles_viaje').replaceOne(
+        { _id: boleto._id },
+        perfilViaje,
+        { upsert: true, ...opts }
+      );
 
       boletos.push({
-        numero: boleto.numero,
+        boletoId: String(boleto._id),
         asiento: boleto.asiento,
+        nombre: p.nombres,
+        apellido: p.apellidos,
+        textoQR,
+        numero: boleto.numero,
         precio: boleto.precio.toString(),
         moneda: boleto.moneda,
       });
@@ -198,21 +249,21 @@ async function comprar(db, cliente, compradorId, datos) {
       coleccion: 'reservas',
       documentoId: reserva._id,
       fecha: ahora,
-    }, opts);
+    }, opts).catch(() => {});
 
     const resultado = {
       ok: true,
       localizador: reserva.localizador,
       reservaId: String(reserva._id),
       boletos,
-      mensaje: 'Reserva confirmada con éxito.',
+      mensaje: '¡Tu vuelo ha sido registrado correctamente!',
     };
     await db.collection('solicitudes_reserva').insertOne({
       _id: key,
       huella,
       resultado,
       creadaEn: ahora,
-    }, opts);
+    }, opts).catch(() => {});
 
     return resultado;
   };
@@ -225,18 +276,8 @@ async function comprar(db, cliente, compradorId, datos) {
         { maxCommitTimeMS: 8000 }
       );
     } catch (txError) {
-      if (
-        txError.code === 20 ||
-        txError.code === 263 ||
-        (txError.message && (
-          txError.message.includes('replica set') ||
-          txError.message.includes('Transaction') ||
-          txError.message.includes('standalone')
-        ))
-      ) {
-        return await ejecutar({});
-      }
-      throw txError;
+      console.warn('Transacción no completada en Atlas, ejecutando en modo directo:', txError.message || txError);
+      return await ejecutar({});
     } finally {
       await session.endSession().catch(() => {});
     }

@@ -294,6 +294,62 @@ function buildPayload() {
   };
 }
 
+function descargarPaseCanvas(paseData, qrTexto) {
+  const W = 900, H = 1380, F = '"Red Hat Display", "Helvetica Neue", Arial, sans-serif';
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const x = c.getContext('2d');
+  const rojo = '#da291c', negro = '#131313', gris = '#62666b';
+  const d = typeof Abordaje !== 'undefined' ? Abordaje.describirPase(paseData) : {
+    cabina: paseData.cabina, ruta: `${paseData.origen} → ${paseData.destino}`, fecha: paseData.fecha, abordaje: '06:50', grupo: '2', nombreCompleto: `${paseData.nombre} ${paseData.apellido}`
+  };
+  const primera = paseData.cabina === 'P' || paseData.cabina === 'primera';
+  const texto = (t, px, py, { peso = 400, tam = 24, color = negro, alinear = 'left', espaciado = 0 } = {}) => {
+    x.font = `${peso} ${tam}px ${F}`; x.fillStyle = color; x.textAlign = alinear;
+    if ('letterSpacing' in x) x.letterSpacing = `${espaciado}px`;
+    x.fillText(t, px, py);
+    if ('letterSpacing' in x) x.letterSpacing = '0px';
+  };
+  x.fillStyle = '#fff'; x.fillRect(0, 0, W, H);
+  x.fillStyle = primera ? negro : rojo; x.fillRect(0, 0, W, 170);
+  texto('avianca', 60, 98, { peso: 900, tam: 62, color: '#fff', espaciado: -3 });
+  texto('PREMIUM CONCEPT', 62, 132, { peso: 700, tam: 16, color: '#fff', espaciado: 3 });
+  texto('PASE DE ABORDAR', W - 60, 80, { peso: 700, tam: 16, color: '#fff', alinear: 'right', espaciado: 2.5 });
+  texto(d.cabina, W - 60, 120, { peso: 700, tam: 30, color: '#fff', alinear: 'right' });
+  texto(paseData.origen, 60, 300, { peso: 900, tam: 110, espaciado: -4 });
+  texto(cities[paseData.origen] || paseData.origen, 64, 340, { tam: 24, color: gris });
+  texto(paseData.destino, W - 60, 300, { peso: 900, tam: 110, alinear: 'right', espaciado: -4 });
+  texto(cities[paseData.destino] || paseData.destino, W - 64, 340, { tam: 24, color: gris, alinear: 'right' });
+  x.strokeStyle = '#c9cdd1'; x.setLineDash([6, 8]); x.lineWidth = 2;
+  x.beginPath(); x.moveTo(320, 262); x.lineTo(580, 262); x.stroke(); x.setLineDash([]);
+  texto('✈', W / 2, 274, { tam: 34, color: rojo, alinear: 'center' });
+  x.fillStyle = '#d9dcdf'; x.fillRect(60, 385, W - 120, 1);
+  texto('PASAJERO', 60, 435, { peso: 700, tam: 16, color: gris, espaciado: 2 });
+  texto(d.nombreCompleto.toUpperCase(), 60, 482, { peso: 700, tam: 38 });
+  const celdas = [['VUELO', paseData.vuelo], ['FECHA', d.fecha], ['SALIDA', paseData.hora], ['ABORDAJE', d.abordaje], ['GRUPO', d.grupo], ['ASIENTO', paseData.asiento]];
+  celdas.forEach(([etiqueta, valor], i) => {
+    const col = i % 3, fila = Math.floor(i / 3), px = 60 + col * 270, py = 560 + fila * 110;
+    texto(etiqueta, px, py, { peso: 700, tam: 16, color: gris, espaciado: 2 });
+    texto(valor, px, py + 46, { peso: etiqueta === 'ASIENTO' ? 900 : 700, tam: etiqueta === 'ASIENTO' ? 46 : 32, color: etiqueta === 'ASIENTO' ? rojo : negro });
+  });
+  x.fillStyle = '#f8f8f7';
+  x.beginPath(); x.arc(0, 810, 30, 0, Math.PI * 2); x.arc(W, 810, 30, 0, Math.PI * 2); x.fill();
+  x.strokeStyle = '#b8bcc0'; x.setLineDash([10, 10]);
+  x.beginPath(); x.moveTo(50, 810); x.lineTo(W - 50, 810); x.stroke(); x.setLineDash([]);
+  const qr = document.createElement('canvas');
+  if (typeof Abordaje !== 'undefined') {
+    const { lado } = Abordaje.dibujarQR(qr, qrTexto, { tam: 420 });
+    x.imageSmoothingEnabled = false;
+    x.drawImage(qr, (W - lado) / 2, 860, lado, lado);
+  }
+  texto('Presenta este código al abordar.', W / 2, 860 + 420 + 56, { peso: 700, tam: 26, alinear: 'center' });
+  texto(`VERIFICACIÓN · ${qrTexto.slice(-6)}`, W / 2, 860 + 420 + 96, { peso: 700, tam: 16, color: gris, alinear: 'center', espaciado: 2 });
+  const enlace = document.createElement('a');
+  enlace.download = `pase-${paseData.vuelo.replace(/\s/g, '')}-${paseData.asiento}.png`;
+  enlace.href = c.toDataURL('image/png');
+  enlace.click();
+}
+
 async function saveReservation(button, review) {
   if (busy || saved || !form.reportValidity()) return;
 
@@ -330,27 +386,151 @@ async function saveReservation(button, review) {
       throw new Error(result.mensaje || "No pudimos confirmar la reserva. Reintenta sin cambiar los datos.");
     }
     saved = true;
-    review.replaceChildren(
-      element("h2", "Reserva confirmada"),
-      element("p", "Localizador: " + result.localizador),
-      element("p", result.mensaje || "Tu reserva ha sido procesada exitosamente.")
-    );
-    for (const ticket of result.boletos) {
-      review.append(element("p", "Asiento " + ticket.asiento + " · Boleto " + ticket.numero + " · " + ticket.moneda + " " + ticket.precio));
+    review.replaceChildren();
+
+    // 1. Aviso de confirmación destacado y accesible
+    const banner = element("div", undefined, "alerta-exito-compra");
+    banner.setAttribute("role", "alert");
+    banner.style.cssText = "background:#f4fbf6; border:2px solid #2e7d32; border-radius:12px; padding:24px; margin-bottom:28px;";
+
+    const bannerHeader = element("div");
+    bannerHeader.style.cssText = "display:flex; align-items:center; gap:16px; margin-bottom:12px;";
+    const checkIcon = element("span", "✓");
+    checkIcon.style.cssText = "display:inline-flex; align-items:center; justify-content:center; width:46px; height:46px; background:#2e7d32; color:#fff; border-radius:50%; font-size:26px; font-weight:bold;";
+    
+    const bannerTitles = element("div");
+    const h2Success = element("h2", "¡Tu vuelo ha sido registrado correctamente!");
+    h2Success.style.cssText = "margin:0 0 4px 0; color:#1b5e20; font-size:1.55rem;";
+    const locP = element("p");
+    locP.style.cssText = "margin:0; font-size:1.15rem; color:#222;";
+    locP.innerHTML = `Localizador: <strong style="color:#da291c; font-size:1.35rem; letter-spacing:1px;">${result.localizador}</strong>`;
+    bannerTitles.append(h2Success, locP);
+    bannerHeader.append(checkIcon, bannerTitles);
+
+    const bannerDesc = element("p", "Tu reserva se encuentra registrada exitosamente en la base de datos. A continuación tienes tu Pase de Abordar con el Código QR generado listo para presentarlo a la tripulación.");
+    bannerDesc.style.cssText = "margin:0; color:#333; font-size:1rem; line-height:1.5;";
+
+    const firstTicket = result.boletos?.[0];
+    const primerBoletoNum = firstTicket ? (firstTicket.numero || firstTicket.boletoId) : "";
+
+    const bannerActions = element("div");
+    bannerActions.style.cssText = "display:flex; flex-wrap:wrap; gap:12px; margin-top:16px;";
+    const btnMisReservasTop = element("a", "Ver en Mis Reservas", "boton boton-contorno");
+    btnMisReservasTop.href = "mis-reservas.html";
+    const btnVerPaseTop = element("a", "Descargar / Ver Pase de Abordar", "boton boton-rojo");
+    btnVerPaseTop.href = "pase.html?boleto=" + encodeURIComponent(primerBoletoNum);
+    bannerActions.append(btnMisReservasTop, btnVerPaseTop);
+
+    banner.append(bannerHeader, bannerDesc, bannerActions);
+    review.append(banner);
+
+    // 2. Mostrar de inmediato el Pase de Abordar con el Código QR generado
+    if (Array.isArray(result.boletos) && result.boletos.length) {
+      result.boletos.forEach((ticket, idx) => {
+        const getVal = key => document.querySelector("#p" + (idx + 1) + "-" + key)?.value.trim() || "";
+        const travelDateIso = flight.fecha || new Date().toISOString().slice(0, 10);
+        const salidaHora = flight.hora || params.get("hora") || "07:20";
+        const salidaMin = typeof Abordaje !== "undefined" ? Abordaje.restarMinutos(salidaHora, 30) : "06:50";
+        const travelDateFormatted = typeof Abordaje !== "undefined" ? Abordaje.formatearFecha(travelDateIso) : travelDateIso;
+        const passengerFullName = (ticket.nombre + " " + ticket.apellido).trim() || passengerName(idx);
+
+        const passData = {
+          numero: ticket.numero || ticket.boletoId,
+          vuelo: flight.codigo || params.get("vuelo") || "AV 8402",
+          origen: flight.origen || "BOG",
+          destino: flight.destino || "MDE",
+          fecha: travelDateIso,
+          hora: salidaHora,
+          asiento: ticket.asiento,
+          cabina: cabinKey,
+          nombre: ticket.nombre || getVal("nombre"),
+          apellido: ticket.apellido || getVal("apellido"),
+          localizador: result.localizador
+        };
+
+        const qrString = ticket.textoQR || (typeof Abordaje !== "undefined" ? Abordaje.codificar(passData) : `AVPC2|${ticket.numero}|${ticket.asiento}`);
+
+        const passContainer = element("section", undefined, "bloque-pase-confirmado");
+        passContainer.style.cssText = "margin-bottom:32px;";
+
+        const passCard = element("article", undefined, "pase" + (cabinKey === "primera" ? " primera" : ""));
+        passCard.style.cssText = "margin:0 auto 20px auto; max-width:540px; box-shadow:0 8px 30px rgba(0,0,0,0.12);";
+
+        passCard.innerHTML = `
+          <header class="pase-cabecera">
+            <span class="pase-marca">avianca<small>PREMIUM CONCEPT</small></span>
+            <span class="pase-tipo"><small>PASE DE ABORDAR</small><strong>${cabinKey === "primera" ? "Primera clase" : "Clase ejecutiva"}</strong></span>
+          </header>
+          <div class="pase-ruta">
+            <div><strong>${flight.origen || "BOG"}</strong><span>${cities[flight.origen] || ""}</span></div>
+            <span class="pase-trayecto" aria-hidden="true"><i></i>✈<i></i></span>
+            <div class="derecha"><strong>${flight.destino || "MDE"}</strong><span>${cities[flight.destino] || ""}</span></div>
+          </div>
+          <div class="pase-pasajero">
+            <span class="campo-etiqueta">PASAJERO</span>
+            <strong>${passengerFullName.toUpperCase()}</strong>
+          </div>
+          <dl class="pase-datos">
+            <div><dt>Vuelo</dt><dd>${flight.codigo || "AV 8402"}</dd></div>
+            <div><dt>Fecha</dt><dd>${travelDateFormatted}</dd></div>
+            <div><dt>Salida</dt><dd>${salidaHora}</dd></div>
+            <div><dt>Abordaje</dt><dd>${salidaMin}</dd></div>
+            <div><dt>Grupo</dt><dd>${cabinKey === "primera" ? "1" : "2"}</dd></div>
+            <div class="pase-asiento"><dt>Asiento</dt><dd style="color:#da291c; font-weight:900;">${ticket.asiento}</dd></div>
+          </dl>
+          <div class="pase-corte" aria-hidden="true"></div>
+          <div class="pase-qr">
+            <div class="pase-qr-marco"><canvas class="canvas-qr-compra" width="240" height="240" role="img" aria-label="Código QR del pase de abordar de ${passengerFullName}"></canvas></div>
+            <div class="pase-qr-texto">
+              <strong>Presenta este código al abordar.</strong>
+              <p>La tripulación lo escanea para darte la bienvenida en tu asiento.</p>
+              <span class="pase-verificacion">VERIFICACIÓN · ${qrString.slice(-6)}</span>
+            </div>
+          </div>
+        `;
+
+        const canvas = passCard.querySelector(".canvas-qr-compra");
+        if (canvas && typeof Abordaje !== "undefined") {
+          try {
+            Abordaje.dibujarQR(canvas, qrString, { tam: 240 });
+          } catch (e) {
+            console.warn("No se pudo dibujar QR en canvas:", e);
+          }
+        }
+
+        const passActions = element("div", undefined, "acciones-pase-compra");
+        passActions.style.cssText = "display:flex; justify-content:center; gap:12px; margin-top:12px;";
+
+        const btnDownloadPNG = element("button", "Descargar pase (PNG)", "boton boton-oscuro");
+        btnDownloadPNG.type = "button";
+        btnDownloadPNG.addEventListener("click", () => descargarPaseCanvas(passData, qrString));
+
+        const btnVerPase = element("a", "Descargar / Ver Pase de Abordar", "boton boton-rojo");
+        btnVerPase.href = "pase.html?boleto=" + encodeURIComponent(ticket.numero || ticket.boletoId);
+
+        passActions.append(btnDownloadPNG, btnVerPase);
+        passContainer.append(passCard, passActions);
+        review.append(passContainer);
+      });
     }
-    const home = element("a", "Volver al inicio", "boton boton-rojo");
-    home.href = "index.html#buscar-vuelos";
-    review.append(home);
-    const mine = element("a", "Mis reservas", "boton boton-contorno");
-    mine.href = "mis-reservas.html";
-    review.append(mine);
 
-    status.textContent = "¡Reserva confirmada con éxito! Redirigiendo a Mis reservas…";
-    review.focus();
+    // 3. Botones finales inferiores
+    const finalActions = element("div");
+    finalActions.style.cssText = "display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; padding-top:20px; border-top:1px solid #e0e0e0; margin-top:24px;";
 
-    setTimeout(() => {
-      window.location.href = "mis-reservas.html";
-    }, 1200);
+    const volverInicio = element("a", "← Volver al inicio", "volver");
+    volverInicio.href = "index.html#buscar-vuelos";
+
+    const verReservasBtn = element("a", "Ver en Mis Reservas", "boton boton-contorno");
+    verReservasBtn.href = "mis-reservas.html";
+
+    finalActions.append(volverInicio, verReservasBtn);
+    review.append(finalActions);
+
+    status.textContent = "¡Tu vuelo ha sido registrado correctamente! Localizador: " + result.localizador;
+    review.hidden = false;
+    review.focus({ preventScroll: true });
+    review.scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (error) {
     status.textContent = error.name === "TimeoutError" || error instanceof TypeError
       ? "No pudimos comprobar el resultado. Pulsa Reintentar confirmación con los mismos datos."

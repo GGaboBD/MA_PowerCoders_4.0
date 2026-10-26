@@ -79,3 +79,158 @@ test("Perfil: normalizarPerfil aplica valores neutros seguros si faltan datos", 
   assert.deepEqual(perfil.alergias, []);
 });
 
+test("Reservas: comprar persiste reserva, perfiles_viaje completos y emite boletos con textoQR", async () => {
+  const { ObjectId } = require("mongodb");
+  const { comprar } = require("../backend/reservas");
+  const Abordaje = require("../frontend/abordaje");
+  const { completarBoletos } = require("../backend/fichas");
+
+  const datosVueloId = new ObjectId();
+  const compradorId = new ObjectId();
+  const vueloDoc = {
+    _id: datosVueloId,
+    codigo: "AV 8402",
+    origen: "BOG",
+    destino: "MDE",
+    salida: new Date(Date.now() + 36000000).toISOString(),
+    estado: "ventas_abiertas",
+    tarifas: { ejecutiva: 420000, primera: 890000 },
+    moneda: "COP",
+    asientos: [
+      { codigo: "2A", clase: "ejecutiva" },
+      { codigo: "4B", clase: "ejecutiva" }
+    ],
+    diaViaje: "2026-10-26"
+  };
+
+  const colecciones = {
+    solicitudes_reserva: new Map(),
+    vuelos: new Map([[String(datosVueloId), vueloDoc]]),
+    boletos: new Map(),
+    reservas: new Map(),
+    pasajeros: new Map(),
+    perfiles_viaje: new Map(),
+    auditoria: new Map(),
+  };
+
+  const fakeCollection = name => {
+    const mapa = colecciones[name];
+    return {
+      findOne: async (filtro = {}) => {
+        for (const item of mapa.values()) {
+          let match = true;
+          for (const [k, v] of Object.entries(filtro)) {
+            if (k === '_id' && !item._id.equals(v)) match = false;
+            else if (k === 'vueloId' && !item.vueloId?.equals?.(v)) match = false;
+            else if (k === 'asiento' && typeof v === 'object' && v.$in && !v.$in.includes(item.asiento)) match = false;
+            else if (k === 'activa' && item.activa !== v) match = false;
+            else if (k === 'vigente' && item.vigente !== v) match = false;
+          }
+          if (match) return item;
+        }
+        return null;
+      },
+      insertOne: async doc => {
+        mapa.set(String(doc._id), doc);
+        return { insertedId: doc._id };
+      },
+      updateOne: async (filtro, update) => {
+        for (const item of mapa.values()) {
+          if (filtro._id && item._id.equals(filtro._id)) {
+            if (update.$set) Object.assign(item, update.$set);
+            return { modifiedCount: 1 };
+          }
+        }
+        return { modifiedCount: 0 };
+      },
+      replaceOne: async (filtro, doc) => {
+        mapa.set(String(doc._id), doc);
+        return { upsertedId: doc._id };
+      },
+      find: (filtro = {}) => {
+        const cursor = {
+          sort: () => cursor,
+          limit: () => cursor,
+          maxTimeMS: () => cursor,
+          toArray: async () => {
+            const results = [];
+            for (const item of mapa.values()) {
+              if (filtro._id && filtro._id.$in) {
+                const matchId = filtro._id.$in.some(id => String(id) === String(item._id));
+                if (matchId) results.push(item);
+              } else if (filtro.vueloId && item.vueloId?.equals?.(filtro.vueloId)) {
+                results.push(item);
+              } else if (!filtro._id && !filtro.vueloId) {
+                results.push(item);
+              }
+            }
+            return results;
+          }
+        };
+        return cursor;
+      }
+    };
+  };
+
+  const fakeDb = { collection: name => fakeCollection(name) };
+
+  const datosCompra = {
+    vueloId: String(datosVueloId),
+    clase: "ejecutiva",
+    solicitudId: "12345678-1234-1234-1234-123456789abc",
+    precioAceptado: "420000",
+    monedaAceptada: "COP",
+    salidaAceptada: vueloDoc.salida,
+    pasajeros: [{
+      asiento: "2A",
+      nombres: "Juliana",
+      apellidos: "Ceballos",
+      fechaNacimiento: "1986-04-12",
+      documento: { tipo: "pasaporte", paisEmisor: "CO", numero: "DEMO-CO-1001" },
+      preferencias: {
+        comida: "vegetariana",
+        noMolestar: true,
+        alergias: ["Frutos secos"],
+        bebida: "Café americano",
+        notas: "Requiere enchufe"
+      },
+      perfil: { trato: "Ing. Ceballos", idioma: "es", atencion: 1, motivo: 1 }
+    }]
+  };
+
+  const resultado = await comprar(fakeDb, null, compradorId, datosCompra);
+
+  assert.equal(resultado.ok, true);
+  assert.match(resultado.localizador, /^AV-[A-Z0-9]{8}$/);
+  assert.equal(resultado.boletos.length, 1);
+
+  const t = resultado.boletos[0];
+  assert.equal(t.asiento, "2A");
+  assert.equal(t.nombre, "Juliana");
+  assert.equal(t.apellido, "Ceballos");
+  assert.ok(t.textoQR.startsWith("AVPC2|"));
+
+  // Verificar que el QR es decodificable canónicamente
+  const decodificado = Abordaje.decodificar(t.textoQR);
+  assert.equal(decodificado.ok, true);
+  assert.equal(decodificado.pase.asiento, "2A");
+
+  // Verificar que en perfiles_viaje se guardaron todas las preferencias de servicio
+  const boletoGuardado = [...colecciones.boletos.values()][0];
+  const perfilViajeGuardado = colecciones.perfiles_viaje.get(String(boletoGuardado._id));
+  assert.ok(perfilViajeGuardado);
+  assert.equal(perfilViajeGuardado.comida, "vegetariana");
+  assert.equal(perfilViajeGuardado.bebida, "Café americano");
+  assert.equal(perfilViajeGuardado.noMolestar, true);
+  assert.deepEqual(perfilViajeGuardado.alergias, ["Frutos secos"]);
+  assert.equal(perfilViajeGuardado.notas, "Requiere enchufe");
+
+  // Verificar que completarBoletos lee perfiles_viaje correctamente para la azafata
+  const fichas = await completarBoletos(fakeDb, [boletoGuardado]);
+  assert.equal(fichas.length, 1);
+  assert.equal(fichas[0].comida, "vegetariana");
+  assert.equal(fichas[0].bebida, "Café americano");
+  assert.equal(fichas[0].noMolestar, true);
+  assert.deepEqual(fichas[0].alergias, ["Frutos secos"]);
+});
+

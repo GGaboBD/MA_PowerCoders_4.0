@@ -24,9 +24,13 @@ async function nombresDelPersonal(avianca, ids) {
 }
 
 function publicarFicha({ boletoId, ...ficha }, abordaje, nombres) {
-  return { ...ficha, abordaje: abordaje
-    ? { registradoEn: abordaje.registradoEn, via: abordaje.via, registradoPor: nombres.get(String(abordaje.registradoPor)) || 'Personal de Avianca' }
-    : null };
+  return {
+    ...ficha,
+    estadoBoleto: abordaje ? 'a_bordo' : (ficha.estado || 'reservado'),
+    abordaje: abordaje
+      ? { registradoEn: abordaje.registradoEn, via: abordaje.via, registradoPor: nombres.get(String(abordaje.registradoPor)) || 'Personal de Avianca' }
+      : null
+  };
 }
 
 function validarSolicitud(body) {
@@ -55,7 +59,7 @@ module.exports = function registrarTripulacion(app, bases) {
 
       if (!vuelos.length) {
         candidatos = await clientes.collection('vuelos').find({ estado: { $in: ['programado', 'ventas_abiertas', 'ventas_cerradas', 'salido'] } },
-          VUELO_PROYECCION).sort({ salida: 1, _id: 1 }).limit(50).maxTimeMS(10000).toArray();
+        VUELO_PROYECCION).sort({ salida: 1, _id: 1 }).limit(50).maxTimeMS(10000).toArray();
         vuelos = candidatos;
       }
 
@@ -77,12 +81,12 @@ module.exports = function registrarTripulacion(app, bases) {
     if (!ID.test(req.params.id)) return res.status(400).json({ ok: false, mensaje: 'Elige un vuelo válido.' });
     try {
       const vueloId = new ObjectId(req.params.id);
-      const vuelo = await clientes.collection('vuelos').findOne({ _id: vueloId }, { projection: { ...VUELO_PROYECCION.projection, asientos: 1 } });
+      const vuelo = await clientes.collection('vuelos').findOne({ $or: [{ _id: vueloId }, { _id: req.params.id }] }, { projection: { ...VUELO_PROYECCION.projection, asientos: 1 } });
       if (!vuelo) return res.status(404).json({ ok: false, mensaje: 'No encontramos ese vuelo.' });
-      const boletos = await clientes.collection('boletos').find({ vueloId, vigente: true }).sort({ asiento: 1 }).limit(500).maxTimeMS(10000).toArray();
+      const boletos = await clientes.collection('boletos').find({ $or: [{ vueloId }, { vueloId: req.params.id }], vigente: true }).sort({ asiento: 1 }).limit(500).maxTimeMS(10000).toArray();
       const [fichas, abordajes] = await Promise.all([
         completarBoletos(clientes, boletos),
-        avianca.collection('abordajes').find({ vueloId }).maxTimeMS(10000).toArray(),
+        avianca.collection('abordajes').find({ $or: [{ vueloId }, { vueloId: req.params.id }] }).maxTimeMS(10000).toArray(),
       ]);
       const nombres = await nombresDelPersonal(avianca, abordajes.map(a => a.registradoPor));
       const porBoleto = new Map(abordajes.map(a => [String(a.boletoId), a]));
@@ -105,10 +109,24 @@ module.exports = function registrarTripulacion(app, bases) {
       let pase = null;
       if (req.body.codigo !== undefined) {
         const lectura = Abordaje.decodificar(req.body.codigo);
-        if (!lectura.ok) throw fallo(422, lectura.motivo, { tipo: lectura.tipo });
-        pase = lectura.pase;
+        if (!lectura.ok) {
+          if (lectura.tipo === 'antiguo' && lectura.pase) {
+            pase = lectura.pase;
+          } else {
+            throw fallo(422, lectura.motivo, { tipo: lectura.tipo });
+          }
+        } else {
+          pase = lectura.pase;
+        }
       }
-      const boleto = await clientes.collection('boletos').findOne({ numero: pase ? pase.numero : req.body.boleto });
+      let boleto = await clientes.collection('boletos').findOne({ numero: pase ? (pase.numero || pase.boleto) : req.body.boleto });
+      if (!boleto && pase?.asiento) {
+        boleto = await clientes.collection('boletos').findOne({
+          $or: [{ vueloId }, { vueloId: req.params.id }],
+          asiento: String(pase.asiento).toUpperCase(),
+          vigente: true
+        });
+      }
       if (!boleto || !boleto.vigente || boleto.estado === 'cancelado') {
         throw fallo(404, 'No hay un boleto vigente para este pase. Pide al pasajero que lo abra desde Mis reservas.', { tipo: 'sin_boleto' });
       }
@@ -119,7 +137,7 @@ module.exports = function registrarTripulacion(app, bases) {
       if (!vuelo || !actual) throw fallo(404, 'No encontramos el vuelo de este boleto.', { tipo: 'sin_vuelo' });
       const [ficha] = await completarBoletos(clientes, [boleto]);
       // El QR solo es una referencia: lo que manda es la reserva guardada en la base de clientes.
-      if (pase) {
+      if (pase && pase.verificacion) {
         const salida = salidaLocal(vuelo);
         const coincide = pase.vuelo === Abordaje.limpiar(vuelo.codigo, 12).toUpperCase() && pase.fecha === salida.fecha &&
           pase.asiento === String(boleto.asiento).toUpperCase() && pase.apellido === Abordaje.limpiar(ficha.apellido, 40);
@@ -141,6 +159,13 @@ module.exports = function registrarTripulacion(app, bases) {
         estado = 'repetido';
         registro = await avianca.collection('abordajes').findOne({ boletoId: boleto._id });
       }
+
+      // Persistir estado "a_bordo" en la colección de boletos
+      await clientes.collection('boletos').updateOne(
+        { _id: boleto._id },
+        { $set: { estado: 'a_bordo', abordadoEn: registro.registradoEn } }
+      ).catch(() => {});
+
       const nombres = await nombresDelPersonal(avianca, [registro.registradoPor]);
       res.json({ ok: true, estado, vuelo: resumenVuelo(vuelo), pasajero: publicarFicha(ficha, registro, nombres) });
     } catch (error) {

@@ -251,7 +251,7 @@
     if (!vuelo) { alertar('Elige primero el vuelo que se está abordando.', 'Sin vuelo seleccionado'); avisar('error'); return; }
     const lectura = A.decodificar(texto);
     if (!lectura.ok && lectura.tipo !== 'antiguo') { alertar(lectura.motivo, TITULOS[lectura.tipo] || 'Pase no válido'); avisar('error'); return; }
-    if (lectura.tipo === 'antiguo' && lectura.pase) {
+    if (vuelo.id.startsWith('demo-') && lectura.tipo === 'antiguo' && lectura.pase) {
       const p = lectura.pase;
       p.abordaje = { registradoEn: new Date().toISOString(), registradoPor: cuenta?.nombre || 'Tripulación', via };
       porAsiento.set(p.asiento, p);
