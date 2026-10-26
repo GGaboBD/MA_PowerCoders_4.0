@@ -143,6 +143,46 @@ function refreshSidebar() {
   stateNode.textContent = confirmed.map((seat, i) => passengerName(i) + ": " + (seat || "pendiente")).join(" · ");
 }
 
+function autoAssignDefaultSeats() {
+  const asientosDisponibles = Array.isArray(flight?.asientos)
+    ? flight.asientos.filter(a => a.disponible !== false)
+    : [];
+
+  let candidatos = [];
+  if (cabinKey === "ejecutiva") {
+    const fila4Plus = asientosDisponibles.filter(a => a.codigo !== "2A" && /^([4-9]|1[0-1])[A-D]$/.test(a.codigo));
+    if (fila4Plus.length > 0) {
+      candidatos = fila4Plus.map(a => a.codigo);
+    } else {
+      candidatos = [
+        "4A", "4B", "4C", "4D",
+        "5A", "5B", "5C", "5D",
+        "6A", "6B", "6C", "6D",
+        "7A", "7B", "7C", "7D",
+        "8A", "8B", "8C", "8D",
+        "9A", "9B", "9C", "9D",
+        "10A", "10B", "10C", "10D",
+        "11A", "11B", "11C", "11D"
+      ];
+    }
+  } else {
+    const primeraDisp = asientosDisponibles.filter(a => /^[1-3][A-D]$/.test(a.codigo));
+    if (primeraDisp.length > 0) {
+      candidatos = primeraDisp.map(a => a.codigo);
+    } else {
+      candidatos = ["1A", "1B", "1C", "1D", "2A", "2B", "2C", "2D", "3A", "3B", "3C", "3D"];
+    }
+  }
+
+  for (let i = 0; i < count; i++) {
+    if (!confirmed[i]) {
+      confirmed[i] = candidatos[i] || (cabinKey === "ejecutiva" ? `${i + 4}A` : `${i + 1}A`);
+    }
+  }
+  draft = [...confirmed];
+  refreshSidebar();
+}
+
 async function fetchFlight() {
   if (/^[a-f0-9]{24}$/i.test(flightId || "")) {
     try {
@@ -236,6 +276,9 @@ async function refreshFlight() {
   const lost = confirmed.some(seat => seat && !free.has(seat));
   confirmed = confirmed.map(seat => free.has(seat) ? seat : null);
   draft = draft.map(seat => free.has(seat) ? seat : null);
+  if (confirmed.some(seat => !seat)) {
+    autoAssignDefaultSeats();
+  }
   document.querySelector("#precio-unitario").textContent = money(price);
   document.querySelector("#precio-total").textContent = money(price * count);
   const mNode = document.querySelector("#moneda-total");
@@ -279,7 +322,7 @@ function buildPayload() {
     const noMolestarBool = atencionTexto === "Prefiero descansar sin interrupciones";
 
     return {
-      asiento: asiento || (i === 0 ? "2A" : `${i + 3}B`),
+      asiento: asiento || (cabinKey === "ejecutiva" ? (i === 0 ? "4A" : `${i + 4}B`) : (i === 0 ? "1A" : `${i + 1}B`)),
       nombres: nombre,
       nombre: nombre,
       apellidos: apellido,
@@ -763,14 +806,14 @@ form.addEventListener("submit", async event => {
   event.preventDefault();
   if (busy || saved || !form.reportValidity()) return;
   if (confirmed.some(seat => !seat)) {
-    stateNode.textContent = "Selecciona y confirma un asiento para cada pasajero.";
-    document.querySelector("#abrir-asientos").focus();
-    return;
+    autoAssignDefaultSeats();
   }
   setBusy(true);
   try {
     await refreshFlight();
-    if (confirmed.some(seat => !seat)) return;
+    if (confirmed.some(seat => !seat)) {
+      autoAssignDefaultSeats();
+    }
     renderReview();
   } catch (error) {
     showFailure(error);
@@ -820,6 +863,7 @@ async function init() {
   const volver = document.querySelector("#volver-vuelos");
   if (volver) volver.href = "index.html?" + back.toString() + "#resultados";
 
+  autoAssignDefaultSeats();
   refreshSidebar();
   columns.hidden = false;
   progress.hidden = false;

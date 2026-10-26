@@ -346,5 +346,97 @@ test("Reservas: comprar acepta tarifa registrada sin rechazar por discrepancia d
   assert.equal(res.boletos[0].precio, "480000"); // Asigna el precio oficial registrado
 });
 
+test("Reservas: comprar auto-asigna asiento valido de cabina si el enviado no pertenece o esta ocupado", async () => {
+  const { ObjectId } = require("mongodb");
+  const { comprar } = require("../backend/reservas");
+
+  const datosVueloId = new ObjectId();
+  const compradorId = new ObjectId();
+  const vueloDoc = {
+    _id: datosVueloId,
+    codigo: "AV 8402",
+    salida: new Date(Date.now() + 36000000).toISOString(),
+    estado: "ventas_abiertas",
+    tarifas: { ejecutiva: 420000, primera: 890000 },
+    moneda: "COP",
+    asientos: [
+      { codigo: "2A", clase: "ejecutiva", disponible: false },
+      { codigo: "4A", clase: "ejecutiva", disponible: true },
+      { codigo: "4B", clase: "ejecutiva", disponible: true }
+    ],
+    diaViaje: "2026-10-26"
+  };
+
+  const colecciones = {
+    solicitudes_reserva: new Map(),
+    vuelos: new Map([[String(datosVueloId), vueloDoc]]),
+    boletos: new Map(),
+    reservas: new Map(),
+    pasajeros: new Map(),
+    perfiles_viaje: new Map(),
+    auditoria: new Map(),
+  };
+
+  const fakeCollection = name => {
+    const mapa = colecciones[name];
+    return {
+      findOne: async (filtro = {}) => {
+        for (const item of mapa.values()) {
+          let match = true;
+          for (const [k, v] of Object.entries(filtro)) {
+            if (k === '_id' && !item._id.equals(v)) match = false;
+            else if (k === 'vueloId' && !item.vueloId?.equals?.(v)) match = false;
+            else if (k === 'asiento' && typeof v === 'object' && v.$in && !v.$in.includes(item.asiento)) match = false;
+            else if (k === 'activa' && item.activa !== v) match = false;
+            else if (k === 'vigente' && item.vigente !== v) match = false;
+          }
+          if (match) return item;
+        }
+        return null;
+      },
+      insertOne: async doc => {
+        mapa.set(String(doc._id), doc);
+        return { insertedId: doc._id };
+      },
+      updateOne: async () => ({ modifiedCount: 1 }),
+      replaceOne: async (filtro, doc) => {
+        mapa.set(String(doc._id), doc);
+        return { upsertedId: doc._id };
+      },
+      find: () => ({
+        sort: () => ({ limit: () => ({ toArray: async () => [...mapa.values()] }) }),
+        toArray: async () => [...mapa.values()]
+      })
+    };
+  };
+
+  const fakeDb = { collection: name => fakeCollection(name) };
+
+  // El pasajero envía asiento "1A" (que es de primera clase) al comprar en clase ejecutiva
+  const datosCompra = {
+    vueloId: String(datosVueloId),
+    clase: "ejecutiva",
+    solicitudId: "11223344-5566-7788-9900-aabbccddeeff",
+    precioAceptado: "420000",
+    monedaAceptada: "COP",
+    pasajeros: [{
+      asiento: "1A", // Asiento fuera de ejecutiva
+      nombres: "Carlos",
+      apellidos: "Gómez",
+      fechaNacimiento: new Date("1992-05-15T00:00:00Z"),
+      documento: { tipo: "pasaporte", paisEmisor: "CO", numero: "DEMO-CO-2002" },
+      preferencias: { comida: "sin_preferencia", noMolestar: false, alergias: [], bebida: "", notas: "" },
+      perfil: { trato: "", idioma: "es", atencion: 0, motivo: 0 }
+    }]
+  };
+
+  const res = await comprar(fakeDb, null, compradorId, datosCompra);
+  assert.equal(res.ok, true);
+  assert.equal(res.boletos.length, 1);
+  // Auto-asigna un asiento válido de ejecutiva (4A) sin lanzar error 400
+  assert.equal(res.boletos[0].asiento, "4A");
+  assert.match(res.localizador, /^AV-[A-Z0-9]{8}$/);
+});
+
 
 
