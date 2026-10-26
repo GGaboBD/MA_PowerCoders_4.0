@@ -23,7 +23,6 @@
       <nav class="nav-abordaje" aria-label="Tu viaje">
         <a href="mis-reservas.html">Mis reservas</a>
         <a class="activo" href="pase.html" aria-current="page">Pase de abordar</a>
-        <a href="perfil.html" data-rol="cliente" hidden>Mi perfil</a>
         <a href="tripulacion.html" data-permiso="tripulacion.ver" hidden>Tripulación</a>
       </nav>
       <div class="acciones-nav"><a class="volver" href="index.html">Volver al inicio</a><a class="boton boton-oscuro" href="cuenta.html">Iniciar sesión</a></div>
@@ -31,14 +30,14 @@
   </header>
 
   <main id="contenido" class="contenedor abordaje-main">
-    <div class="abordaje-intro">
+    <div class="abordaje-intro" id="intro-pase">
       <div>
         <p class="etiqueta"><span class="numero">02</span> ABORDAJE · PASAJERO</p>
-        <h1 class="titulo-abordaje">Tu pase,<br><span>listo.</span></h1>
+        <h1 class="titulo-abordaje" id="titulo-pase">Tu pase,<br><span>listo.</span></h1>
       </div>
-      <p>Lleva el código contigo. Al escanearlo, la tripulación sabrá quién va en tu asiento y cómo prefieres que te atiendan, sin preguntarte de nuevo.</p>
+      <p id="desc-pase">Lleva el código contigo. Al escanearlo, la tripulación sabrá quién va en tu asiento y cómo prefieres que te atiendan, sin preguntarte de nuevo.</p>
     </div>
-    <p class="pasos-reserva">1. Elige tu boleto <span>2. Descarga o muestra el código</span> <span>3. Preséntalo al abordar</span></p>
+    <p class="pasos-reserva" id="pasos-pase">1. Elige tu boleto <span>2. Descarga o muestra el código</span> <span>3. Preséntalo al abordar</span></p>
     <p class="aviso-origen" id="estado-pase" role="status">Comprobando tu sesión…</p>
     <div class="acceso-pase" id="acceso-pase" hidden><a class="boton boton-rojo" id="accion-pase" href="cuenta.html">Iniciar sesión</a></div>
 

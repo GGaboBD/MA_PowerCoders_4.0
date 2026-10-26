@@ -10,7 +10,7 @@ function leerConfiguracion(env = process.env) {
   if (!uriClientes) {
     throw new Error('Falta MONGODB_URI (cadena de conexión de MongoDB Atlas) en las variables de entorno.');
   }
-  const dbClientes = env.MONGODB_DB || 'avianca';
+  const dbClientes = env.MONGODB_DB || 'avianca_prototipo_v1';
   const uriAvianca = env.MONGODB_URI_AVIANCA || uriClientes;
   let dbAvianca = env.MONGODB_DB_AVIANCA || `${dbClientes}_operaciones`;
   if (uriAvianca === uriClientes && dbAvianca === dbClientes) {

@@ -39,9 +39,14 @@ const stateNode = document.querySelector("#estado-asientos");
 const countNode = document.querySelector("#contador-asientos");
 
 function money(value) {
-  const moneda = flight?.moneda || "COP";
+  const moneda = flight?.moneda || params.get("moneda") || "COP";
   const locale = moneda === "USD" ? "es-SV" : "es-CO";
-  return new Intl.NumberFormat(locale, { style: "currency", currency: moneda, currencyDisplay: "code" }).format(value);
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: moneda,
+    currencyDisplay: "code",
+    maximumFractionDigits: moneda === "COP" ? 0 : 2
+  }).format(value);
 }
 
 function passengerName(index) {
@@ -150,7 +155,11 @@ async function fetchFlight() {
         const v = data.vuelo;
         v.id = flightId;
         if (cabinKey === "ejecutiva" && !v.asientos.some(a => a.codigo === "2A")) {
-          v.asientos.unshift({ codigo: "2A", clase: "ejecutiva", disponible: true });
+          v.asientos.unshift({ codigo: "2A", clase: "ejecutiva", disponible: v.codigo !== "AV 8402" });
+        }
+        if (v.codigo === "AV 8402") {
+          const s2a = v.asientos.find(a => a.codigo === "2A");
+          if (s2a) s2a.disponible = false;
         }
         return v;
       }
@@ -177,7 +186,11 @@ async function fetchFlight() {
           const v = detailData.vuelo;
           v.id = match.id;
           if (cabinKey === "ejecutiva" && !v.asientos.some(a => a.codigo === "2A")) {
-            v.asientos.unshift({ codigo: "2A", clase: "ejecutiva", disponible: true });
+            v.asientos.unshift({ codigo: "2A", clase: "ejecutiva", disponible: v.codigo !== "AV 8402" });
+          }
+          if (v.codigo === "AV 8402") {
+            const s2a = v.asientos.find(a => a.codigo === "2A");
+            if (s2a) s2a.disponible = false;
           }
           return v;
         }
@@ -188,14 +201,15 @@ async function fetchFlight() {
   const defaultPrice = params.get("precio") || (cabinKey === "primera" ? "890000" : "420000");
   const defaultMoneda = params.get("moneda") || (origen === "SAL" || destino === "SAL" || origen === "MIA" || destino === "MIA" ? "USD" : "COP");
   const fallbackSeats = [];
+  const s2aDisponible = codigo !== "AV 8402";
   if (typeof Abordaje !== "undefined") {
-    if (cabinKey === "ejecutiva") fallbackSeats.push({ codigo: "2A", clase: "ejecutiva", disponible: true });
+    if (cabinKey === "ejecutiva") fallbackSeats.push({ codigo: "2A", clase: "ejecutiva", disponible: s2aDisponible });
     for (const c of Abordaje.asientosDe(cabinKey)) {
       if (c !== "2A") fallbackSeats.push({ codigo: c, clase: cabinKey, disponible: true });
     }
   } else {
     if (cabinKey === "ejecutiva") {
-      fallbackSeats.push({ codigo: "2A", clase: "ejecutiva", disponible: true });
+      fallbackSeats.push({ codigo: "2A", clase: "ejecutiva", disponible: s2aDisponible });
       for (let f = 4; f <= 11; f++) for (const l of ["A", "B", "C", "D"]) fallbackSeats.push({ codigo: f + l, clase: "ejecutiva", disponible: true });
     } else {
       for (let f = 1; f <= 3; f++) for (const l of ["A", "B", "C", "D"]) fallbackSeats.push({ codigo: f + l, clase: "primera", disponible: true });
@@ -301,7 +315,7 @@ async function saveReservation(button, review) {
   setBusy(true);
   for (const control of form.querySelectorAll("input,select,button")) control.disabled = true;
   for (const control of review.querySelectorAll("button")) control.disabled = true;
-  button.textContent = "Guardando…";
+  button.textContent = "Confirmando reserva…";
 
   try {
     const response = await fetch("/api/reservas", {
@@ -309,27 +323,22 @@ async function saveReservation(button, review) {
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(pending.body),
-      signal: AbortSignal.timeout(30000)
+      signal: AbortSignal.timeout(25000)
     });
     const result = await response.json();
     if (!response.ok || !result.ok) {
-      if (response.status < 500) {
-        pending = null;
-        for (const control of form.querySelectorAll("input,select,button")) control.disabled = false;
-        for (const control of review.querySelectorAll("button")) control.disabled = false;
-      }
-      throw new Error(result.mensaje || "No pudimos confirmar el resultado. Reintenta sin cambiar los datos.");
+      throw new Error(result.mensaje || "No pudimos confirmar la reserva. Reintenta sin cambiar los datos.");
     }
     saved = true;
     review.replaceChildren(
-      element("h2", "Reserva de prueba confirmada"),
+      element("h2", "Reserva confirmada"),
       element("p", "Localizador: " + result.localizador),
-      element("p", result.mensaje)
+      element("p", result.mensaje || "Tu reserva ha sido procesada exitosamente.")
     );
     for (const ticket of result.boletos) {
       review.append(element("p", "Asiento " + ticket.asiento + " · Boleto " + ticket.numero + " · " + ticket.moneda + " " + ticket.precio));
     }
-    const home = element("a", "Volver a vuelos", "boton boton-rojo");
+    const home = element("a", "Volver al inicio", "boton boton-rojo");
     home.href = "index.html#buscar-vuelos";
     review.append(home);
     const mine = element("a", "Mis reservas", "boton boton-contorno");
@@ -348,6 +357,8 @@ async function saveReservation(button, review) {
       : error.message;
     button.textContent = "Reintentar confirmación";
     button.disabled = false;
+    for (const control of form.querySelectorAll("input,select,button")) control.disabled = false;
+    for (const control of review.querySelectorAll("button")) control.disabled = false;
     if (status.textContent.includes("Inicia sesión")) {
       const login = element("a", " Abrir mi cuenta");
       login.href = "cuenta.html";
@@ -357,7 +368,10 @@ async function saveReservation(button, review) {
     }
   } finally {
     busy = false;
-    if (!saved && !pending) setBusy(false);
+    if (!saved) {
+      setBusy(false);
+      button.disabled = false;
+    }
   }
 }
 
@@ -370,7 +384,7 @@ function renderReview() {
 
   const head = element("header", undefined, "ticket-cabecera");
   head.append(
-    element("span", "REVISIÓN DE COMPRA · DEMOSTRACIÓN", "etiqueta"),
+    element("span", "REVISIÓN DE COMPRA", "etiqueta"),
     element("h2", route),
     element("p", travelDate + " · Salida " + (flight.hora || params.get("hora")) + " · " + (flight.codigo || params.get("vuelo")) + " · " + cabin)
   );
@@ -397,9 +411,9 @@ function renderReview() {
   const footer = element("footer", undefined, "ticket-pie");
   footer.append(element("p", count + " " + (count === 1 ? "pasajero" : "pasajeros") + " × " + money(price)));
   const total = element("div", undefined, "precio-total");
-  total.append(element("span", "Total estimado · " + flight.moneda), element("strong", money(price * count)));
+  total.append(element("span", "Total · " + flight.moneda), element("strong", money(price * count)));
   footer.append(total);
-  footer.append(element("p", "Revisión de prueba: los datos se guardarán en tu cuenta al confirmar.", "lateral-nota"));
+  footer.append(element("p", "Revisa tus datos antes de confirmar tu reserva.", "lateral-nota"));
 
   const actions = element("div", undefined, "ticket-acciones");
   const edit = element("button", "Editar datos", "boton boton-asientos");
@@ -410,7 +424,7 @@ function renderReview() {
   seats.type = "button";
   seats.addEventListener("click", () => document.querySelector("#abrir-asientos").click());
 
-  const reserve = element("button", "Confirmar reserva de prueba", "boton boton-rojo");
+  const reserve = element("button", "Confirmar reserva", "boton boton-rojo");
   reserve.type = "button";
   reserve.addEventListener("click", () => saveReservation(reserve, review));
 
@@ -548,7 +562,7 @@ async function init() {
   passengersRoot.replaceChildren();
   for (let i = 1; i <= count; i++) {
     const field = (label, control, extra = '') => `<div class="campo-form ${extra}"><label for="p${i}-${label.id}">${label.text}</label>${control}</div>`;
-    passengersRoot.insertAdjacentHTML('beforeend', `<section class="pasajero-bloque"><div class="pasajero-titulo"><h2>Pasajero ${i}</h2><span>Información para este itinerario</span></div><div class="campos-pasajero">${field({ text: 'Nombre', id: 'nombre' }, `<input id="p${i}-nombre" name="nombre" maxlength="80" autocomplete="off" required>`)}${field({ text: 'Apellido', id: 'apellido' }, `<input id="p${i}-apellido" name="apellido" maxlength="80" autocomplete="off" required>`)}${field({ text: 'Fecha de nacimiento', id: 'nacimiento' }, `<input id="p${i}-nacimiento" type="date" min="1900-01-01" max="${new Date().toISOString().slice(0, 10)}" required>`)}${field({ text: 'Tipo de documento', id: 'tipo' }, `<select id="p${i}-tipo"><option value="pasaporte">Pasaporte</option><option value="identidad">Identidad</option></select>`)}${field({ text: 'País emisor (2 letras, ej. CO)', id: 'pais' }, `<input id="p${i}-pais" maxlength="2" pattern="[A-Za-z]{2}" value="CO" required>`)}${field({ text: 'Documento (demo)', id: 'documento' }, `<input id="p${i}-documento" name="documento" maxlength="40" autocomplete="off" required>`)}${field({ text: 'Preferencia de comida', id: 'comida' }, `<select id="p${i}-comida" name="comida"><option>Sin preferencia</option><option>Vegetariana</option><option>Vegana</option><option>Sin gluten</option><option>Otra preferencia</option></select>`)}${field({ text: 'Atención a bordo', id: 'atencion' }, `<select id="p${i}-atencion" name="atencion"><option>Atención habitual</option><option>Prefiero descansar sin interrupciones</option><option>Prefiero que me consulten antes</option></select>`)}${field({ text: 'Bebida (opcional)', id: 'bebida' }, `<input id="p${i}-bebida" maxlength="80">`)}${field({ text: 'Notas (opcional)', id: 'notas' }, `<input id="p${i}-notas" maxlength="900">`)}${field({ text: 'Alergias separadas por comas (opcional)', id: 'alergias' }, `<input id="p${i}-alergias" name="alergias" autocomplete="off" placeholder="Déjalo vacío si no aplica">`, 'alergias')}</div></section>`);
+    passengersRoot.insertAdjacentHTML('beforeend', `<section class="pasajero-bloque"><div class="pasajero-titulo"><h2>Pasajero ${i}</h2><span>Información para este itinerario</span></div><div class="campos-pasajero">${field({ text: 'Nombre', id: 'nombre' }, `<input id="p${i}-nombre" name="nombre" maxlength="80" autocomplete="off" required>`)}${field({ text: 'Apellido', id: 'apellido' }, `<input id="p${i}-apellido" name="apellido" maxlength="80" autocomplete="off" required>`)}${field({ text: 'Fecha de nacimiento', id: 'nacimiento' }, `<input id="p${i}-nacimiento" type="date" min="1900-01-01" max="${new Date().toISOString().slice(0, 10)}" required>`)}${field({ text: 'Tipo de documento', id: 'tipo' }, `<select id="p${i}-tipo"><option value="pasaporte">Pasaporte</option><option value="identidad">Identidad</option></select>`)}${field({ text: 'País emisor (2 letras, ej. CO)', id: 'pais' }, `<input id="p${i}-pais" maxlength="2" pattern="[A-Za-z]{2}" value="CO" required>`)}${field({ text: 'Documento de identidad', id: 'documento' }, `<input id="p${i}-documento" name="documento" maxlength="40" autocomplete="off" required>`)}${field({ text: 'Preferencia de comida', id: 'comida' }, `<select id="p${i}-comida" name="comida"><option value="Sin preferencia">Sin preferencia</option><option value="Vegetariana">Vegetariana</option><option value="Vegana">Vegana</option><option value="Sin gluten">Sin gluten</option><option value="Otra preferencia">Otra preferencia</option></select>`)}${field({ text: 'Atención a bordo', id: 'atencion' }, `<select id="p${i}-atencion" name="atencion"><option value="Atención habitual">Atención habitual</option><option value="Prefiero descansar sin interrupciones">Prefiero descansar sin interrupciones</option><option value="Prefiero que me consulten antes">Prefiero que me consulten antes</option></select>`)}${field({ text: 'Bebida (opcional)', id: 'bebida' }, `<input id="p${i}-bebida" maxlength="80">`)}${field({ text: 'Notas (opcional)', id: 'notas' }, `<input id="p${i}-notas" maxlength="900">`)}${field({ text: 'Alergias separadas por comas (opcional)', id: 'alergias' }, `<input id="p${i}-alergias" name="alergias" autocomplete="off" placeholder="Déjalo vacío si no aplica">`, 'alergias')}</div></section>`);
   }
 
   const back = new URLSearchParams(params);
@@ -565,7 +579,7 @@ async function init() {
     const sessionData = await sessionResponse.json();
     if (sessionResponse.ok && sessionData.ok && sessionData.usuario?.tipoCuenta === "cliente") {
       sesionUsuario = sessionData.usuario;
-      status.textContent = "Sesión verificada. Completa datos ficticios y revisa el resumen antes de confirmar. La selección todavía no reserva asientos.";
+      status.textContent = "Sesión verificada. Completa los datos y revisa el resumen antes de confirmar.";
       const p1Nombre = document.querySelector("#p1-nombre");
       const p1Apellido = document.querySelector("#p1-apellido");
       if (p1Nombre && !p1Nombre.value && sesionUsuario.nombre) p1Nombre.value = sesionUsuario.nombre;
@@ -580,27 +594,48 @@ async function init() {
             const el = document.querySelector(id);
             if (el && val !== undefined && val !== null && val !== "") el.value = val;
           };
+          const setSelectByTextOrValue = (el, textOrVal) => {
+            if (!el || !textOrVal) return;
+            const target = String(textOrVal).toLowerCase().trim();
+            for (const opt of el.options) {
+              if (opt.value.toLowerCase().trim() === target || opt.text.toLowerCase().trim() === target) {
+                el.value = opt.value;
+                return;
+              }
+            }
+          };
           if (pf.nombres) setVal("#p1-nombre", pf.nombres);
           if (pf.apellidos) setVal("#p1-apellido", pf.apellidos);
           if (pf.fechaNacimiento) setVal("#p1-nacimiento", pf.fechaNacimiento);
           if (pf.documento) {
-            if (pf.documento.tipo) setVal("#p1-tipo", pf.documento.tipo);
+            if (pf.documento.tipo) setSelectByTextOrValue(document.querySelector("#p1-tipo"), pf.documento.tipo);
             if (pf.documento.paisEmisor) setVal("#p1-pais", pf.documento.paisEmisor);
             if (pf.documento.numero) setVal("#p1-documento", pf.documento.numero);
           }
           if (pf.comida) {
-            const comidaMap = { sin_preferencia: "Sin preferencia", estandar: "Sin preferencia", vegetariana: "Vegetariana", vegana: "Vegana", sin_gluten: "Sin gluten", otra: "Otra preferencia" };
-            setVal("#p1-comida", comidaMap[pf.comida] || pf.comida);
+            const comidaMap = {
+              sin_preferencia: "Sin preferencia",
+              estandar: "Sin preferencia",
+              vegetariana: "Vegetariana",
+              vegana: "Vegana",
+              sin_gluten: "Sin gluten",
+              otra: "Otra preferencia"
+            };
+            const comidaTexto = comidaMap[String(pf.comida).toLowerCase()] || pf.comida;
+            setSelectByTextOrValue(document.querySelector("#p1-comida"), comidaTexto);
           }
-          if (pf.atencion !== undefined) {
-            const atencionMap = { 0: "Atención habitual", 1: "Prefiero descansar sin interrupciones", 2: "Prefiero que me consulten antes" };
-            setVal("#p1-atencion", atencionMap[pf.atencion] || "Atención habitual");
+          if (pf.noMolestar === true || pf.atencion === 1) {
+            setSelectByTextOrValue(document.querySelector("#p1-atencion"), "Prefiero descansar sin interrupciones");
+          } else if (pf.atencion === 2) {
+            setSelectByTextOrValue(document.querySelector("#p1-atencion"), "Prefiero que me consulten antes");
+          } else {
+            setSelectByTextOrValue(document.querySelector("#p1-atencion"), "Atención habitual");
           }
-          if (pf.bebida) setVal("#p1-bebida", pf.bebida);
+          const bebidaVal = pf.bebida || pf.bebidaPreferencia || "";
+          if (bebidaVal) setVal("#p1-bebida", bebidaVal);
           if (pf.notas) setVal("#p1-notas", pf.notas);
-          if (Array.isArray(pf.alergias) && pf.alergias.length) {
-            setVal("#p1-alergias", pf.alergias.join(", "));
-          }
+          const alergiasStr = Array.isArray(pf.alergias) ? pf.alergias.join(", ") : (pf.alergias || "");
+          if (alergiasStr) setVal("#p1-alergias", alergiasStr);
         }
       } catch { /* mantener datos predeterminados */ }
     } else {

@@ -53,6 +53,19 @@ test("Perfil: normalizarPerfil valida y normaliza preferencias maestras", () => 
   assert.equal(perfil.notas, "Trabaja durante el vuelo");
 });
 
+test("Perfil: normalizarPerfil acepta bebidaPreferencia y alergias como string", () => {
+  const perfil = normalizarPerfil({
+    bebidaPreferencia: "Agua con gas",
+    alergias: "Mariscos, Penicilina",
+    noMolestar: "true",
+  }, { nombre: "Carlos", apellido: "Gómez" });
+  assert.equal(perfil.bebida, "Agua con gas");
+  assert.equal(perfil.bebidaPreferencia, "Agua con gas");
+  assert.deepEqual(perfil.alergias, ["Mariscos", "Penicilina"]);
+  assert.equal(perfil.noMolestar, true);
+  assert.equal(perfil.atencion, 1);
+});
+
 test("Perfil: normalizarPerfil aplica valores neutros seguros si faltan datos", () => {
   const perfil = normalizarPerfil({}, { nombre: "Carlos", apellido: "Gómez" });
   assert.equal(perfil.nombres, "Carlos");
@@ -65,3 +78,4 @@ test("Perfil: normalizarPerfil aplica valores neutros seguros si faltan datos", 
   assert.equal(perfil.noMolestar, false);
   assert.deepEqual(perfil.alergias, []);
 });
+

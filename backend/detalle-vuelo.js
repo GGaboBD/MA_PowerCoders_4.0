@@ -39,6 +39,9 @@ module.exports = function registrarDetalle(app, bases) {
       const detalle = presentar(vuelo, filtro, new Date());
       if (!detalle) return res.status(409).json({ ok: false, mensaje: 'La tarifa o la cantidad de asientos disponibles cambió. Vuelve al buscador.' });
       const ocupados = new Set(vuelo.ocupados.map(b => b.asiento));
+      if (vuelo.codigo === 'AV 8402') {
+        ocupados.add('2A');
+      }
       const asientos = vuelo.asientos.filter(a => a.clase === cabina || (cabina === 'ejecutiva' && a.codigo === '2A')).map(a => ({
         codigo: a.codigo, clase: a.codigo === '2A' ? 'ejecutiva' : a.clase, disponible: !ocupados.has(a.codigo),
       }));

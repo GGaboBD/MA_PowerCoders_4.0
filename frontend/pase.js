@@ -13,11 +13,20 @@
   let textoQR = '';
   let cargado = null;
 
-  function mostrarAcceso(texto, enlace, etiqueta) {
+  function mostrarAcceso(texto, enlace, etiqueta, esVacio = false) {
     $('pase-layout').hidden = true;
     estado.textContent = texto;
     $('acceso-pase').hidden = !enlace;
     if (enlace) { $('accion-pase').href = enlace; $('accion-pase').textContent = etiqueta; }
+    if (esVacio) {
+      if ($('titulo-pase')) $('titulo-pase').innerHTML = 'Pase de<br><span>abordar.</span>';
+      if ($('desc-pase')) $('desc-pase').textContent = 'Emite tus pases de abordar confirmando tu reserva en vuelos ejecutivos o primera clase.';
+      if ($('pasos-pase')) $('pasos-pase').hidden = true;
+    } else {
+      if ($('titulo-pase')) $('titulo-pase').innerHTML = 'Tu pase,<br><span>listo.</span>';
+      if ($('desc-pase')) $('desc-pase').textContent = 'Lleva el código contigo. Al escanearlo, la tripulación sabrá quién va en tu asiento y cómo prefieres que te atiendan, sin preguntarte de nuevo.';
+      if ($('pasos-pase')) $('pasos-pase').hidden = false;
+    }
   }
 
   function filas(dl, datos) {
@@ -76,7 +85,7 @@
       const datos = await respuesta.json();
       if (!respuesta.ok || !datos.ok) throw new Error(datos.mensaje || 'No pudimos consultar tus pases.');
       pases = datos.pases;
-      if (!pases.length) { mostrarAcceso('Aún no tienes boletos vigentes. Busca un vuelo y confirma una reserva para obtener tu pase.', 'index.html#buscar-vuelos', 'Buscar vuelos'); return; }
+      if (!pases.length) { mostrarAcceso('Aún no tienes boletos vigentes. Busca un vuelo y confirma una reserva para obtener tu pase.', 'index.html#buscar-vuelos', 'Buscar vuelos', true); return; }
       selector.replaceChildren(...pases.map(p => new Option(`${p.vuelo} · ${p.origen} → ${p.destino} · ${A.formatearFecha(p.fecha)} · ${p.asiento} · ${p.nombre} ${p.apellido}`, p.numero)));
       const elegido = pases.find(p => p.numero === pedido || p.boletoId === pedido || p.id === pedido || p.reservaId === pedido) || pases[0];
       selector.value = elegido.numero;

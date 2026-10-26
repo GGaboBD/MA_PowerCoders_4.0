@@ -24,8 +24,8 @@
     document.getElementById("perfil-comida").value = perfil.comida || "sin_preferencia";
     document.getElementById("perfil-atencion").value = String(perfil.atencion ?? 0);
     document.getElementById("perfil-motivo").value = String(perfil.motivo ?? 0);
-    document.getElementById("perfil-bebida").value = perfil.bebida || "";
-    document.getElementById("perfil-alergias").value = Array.isArray(perfil.alergias) ? perfil.alergias.join(", ") : "";
+    document.getElementById("perfil-bebida").value = perfil.bebida || perfil.bebidaPreferencia || "";
+    document.getElementById("perfil-alergias").value = Array.isArray(perfil.alergias) ? perfil.alergias.join(", ") : (perfil.alergias || "");
     document.getElementById("perfil-no-molestar").checked = Boolean(perfil.noMolestar);
     document.getElementById("perfil-notas").value = perfil.notas || "";
   }

@@ -104,7 +104,7 @@
     cuenta = { id: 'demo', nombre: 'Tripulación Demo', apellido: '', tipoCuenta: 'personal', rol: 'azafata', permisos: ['tripulacion.ver', 'abordaje.registrar'] };
     $('acceso-bloqueado').hidden = true;
     $('panel').hidden = false;
-    $('sesion-personal').textContent = 'Modo Demostración · Tripulación de cabina (Simulación interactiva)';
+    $('sesion-personal').textContent = 'Portal de Operaciones · Tripulación de cabina';
     const fecha = $('fecha-vuelo').value || A.hoyISO();
     $('fecha-vuelo').value = fecha;
 

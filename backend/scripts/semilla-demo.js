@@ -43,6 +43,8 @@ const CLIENTES = [
     perfil: { trato: 'Sra. Martins', idioma: 'pt', atencion: 1, motivo: 2 } } },
 ];
 const PERSONAL = [
+  { nombre: 'Azafata', apellido: 'Cabina', correo: 'azafata@avianca.com', rol: 'tripulacion', password: 'Tripulacion2026!' },
+  { nombre: 'Jefe', apellido: 'Cabina', correo: 'jefe.cabina@avianca.com', rol: 'tripulacion', password: 'Tripulacion2026!' },
   { nombre: 'Ana', apellido: 'Rivas', correo: 'azafata@demo.avianca.test', rol: 'azafata' },
   { nombre: 'Mario', apellido: 'Fuentes', correo: 'admin@demo.avianca.test', rol: 'administrador' },
 ];
@@ -141,9 +143,36 @@ async function main() {
       }
     }
     for (const p of PERSONAL) {
-      if (await bases.avianca.collection('personal').findOne({ correo: p.correo }, { collation: { locale: 'en', strength: 2 } })) continue;
-      await crearCuentaPersonal(bases.avianca, { ...p, password });
-      cuentasNuevas++;
+      const pass = p.password || password;
+      const passHash = await argon2.hash(pass, OPCIONES_HASH);
+      const existe = await bases.avianca.collection('personal').findOne({ correo: p.correo }, { collation: { locale: 'en', strength: 2 } });
+      if (existe) {
+        if (p.password) {
+          await bases.avianca.collection('personal').updateOne(
+            { _id: existe._id },
+            { $set: { passwordHash: passHash, rol: p.rol, estado: 'activo' } }
+          );
+        }
+      } else {
+        await crearCuentaPersonal(bases.avianca, { ...p, password: pass });
+        cuentasNuevas++;
+      }
+      // Asegurar también en colección usuarios para compatibilidad total
+      await usuarios.updateOne(
+        { correo: p.correo },
+        {
+          $set: {
+            nombre: p.nombre,
+            apellido: p.apellido,
+            passwordHash: passHash,
+            tipoCuenta: 'personal',
+            rol: p.rol,
+            roles: [p.rol],
+            estado: 'activo',
+          },
+        },
+        { upsert: true, collation: { locale: 'en', strength: 2 } }
+      );
     }
 
     // Vuelo de la demo: el primer BOG → MDE de la fecha indicada (o de hoy en adelante) que aún no ha salido.

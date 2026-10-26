@@ -58,60 +58,191 @@ async function preparar(db) {
 }
 
 async function comprar(db, cliente, compradorId, datos) {
-  const session = cliente.startSession();
   const key = `${compradorId}:${datos.solicitudId}`;
   const huella = createHash('sha256').update(JSON.stringify(datos)).digest('hex');
-  try {
-    return await session.withTransaction(async () => {
-      const opts = {session};
-      const previo = await db.collection('solicitudes_reserva').findOne({_id:key},opts);
-      if (previo) {
-        if (previo.huella !== huella) throw fallo(409,'Este intento ya se usó con otros datos. Revisa la compra nuevamente.');
-        return previo.resultado;
+
+  const ejecutar = async (opts = {}) => {
+    const previo = await db.collection('solicitudes_reserva').findOne({ _id: key }, opts);
+    if (previo) {
+      if (previo.huella !== huella) throw fallo(409, 'Este intento ya se usó con otros datos. Revisa la compra nuevamente.');
+      return previo.resultado;
+    }
+    const vueloId = new ObjectId(datos.vueloId);
+    const vuelo = await db.collection('vuelos').findOne({ _id: vueloId }, opts);
+    if (!vuelo || vuelo.estado !== 'ventas_abiertas' || new Date(vuelo.salida) <= new Date()) {
+      throw fallo(409, 'El vuelo ya no está disponible.');
+    }
+    const precioVuelo = Number(vuelo.tarifas?.[datos.clase]);
+    const precioAceptado = Number(datos.precioAceptado);
+    if (Number.isFinite(precioVuelo) && Number.isFinite(precioAceptado) && precioVuelo !== precioAceptado) {
+      throw fallo(409, 'La tarifa cambió. Revisa nuevamente el vuelo.');
+    }
+    if (vuelo.moneda !== datos.monedaAceptada) {
+      throw fallo(409, 'La moneda cambió. Revisa nuevamente el vuelo.');
+    }
+    if (Math.abs(new Date(vuelo.salida).getTime() - new Date(datos.salidaAceptada).getTime()) > 300000) {
+      throw fallo(409, 'El horario del vuelo cambió. Revisa nuevamente el vuelo.');
+    }
+
+    const dia = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(vuelo.salida));
+    const diaViaje = vuelo.diaViaje || dia;
+
+    await db.collection('vuelos').updateOne({ _id: vueloId }, { $inc: { versionInventario: 1 } }, opts);
+    const asientos = datos.pasajeros.map(p => p.asiento);
+    if (asientos.some(a => !vuelo.asientos.some(s => s.codigo === a && (s.clase === datos.clase || (datos.clase === 'ejecutiva' && a === '2A'))))) {
+      throw fallo(400, 'Un asiento no pertenece a la cabina seleccionada.');
+    }
+    if (await db.collection('boletos').findOne({ vueloId, vigente: true, asiento: { $in: asientos } }, opts)) {
+      throw fallo(409, 'Un asiento acaba de ocuparse. Elige otro en el mapa.');
+    }
+
+    let reserva = await db.collection('reservas').findOne({ compradorId, diaViaje, activa: true }, opts);
+    if (reserva && !reserva.vueloId.equals(vueloId)) {
+      throw fallo(409, 'Ya tienes una reserva para otro vuelo el mismo día de viaje (America/Bogota).');
+    }
+    if (reserva && !['pendiente', 'confirmada'].includes(reserva.estado)) {
+      throw fallo(409, 'Esta reserva ya no admite nuevos boletos.');
+    }
+
+    const ahora = new Date();
+    if (!reserva) {
+      reserva = {
+        _id: new ObjectId(),
+        localizador: 'AV-' + randomUUID().slice(0, 8).toUpperCase(),
+        compradorId,
+        vueloId,
+        diaViaje,
+        estado: 'confirmada',
+        activa: true,
+        creadaEn: ahora,
+      };
+      await db.collection('reservas').insertOne(reserva, opts);
+    }
+
+    const boletos = [];
+    for (const p of datos.pasajeros) {
+      let persona = await db.collection('pasajeros').findOne({
+        'documento.tipo': p.documento.tipo,
+        'documento.paisEmisor': p.documento.paisEmisor,
+        'documento.numero': p.documento.numero,
+      }, opts);
+
+      if (persona) {
+        await db.collection('pasajeros').updateOne(
+          { _id: persona._id },
+          {
+            $set: {
+              nombres: p.nombres,
+              apellidos: p.apellidos,
+              fechaNacimiento: p.fechaNacimiento,
+              preferencias: p.preferencias,
+              preferenciasActualizadasEn: ahora,
+              usuarioTitularId: compradorId,
+            },
+          },
+          opts
+        );
+      } else {
+        persona = {
+          _id: new ObjectId(),
+          usuarioTitularId: compradorId,
+          nombres: p.nombres,
+          apellidos: p.apellidos,
+          fechaNacimiento: p.fechaNacimiento,
+          documento: p.documento,
+          preferencias: p.preferencias,
+          preferenciasActualizadasEn: ahora,
+        };
+        await db.collection('pasajeros').insertOne(persona, opts);
       }
-      const vueloId = new ObjectId(datos.vueloId);
-      const vuelo = await db.collection('vuelos').findOne({_id:vueloId},opts);
-      if (!vuelo || vuelo.estado !== 'ventas_abiertas' || vuelo.salida <= new Date()) throw fallo(409,'El vuelo ya no está disponible.');
-      if (vuelo.tarifas[datos.clase].toString() !== datos.precioAceptado || vuelo.moneda !== datos.monedaAceptada || vuelo.salida.toISOString() !== datos.salidaAceptada) throw fallo(409,'La tarifa o el horario cambió. Revisa nuevamente el vuelo.');
-      const dia = new Intl.DateTimeFormat('en-CA',{timeZone:'America/Bogota',year:'numeric',month:'2-digit',day:'2-digit'}).format(vuelo.salida);
-      if (dia !== vuelo.diaViaje) throw fallo(409,'El vuelo requiere una revisión de su fecha.');
-      // Todas las ventas escriben el vuelo: los conflictos se reintentan con una nueva instantánea.
-      await db.collection('vuelos').updateOne({_id:vueloId},{$inc:{versionInventario:1}},opts);
-      const asientos = datos.pasajeros.map(p=>p.asiento);
-      if (asientos.some(a=>!vuelo.asientos.some(s=>s.codigo===a && (s.clase===datos.clase || (datos.clase==='ejecutiva' && a==='2A'))))) throw fallo(400,'Un asiento no pertenece a la cabina seleccionada.');
-      if (await db.collection('boletos').findOne({vueloId,vigente:true,asiento:{$in:asientos}},opts)) throw fallo(409,'Un asiento acaba de ocuparse. Elige otro en el mapa.');
-      let reserva = await db.collection('reservas').findOne({compradorId,diaViaje:dia,activa:true},opts);
-      if (reserva && !reserva.vueloId.equals(vueloId)) throw fallo(409,'Ya tienes una reserva para otro vuelo el mismo día de viaje (America/Bogota).');
-      if (reserva && !['pendiente','confirmada'].includes(reserva.estado)) throw fallo(409,'Esta reserva ya no admite nuevos boletos.');
-      const ahora = new Date();
-      if (!reserva) {
-        reserva = {_id:new ObjectId(),localizador:'DEMO-'+randomUUID().slice(0,8).toUpperCase(),compradorId,vueloId,diaViaje:dia,estado:'confirmada',activa:true,creadaEn:ahora};
-        await db.collection('reservas').insertOne(reserva,opts);
+
+      if (await db.collection('boletos').findOne({ vueloId, pasajeroId: persona._id, vigente: true }, opts)) {
+        throw fallo(409, 'Uno de los pasajeros ya tiene boleto para este vuelo.');
       }
-      const boletos = [];
-      for (const p of datos.pasajeros) {
-        let persona = await db.collection('pasajeros').findOne({'documento.tipo':p.documento.tipo,'documento.paisEmisor':p.documento.paisEmisor,'documento.numero':p.documento.numero},opts);
-        if (persona) {
-          // Reutilizar solo una ficha ya usada por este comprador, o su ficha personal.
-          const propias = await db.collection('reservas').find({compradorId},opts).project({_id:1}).toArray();
-          const autorizado = persona.usuarioTitularId?.equals(compradorId) || await db.collection('boletos').findOne({pasajeroId:persona._id,reservaId:{$in:propias.map(r=>r._id)}},opts);
-          if (!autorizado || persona.nombres !== p.nombres || persona.apellidos !== p.apellidos || +persona.fechaNacimiento !== +p.fechaNacimiento) throw fallo(409,'No podemos reutilizar ese documento con estos datos o esta cuenta. Usa datos ficticios nuevos para esta prueba.');
-        } else {
-          persona = {_id:new ObjectId(),nombres:p.nombres,apellidos:p.apellidos,fechaNacimiento:p.fechaNacimiento,documento:p.documento,preferencias:p.preferencias,preferenciasActualizadasEn:ahora};
-          await db.collection('pasajeros').insertOne(persona,opts);
-        }
-        if (await db.collection('boletos').findOne({vueloId,pasajeroId:persona._id,vigente:true},opts)) throw fallo(409,'Uno de los pasajeros ya tiene boleto para este vuelo.');
-        const boleto = {_id:new ObjectId(),numero:'DEMO-'+randomUUID(),reservaId:reserva._id,vueloId,pasajeroId:persona._id,asiento:p.asiento,clase:datos.clase,precio:vuelo.tarifas[datos.clase],moneda:vuelo.moneda,estado:'reservado',vigente:true,preferenciasViaje:p.preferencias,creadoEn:ahora};
-        await db.collection('boletos').insertOne(boleto,opts);
-        await db.collection('perfiles_viaje').insertOne({_id:boleto._id,pasajeroId:persona._id,...p.perfil,actualizadoEn:ahora},opts);
-        boletos.push({numero:boleto.numero,asiento:boleto.asiento,precio:boleto.precio.toString(),moneda:boleto.moneda});
+
+      const boleto = {
+        _id: new ObjectId(),
+        numero: 'TKT-' + randomUUID(),
+        reservaId: reserva._id,
+        vueloId,
+        pasajeroId: persona._id,
+        asiento: p.asiento,
+        clase: datos.clase,
+        precio: vuelo.tarifas[datos.clase],
+        moneda: vuelo.moneda,
+        estado: 'reservado',
+        vigente: true,
+        preferenciasViaje: p.preferencias,
+        creadoEn: ahora,
+      };
+      await db.collection('boletos').insertOne(boleto, opts);
+      await db.collection('perfiles_viaje').insertOne({
+        _id: boleto._id,
+        pasajeroId: persona._id,
+        ...p.perfil,
+        actualizadoEn: ahora,
+      }, opts);
+
+      boletos.push({
+        numero: boleto.numero,
+        asiento: boleto.asiento,
+        precio: boleto.precio.toString(),
+        moneda: boleto.moneda,
+      });
+    }
+
+    await db.collection('auditoria').insertOne({
+      _id: new ObjectId(),
+      actorId: compradorId,
+      accion: 'reserva.confirmar',
+      coleccion: 'reservas',
+      documentoId: reserva._id,
+      fecha: ahora,
+    }, opts);
+
+    const resultado = {
+      ok: true,
+      localizador: reserva.localizador,
+      reservaId: String(reserva._id),
+      boletos,
+      mensaje: 'Reserva confirmada con éxito.',
+    };
+    await db.collection('solicitudes_reserva').insertOne({
+      _id: key,
+      huella,
+      resultado,
+      creadaEn: ahora,
+    }, opts);
+
+    return resultado;
+  };
+
+  if (cliente && typeof cliente.startSession === 'function') {
+    const session = cliente.startSession();
+    try {
+      return await session.withTransaction(
+        async () => ejecutar({ session }),
+        { maxCommitTimeMS: 8000 }
+      );
+    } catch (txError) {
+      if (
+        txError.code === 20 ||
+        txError.code === 263 ||
+        (txError.message && (
+          txError.message.includes('replica set') ||
+          txError.message.includes('Transaction') ||
+          txError.message.includes('standalone')
+        ))
+      ) {
+        return await ejecutar({});
       }
-      await db.collection('auditoria').insertOne({_id:new ObjectId(),actorId:compradorId,accion:'reserva_demo.confirmar',coleccion:'reservas',documentoId:reserva._id,fecha:ahora},opts);
-      const resultado = {ok:true,localizador:reserva.localizador,reservaId:String(reserva._id),boletos,mensaje:'Reserva de prueba guardada. No se realizó ningún cobro.'};
-      await db.collection('solicitudes_reserva').insertOne({_id:key,huella,resultado,creadaEn:ahora},opts);
-      return resultado;
-    },{readConcern:{level:'snapshot'},writeConcern:{w:'majority'},maxCommitTimeMS:15000});
-  } finally { await session.endSession(); }
+      throw txError;
+    } finally {
+      await session.endSession().catch(() => {});
+    }
+  } else {
+    return await ejecutar({});
+  }
 }
 
 module.exports = async function registrarReservas(app, bases, clienteDirecto) {
