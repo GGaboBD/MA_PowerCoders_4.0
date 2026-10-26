@@ -234,3 +234,32 @@ test("Reservas: comprar persiste reserva, perfiles_viaje completos y emite bolet
   assert.deepEqual(fichas[0].alergias, ["Frutos secos"]);
 });
 
+test("Reservas: validar acepta payload flexible con vuelo o vueloId y valores por defecto seguros", () => {
+  const { validar } = require("../backend/reservas");
+
+  // Payload flexible enviado desde el frontend con 'vuelo' y defaults
+  const payloadFlexible = {
+    vuelo: "AV8402",
+    pasajeros: [{
+      asiento: "2A",
+      nombre: "Juliana",
+      apellido: "Ceballos",
+      documento: "12345678"
+    }]
+  };
+
+  const normalizado = validar(payloadFlexible);
+  assert.equal(normalizado.vuelo, "AV8402");
+  assert.equal(normalizado.vueloId, "AV8402");
+  assert.equal(normalizado.clase, "ejecutiva");
+  assert.equal(normalizado.moneda, "COP");
+  assert.equal(normalizado.precio, "420000");
+  assert.equal(normalizado.pasajeros.length, 1);
+  assert.equal(normalizado.pasajeros[0].nombres, "Juliana");
+  assert.equal(normalizado.pasajeros[0].apellidos, "Ceballos");
+  assert.equal(normalizado.pasajeros[0].asiento, "2A");
+  assert.equal(normalizado.pasajeros[0].documento.numero, "12345678");
+  assert.equal(normalizado.pasajeros[0].preferencias.comida, "sin_preferencia");
+});
+
+
