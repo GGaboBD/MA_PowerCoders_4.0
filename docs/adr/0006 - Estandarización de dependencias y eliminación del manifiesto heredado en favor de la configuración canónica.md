@@ -1,33 +1,37 @@
-# ADR 0006 · Estandarización de dependencias y eliminación del manifiesto heredado en favor de la configuración canónica
+# ADR 0006 · Unificamos las dependencias en la raíz
 
 Estado: Aceptada · 22 de octubre de 2026
 
+Revisión documental: 26 de octubre de 2026 (UTC), sobre `c14954e`. La fecha y el estado originales se conservan como metadatos; no acreditan una aprobación del equipo. Se retiraron las atribuciones personales sin respaldo verificable.
+
 ## Contexto
-### Qué decisiones tomamos y qué estábamos pensando cuando tomamos esa decisión
-Al momento de realizar la integración de código entre el frontend y el backend para cerrar el Sprint 2 y estabilizar el pipeline de CI en GitHub Actions, nos encontramos con un problema de duplicidad y desajuste crítico en los manifiestos de dependencias. 
 
-En el repositorio coexistía un `package.json` y su respectivo `package-lock.json` residuales (versión 1.0.0 con el identificador genérico `"name": "backend"`), provenientes de los primeros prototipos locales de la API. Este archivo original tenía tres problemas graves:
-1. No declaraba ninguna dependencia de desarrollo (`devDependencies`), lo que impedía correr pruebas unitarias o de integración en el pipeline sin depender de una base de datos real activa en la nube.
-2. No definía la versión mínima del motor en `"engines"`, provocando que al instalar módulos nativos compilados con `node-gyp-build` (como la biblioteca de cifrado `argon2`), el comando `npm install` fallara o generara advertencias según la versión de Node.js instalada en la máquina de cada desarrollador.
-3. El nombre genérico `"backend"` rompía la trazabilidad de releases y el versionado semántico del proyecto consolidado.
+Después de integrar el sitio y el prototipo, tener manifiestos separados podía llevar a instalar dependencias distintas según la carpeta desde la que trabajara cada integrante. El repositorio mantiene un solo `package.json` y su lockfile en la raíz, en lugar de coordinar instalaciones independientes.
 
-Por otro lado, contábamos con la configuración canónica del proyecto (`"name": "avianca-powercoders"`, versión `2.0.0`), la cual incorpora `mongodb-memory-server` (`^11.3.0`) en `devDependencies` para pruebas herméticas y exige explícitamente `"node": ">=24"`. Para evitar que el equipo ejecutara instalaciones desfasadas o que `npm ci` fallara en GitHub Actions, debíamos decidir si intentábamos mantener ambos entornos o si eliminábamos de raíz el archivo heredado del backend.
+## Decisión y alcance actual
 
-### Quién decidió, quién aprobó y posturas en el equipo
-- **Quién decidió:** Gabriel identificó los fallos de reproducibilidad durante la integración del pipeline de CI y planteó eliminar por completo el manifiesto heredado de `backend` para unificar todo el árbol de dependencias bajo el `package.json` canónico de la raíz.
-- **Quién aprobó:** Paniagua y Diego aprobaron la decisión técnica para blindar la Definition of Done (criterios de CI en verde y pruebas automáticas verificables) y evitar conflictos de compilación en el equipo.
-- **Quiénes estaban de acuerdo:** Gabriel y Calvo estaban totalmente de acuerdo. Calvo comprendió que incorporar `mongodb-memory-server` en el manifiesto oficial permitía probar sus controladores y endpoints de reservas en local y en la nube sin exponer credenciales de prueba ni depender de la latencia de MongoDB Atlas. Diego apoyó la medida porque garantizaba que el comando `npm ci` fuera predecible en el pipeline.
-- **Quiénes no estaban de acuerdo:** Charlie expresó dudas iniciales; le preocupaba que exigir Node.js $\ge 24$ obligara a actualizar entornos locales de inmediato o que la descarga de los binarios en memoria de MongoDB hiciera las instalaciones locales y las corridas de prueba innecesariamente pesadas y lentas.
-- **El consenso alcanzado:** Se acordó purgar definitivamente el `package.json` y el `package-lock.json` del repositorio original con nombre `"backend"` y adoptar el manifiesto de `avianca-powercoders` v2.0.0 como la única fuente de verdad para todo el proyecto, documentando la necesidad de cachear las herramientas en el flujo de CI para mitigar la lentitud en la descarga de binarios.
+Usamos el paquete `avianca-powercoders` v2.0.0 de la raíz como punto de instalación. Declaramos Node `>=24` y ejecutamos CI con Node 24, `npm ci`, revisión de sintaxis y `npm test`. El lockfile registra las versiones resueltas. No mantenemos un segundo manifiesto dentro de `backend/`.
 
-## Decisión
-Eliminaremos de forma definitiva el `package.json` y el `package-lock.json` heredados del repositorio original (`backend` v1.0.0) y consolidaremos el proyecto bajo el manifiesto canónico `avianca-powercoders` (v2.0.0), el cual fija el runtime en `"engines": { "node": ">=24" }` e incorpora `mongodb-memory-server` en sus `devDependencies`. Descartamos mantener manifiestos fragmentados por subcarpetas y descartamos el uso de dependencias de prueba sin fijación estricta de lockfile.
+`mongodb-memory-server` está declarado como dependencia de desarrollo y CI tiene una caché para sus binarios. Eso permite preparar pruebas con una base temporal, pero no demuestra que esas pruebas ya existan.
 
 ## Consecuencias
-+ **Qué se gana:** Ejecución determinista de `npm ci` tanto en local como en GitHub Actions, garantizando que todos los miembros del equipo y los servidores de prueba instalen idénticos árboles de dependencias.
-+ **Qué se gana:** Pruebas de integración herméticas y desacopladas; gracias a `mongodb-memory-server`, las pruebas de autenticación y persistencia de la Ing. Juliana Ceballos corren sin necesidad de conexión activa a internet ni riesgo de saturar el clúster de MongoDB Atlas.
-+ **Qué se gana:** Consistencia multiplataforma en la compilación nativa de `argon2` al forzar el estándar de Node.js 24 o superior en todos los entornos de trabajo.
-+ **Qué se gana:** Alineación formal entre el identificador del paquete en el código (`avianca-powercoders`), el tablero de Jira y los entregables de la cátedra.
-− **Qué se pierde (Puerta de una vía):** Revertir esta estandarización obligaría a reconfigurar los scripts del pipeline de CI y reescribir la configuración de pruebas de base de datos.
-− **Qué se pierde:** Restricción obligatoria de entorno; cualquier integrante o contenedor con una versión de Node.js inferior a la 24 verá bloqueada la instalación de dependencias, requiriendo actualización de su entorno local.
-− **Qué se pierde:** La primera ejecución de pruebas descarga un binario de MongoDB para la plataforma en uso, lo que añade sobrecarga temporal en redes lentas a menos que se configure caché en las acciones de CI.
+
+- Una sola instalación reduce diferencias entre las máquinas del equipo y CI.
+- La versión mínima de Node queda documentada. El campo `engines` por sí solo no garantiza que npm bloquee instalaciones en otra versión ni que todos los módulos nativos funcionen en cualquier plataforma.
+- Una prueba que use MongoDB temporal puede necesitar descargar su binario si no está en caché; no prometemos una primera ejecución sin internet.
+- En la revisión actual, los tres archivos de `tests/` cubren utilidades de QR, búsqueda, permisos, normalización del perfil y una compra con colecciones simuladas en memoria. La prueba de compra llama a `comprar` y `completarBoletos` con dobles de base de datos; no levanta la API ni una base temporal. Estas pruebas no acreditan autenticación o persistencia de extremo a extremo.
+
+## Revisión pendiente
+
+La ampliación de pruebas de API y base de datos queda como trabajo técnico separado. No se considera implementada por tener la dependencia instalada.
+
+## Referencias
+
+- [`package.json`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/c14954e2183d323b6dbde20b66b3ad0cd0f89ace/package.json)
+- [`package-lock.json`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/c14954e2183d323b6dbde20b66b3ad0cd0f89ace/package-lock.json)
+- [`.github/workflows/ci.yml`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/c14954e2183d323b6dbde20b66b3ad0cd0f89ace/.github/workflows/ci.yml)
+- [`tests/abordaje.test.js`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/c14954e2183d323b6dbde20b66b3ad0cd0f89ace/tests/abordaje.test.js)
+- [`tests/search.test.js`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/c14954e2183d323b6dbde20b66b3ad0cd0f89ace/tests/search.test.js)
+- [`tests/perfil-rbac.test.js`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/c14954e2183d323b6dbde20b66b3ad0cd0f89ace/tests/perfil-rbac.test.js)
+
+Seguimiento de la revisión: [PCA-197](https://avianca-powercoders.atlassian.net/browse/PCA-197). La revisión por pares sigue pendiente.

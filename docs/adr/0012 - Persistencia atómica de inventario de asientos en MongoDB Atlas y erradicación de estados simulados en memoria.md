@@ -1,30 +1,43 @@
-# ADR 0012 - Persistencia atómica de inventario de asientos en MongoDB Atlas y erradicación de estados simulados en memoria
+# ADR 0012 · Persistimos reservas y controlamos colisiones de asientos
 
 Estado: Aceptada · 25 de octubre de 2026
 
+Revisión documental: 26 de octubre de 2026 (UTC), sobre `c14954e`. La fecha y el estado originales se conservan como metadatos; no acreditan una aprobación del equipo. Se retiraron las atribuciones personales sin respaldo verificable.
+
 ## Contexto
-### Qué decisiones tomamos y qué estábamos pensando cuando tomamos esa decisión
-Al inspeccionar el código de compra (`purchase.js`) tras los fallos en la pantalla de reserva, descubrimos que la selección de asientos operaba como una simulación: los asientos ocupados estaban quemados en código dentro de una estructura estática en memoria (`new Set(['2B', '4D', ...])`), los boletos comprados no guardaban relación real con la base de datos y la interfaz de selección de cabina ejecutiva presentaba un diseño plano y desordenado que no reflejaba la disposición real del avión. Esto provocaba que, tras comprar un pasaje, la sección «Mis reservas» continuara reportando *«Todavía no tienes reservas»* y el asiento recién elegido siguiera apareciendo libre para otros usuarios.
 
-Debíamos resolver dos caminos técnicos:
-1. Mantener un mecanismo híbrido o en memoria con variables globales temporales para salir del paso en la demostración.
-2. Eliminar por completo los mocks y conectar el inventario contra las colecciones reales de MongoDB Atlas (`boletos`, `reservas` y `pasajeros`), rediseñando el mapa interactivo con proporciones de cabina ejecutiva (Fila 2 individual [2A], Fila 4 con pasillo [4A][4B] [Pasillo] [4C][4D]) e implementando control de concurrencia atómico con código HTTP 409 (*Conflict*).
+La disponibilidad y la confirmación de una reserva deben consultarse en el servidor, no depender solo del mapa que ve el comprador. La decisión original buscaba persistencia y control de concurrencia; la revisión distingue esa intención de los límites del código actual.
 
-Continuar con simulaciones en memoria ponía en riesgo la nota del proyecto, ya que la Definition of Done exige de manera explícita persistencia real y sincronización comprobable entre la compra del cliente y la vista de la azafata.
+## Decisión y alcance actual
 
-### Quién decidió, quién aprobó y posturas en el equipo
-- **Quién decidió:** Gabriel identificó la falsedad de los datos en memoria al no ver reflejada su compra en «Mis reservas» y exigió sustituir los `Set` estáticos por consultas reales a MongoDB.
-- **Quién aprobó:** Paniagua y Diego aprobaron la reestructuración completa del flujo de compra para cumplir el criterio 3 de la Definition of Done (cero datos hardcodeados en el frontend).
-- **Quiénes estaban de acuerdo:** Gabriel y Calvo estaban convencidos de que las reservas debían persistirse mediante una transacción en la colección `boletos`, ligada al `usuarioId` del comprador, devolviendo código HTTP 201 (*Created*) para alimentar tanto «Mis reservas» como el panel de cabina. Diego apoyó la decisión porque garantizaba que dos pasajeros no reservaran el mismo asiento.
-- **Quiénes no estaban de acuerdo:** Charlie tenía reservas sobre el rediseño del plano de asientos; le preocupaba que maquetar tres estados visuales normados (Disponible en blanco, Ocupado deshabilitado en gris `#e6e6df` y Seleccionado en rojo `#da291c`) causara problemas de desbordamiento en pantallas móviles.
-- **Por qué se aprobó:** La simulación estática invalidaba la entrega frente a la cátedra; persistir los boletos en Atlas y controlar colisiones de asientos convirtió el prototipo en una aplicación de reservas verídica y robusta.
+`POST /api/reservas` valida los datos de pasajeros y asientos, y devuelve 201 al confirmar. Intenta usar la sesión, pero también permite identificar al comprador desde el cuerpo cuando no hay sesión válida (límite descrito en ADR 0011).
 
-## Decisión
-Eliminaremos todos los conjuntos de asientos simulados en memoria y conectaremos `GET /api/vuelos/:id` directamente con la colección `boletos` de MongoDB Atlas para calcular la disponibilidad real. Rediseñaremos la selección de asientos con la distribución ejecutiva requerida y tres estados visuales accesibles. El guardado de boletos se ejecutará de forma atómica en `POST /api/reservas` validando colisiones con código HTTP 409 y respondiendo con HTTP 201 Created al completar la compra. Descartamos el uso de colecciones locales en JavaScript y descartamos reservas sin validación de concurrencia.
+La preparación solicita índices únicos para asiento por vuelo y pasajero por vuelo, ambos sobre boletos vigentes; también para número de boleto, documento de pasajero, localizador y comprador/día con reserva activa. Git muestra su definición y creación solicitada, no acredita el estado de los índices de Atlas. La selección en pantalla no retiene el asiento.
+
+La compra consulta `solicitudes_reserva` por comprador y `solicitudId`, y compara una huella del contenido: si encuentra el mismo intento terminado, devuelve su resultado; con otros datos, lo rechaza con 409. La ruta reintenta hasta tres veces ante errores 11000 de índice único y termina con 409 si persiste el conflicto. Esto no es una recuperación general de todos los fallos.
+
+El código intenta ejecutar las escrituras con `withTransaction`. En la base revisada, cualquier error que salga de ese intento provoca otra ejecución sin sesión; también se ejecuta directamente si no hay soporte de sesión. En ese camino pueden quedar escrituras parciales. Además, se silencian errores al actualizar `versionInventario` y al insertar la auditoría y el resultado de la solicitud. Una respuesta 201 no acredita que estas últimas escrituras hayan quedado guardadas, y un reintento podría no encontrar el resultado anterior.
+
+Hay límites adicionales: si no encuentra el vuelo por su identificador, toma uno con ventas abiertas sin reemplazar el identificador original que usa al escribir; admite el estado `programado` y ya no comprueba que la salida sea futura. Una reserva activa de otro vuelo el mismo día se desactiva antes de crear la nueva; eso no cancela sus boletos. Estas rutas requieren revisión técnica y no se corrigen aquí.
+
+La disponibilidad consulta boletos, pero `detalle-vuelo.js` y `purchase.js` todavía fuerzan 2A como ocupado para AV 8402. A la vez, `comprar` exceptúa 2A de la comprobación de pertenencia a cabina ejecutiva, aunque mantiene la consulta de ocupación y el índice solicitado. No se han eliminado todas las simulaciones ni se garantiza coherencia entre el mapa y la compra.
 
 ## Consecuencias
-+ **Qué se gana:** Persistencia real de extremo a extremo; cada asiento comprado por un usuario queda inmediatamente bloqueado para el resto de navegadores y dispositivos.
-+ **Qué se gana:** La vista «Mis reservas» pasa a ser completamente funcional y aislada por usuario, permitiendo emitir pases de abordar legítimos con códigos QR dinámicos.
-+ **Qué se gana:** Experiencia visual profesional alineada a la distribución real de cabina de Avianca, con indicación accesible de asientos ocupados e interactividad clara.
-− **Qué se pierde (Puerta de una vía):** Introduce dependencia crítica de la latencia de red y del rendimiento de MongoDB Atlas; un retraso en la base de datos repercute directamente en el tiempo de apertura del diálogo de asientos.
-− **Qué se pierde:** Requiere un mecanismo de saneamiento periódico o scripts de restablecimiento de datos (`semilla-demo.js`) para liberar asientos tras múltiples pruebas de desarrollo.
+
+- Las reservas y los boletos se guardan en MongoDB y las colisiones tienen respuestas explícitas.
+- La clave de solicitud permite recuperar un resultado solo cuando su registro quedó guardado y el contenido coincide.
+- La ejecución sin transacción puede dejar escrituras parciales; no se puede prometer recuperación idempotente de todos los fallos intermedios sin pruebas adicionales.
+- El mapa de cabina y sus colores son detalles de interfaz; no acreditan una distribución oficial de Avianca ni integridad del inventario.
+- El ADR 0005 aplazaba la refactorización de compra y permitía reabrirla ante defectos o nuevas historias. Los cambios posteriores requieren que el equipo confirme ese alcance, no dar por aprobado un nuevo acuerdo en retrospectiva.
+
+## Revisión pendiente
+
+Pendiente de decisión técnica: evaluar el fallback sin transacción, los errores silenciados y la selección del vuelo; definir recuperación de escrituras parciales y comprobar reservas concurrentes con una base real de pruebas. También se debe distinguir el caso de demostración del inventario real. Esta revisión no modifica esas rutas.
+
+## Referencias
+
+- [`backend/reservas.js`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/c14954e2183d323b6dbde20b66b3ad0cd0f89ace/backend/reservas.js)
+- [`backend/detalle-vuelo.js`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/c14954e2183d323b6dbde20b66b3ad0cd0f89ace/backend/detalle-vuelo.js)
+- [`frontend/purchase.js`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/c14954e2183d323b6dbde20b66b3ad0cd0f89ace/frontend/purchase.js)
+
+Seguimiento de la revisión: [PCA-197](https://avianca-powercoders.atlassian.net/browse/PCA-197). La revisión por pares sigue pendiente.

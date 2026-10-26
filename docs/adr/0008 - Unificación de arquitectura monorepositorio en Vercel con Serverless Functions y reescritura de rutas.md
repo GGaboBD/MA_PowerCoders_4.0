@@ -1,30 +1,36 @@
-# ADR 0008 - Unificación de arquitectura monorepositorio en Vercel con Serverless Functions y reescritura de rutas
+# ADR 0008 · Desplegamos el frontend y la API juntos en Vercel
 
 Estado: Aceptada · 25 de octubre de 2026
 
+Revisión documental: 26 de octubre de 2026 (UTC), sobre `c14954e`. La fecha y el estado originales se conservan como metadatos; no acreditan una aprobación del equipo. Se retiraron las atribuciones personales sin respaldo verificable.
+
 ## Contexto
-### Qué decisiones tomamos y qué estábamos pensando cuando tomamos esa decisión
-Al mover la interfaz gráfica a la carpeta `frontend/`, la URL pública de Vercel comenzó a responder con error 404 (*"This page doesn't exist"*). Para resolverlo visualmente, se configuró de forma provisional el ajuste `Root Directory` en `frontend`. Sin embargo, esta acción provocó un fallo crítico de arquitectura: Vercel aisló la subcarpeta `frontend/` e ignoró por completo la raíz, dejando fuera la carpeta `backend/` y el archivo `package.json`. Como consecuencia, la aplicación en producción mostró el aviso: *«Sin conexión con el servidor del sitio: el inicio de sesión, las reservas y el panel no funcionarán. Ábrelo desde el servidor Node, no desde un hosting estático»*.
 
-Debíamos decidir entre dos opciones:
-1. Mantener el frontend estático aislado en Vercel y desplegar el backend por separado en Render.
-2. Mantener un único despliegue monorepositorio en Vercel dejando el `Root Directory` vacío (apuntando a la raíz `/`), sirviendo el contenido estático mediante reglas de reescritura en `vercel.json` y exponiendo el backend de Express como Serverless Functions bajo `/api/*`.
+Servir únicamente `frontend/` resolvía la publicación de las páginas, pero dejaba fuera el backend que necesitan las cuentas y reservas. La configuración actual publica los archivos estáticos y la API desde la raíz del mismo repositorio.
 
-Alojarse en Render presentaba el riesgo inaceptable de la suspensión por inactividad tras 15 minutos en su plan gratuito, lo que provocaría esperas de hasta 50 segundos durante la demostración de la cátedra, violando el límite de 3 segundos de respuesta estipulado en la Definition of Done.
+## Decisión y alcance actual
 
-### Quién decidió, quién aprobó y posturas en el equipo
-- **Quién decidió:** Gabriel diagnosticó que restringir el `Root Directory` a `frontend` apagaba el backend y gestionó con Antigravity la configuración de reescrituras de rutas y el adaptador serverless.
-- **Quién aprobó:** Aprobado por Paniagua y Diego para centralizar el monitoreo y garantizar que `powercoders.vercel.app` sirviera tanto la interfaz como la API bajo un mismo dominio.
-- **Quiénes estaban de acuerdo:** Gabriel y Calvo estaban totalmente de acuerdo; unificar en Vercel resolvía el arranque lento de Render y mantenía un solo flujo de despliegue continuo en la rama `main`.
-- **Quiénes no estaban de acuerdo:** Charlie expresó preocupación porque el cambio exigía adaptar la inicialización del servidor Express para no depender exclusivamente de `app.listen()`.
-- **Por qué se aprobó:** La arquitectura serverless unificada en Vercel elimina los tiempos de reactivación de servidores gratuitos y simplifica la entrega final al evitar la gestión de dos plataformas en la nube separadas.
+La configuración del proyecto parte de la raíz del repositorio. `vercel.json` reescribe `/api/*` hacia `/api`, cuyo punto de entrada `api/index.js` exporta el handler de `backend/index.js`. Las demás rutas se reescriben hacia `frontend/`.
 
-## Decisión
-Restableceremos el `Root Directory` de Vercel a la raíz del repositorio, configuraremos `vercel.json` con reglas de reescritura (`rewrites`) para enrutar el tráfico de `/api/(.*)` hacia el punto de entrada serverless (`api/index.js` y `backend/index.js`) y el resto de rutas hacia `frontend/$1`. Adaptaremos Express para exportar la función controladora (`module.exports = handler`) reutilizando la conexión a base de datos mediante un patrón singleton. Descartamos el uso de Render para el backend y descartamos aislar el frontend en un subdirectorio en la configuración de Vercel.
+El handler reutiliza una promesa de inicialización para la aplicación y sus conexiones dentro de una misma instancia. El arranque mediante `npm start` sigue disponible para ejecutar el servidor Node. Esta decisión sustituye el despliegue separado descrito en el ADR 0003 y actualiza la nota sobre Vercel del ADR 0004.
 
 ## Consecuencias
-+ **Qué se gana:** Eliminación del retraso por suspensión de instancias gratuitas, garantizando respuestas rápidas en las revisiones de cátedra.
-+ **Qué se gana:** Todo el ciclo de vida del producto (frontend, backend, variables de entorno y logs) se gestiona desde un único panel en Vercel.
-+ **Qué se gana:** Desaparición del mensaje de hosting estático desconectado al montar los endpoints sobre `/api/*`.
-− **Qué se pierde (Puerta de una vía):** Se ata la arquitectura del backend al modelo serverless de Vercel; controladores con tareas en segundo plano de larga duración o websockets requerirán servicios externos dedicados.
-− **Qué se pierde:** Requiere gestionar con cuidado la conexión al clúster de base de datos para no agotar el límite de conexiones concurrentes ante picos de invocaciones efímeras.
+
+- Frontend y API pueden usar rutas del mismo origen y un solo proyecto de despliegue.
+- La reutilización de conexiones evita inicializarlas en cada petición de una instancia ya preparada, pero no comparte una conexión global entre todas las instancias.
+- Seguimos dependiendo del arranque de la función y de la latencia de la base. No hay una medición en este ADR que garantice respuestas inferiores a tres segundos.
+- Las páginas reescritas a archivos estáticos no atraviesan `protegerPaginas` de Express. La autorización de las API se comprueba por separado, como se explica en el ADR 0011.
+- Mantener tareas largas o conexiones persistentes requeriría revisar los límites del alojamiento.
+
+## Revisión pendiente
+
+El repositorio acredita las rutas y el handler, no los valores actuales del panel de Vercel ni el rendimiento del despliegue. La revisión no modifica infraestructura.
+
+## Referencias
+
+- [`vercel.json`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/c14954e2183d323b6dbde20b66b3ad0cd0f89ace/vercel.json)
+- [`api/index.js`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/c14954e2183d323b6dbde20b66b3ad0cd0f89ace/api/index.js)
+- [`backend/index.js`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/c14954e2183d323b6dbde20b66b3ad0cd0f89ace/backend/index.js)
+- [`backend/app.js`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/c14954e2183d323b6dbde20b66b3ad0cd0f89ace/backend/app.js)
+
+Seguimiento de la revisión: [PCA-197](https://avianca-powercoders.atlassian.net/browse/PCA-197). La revisión por pares sigue pendiente.

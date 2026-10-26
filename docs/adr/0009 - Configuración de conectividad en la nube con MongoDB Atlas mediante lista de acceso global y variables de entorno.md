@@ -1,30 +1,35 @@
-# ADR 0009 - Configuración de conectividad en la nube con MongoDB Atlas mediante lista de acceso global y variables de entorno
+# ADR 0009 · Configuramos la conexión con Atlas mediante variables de entorno
 
 Estado: Aceptada · 25 de octubre de 2026
 
+Revisión documental: 26 de octubre de 2026 (UTC), sobre `c14954e`. La fecha y el estado originales se conservan como metadatos; no acreditan una aprobación del equipo. Se retiraron las atribuciones personales sin respaldo verificable.
+
 ## Contexto
-### Qué decisiones tomamos y qué estábamos pensando cuando tomamos esa decisión
-Con el backend montado en Vercel, al intentar registrar un usuario o comprobar la sesión aparecía el error: *«No se pudo conectar a la base de datos o inicializar la API»*.
 
-Al auditar la infraestructura identificamos dos bloqueos críticos:
-1. En el panel de MongoDB Atlas existía una alerta preventiva de red: *"Current IP Address not added. You will not be able to connect to databases from this address"*. Dado que los entornos serverless de Vercel utilizan direcciones IP públicas dinámicas que cambian en cada invocación, cualquier intento de conexión era bloqueado por el firewall de Atlas arrojando errores de tiempo de espera o SSL.
-2. En el panel de Vercel no se habían configurado las credenciales de conexión (`MONGODB_URI` y `MONGODB_DB`). Además, existía riesgo de inconsistencia entre el nombre de la base de datos de producción (`avianca_prototipo_v1`) y el valor por defecto (`avianca`).
+La API necesita conectividad con MongoDB y credenciales disponibles en el servidor. El registro original propuso abrir el acceso de red para el despliegue serverless y configurar las variables en Vercel, en lugar de incluir secretos en Git.
 
-Debíamos decidir cómo autorizar el tráfico de red y cómo inyectar las credenciales al entorno de producción sin exponer secretos en el repositorio público de GitHub.
+## Decisión y alcance actual
 
-### Quién decidió, quién aprobó y posturas en el equipo
-- **Quién decidió:** Gabriel identificó las alertas de red en Atlas y coordinó la creación de las variables de entorno en Vercel junto con la extracción de credenciales del usuario administrativo `007007gabo7u7_db_user`.
-- **Quién aprobó:** Aprobado por Paniagua y Diego para garantizar la persistencia real exigida por la Definition of Done en la nube.
-- **Quiénes estaban de acuerdo:** Gabriel y Calvo estaban totalmente de acuerdo en abrir el acceso de red de Atlas a `0.0.0.0/0` para habilitar a Vercel y proteger las credenciales dentro del módulo seguro de variables de entorno del hosting.
-- **Quiénes no estaban de acuerdo:** Charlie temía que abrir la lista de acceso de red a cualquier IP (`0.0.0.0/0`) debilitara la seguridad de la base de datos del proyecto frente a accesos externos.
-- **Por qué se aprobó:** Las funciones serverless no cuentan con un rango estático de IPs en planes gratuitos, por lo que la regla `0.0.0.0/0` combinada con contraseñas seguras y permisos restringidos de usuario SCRAM es el estándar operativo para permitir la comunicación con Vercel.
+Mantenemos las credenciales fuera del repositorio y las leemos desde variables de entorno. `MONGODB_URI` conecta la base de clientes; `MONGODB_DB` define su nombre. En el código revisado, el valor por defecto de este último es `avianca_prototipo_v1`.
 
-## Decisión
-Habilitaremos la regla de acceso universal `0.0.0.0/0` en el Network Access de MongoDB Atlas y configuraremos las variables de entorno `MONGODB_URI`, `MONGODB_DB` (apuntando a `avianca_prototipo_v1`) y `PUBLIC_ORIGIN` de forma cifrada en la sección *Environment Variables* de Vercel para los entornos de Production, Preview y Development. Descartamos quemar credenciales en archivos `.env` subidos a Git y descartamos el uso de listas cerradas de IPs locales en Atlas.
+La base operativa usa `MONGODB_URI_AVIANCA` cuando se proporciona; de lo contrario comparte la URI de clientes. `MONGODB_DB_AVIANCA` permite elegir su nombre y, por defecto, se añade `_operaciones` al de clientes. `PUBLIC_ORIGIN` participa en la validación de origen, no en la conexión a MongoDB.
+
+El registro original describe una regla `0.0.0.0/0` en Atlas, sin evidencia adjunta de su aplicación. Esa regla abre el acceso de red desde cualquier IPv4 y se documenta como un riesgo que el equipo debe validar, no como una garantía de seguridad. La configuración efectiva de Atlas y los valores de Vercel no se pueden comprobar desde estos archivos.
 
 ## Consecuencias
-+ **Qué se gana:** Conectividad inmediata y persistente entre los servidores serverless de Vercel y el clúster de MongoDB Atlas sin caídas por cambios de IP.
-+ **Qué se gana:** Cumplimiento del criterio 3 de la Definition of Done (persistencia real en base de datos en la nube sin mocks hardcodeados).
-+ **Qué se gana:** Protección estricta de credenciales de base de datos fuera del alcance de los archivos públicos del repositorio y del navegador del cliente.
-− **Qué se pierde (Puerta de dos vías):** La base de datos queda expuesta a intentos de autenticación desde cualquier IP pública de internet, dependiendo exclusivamente de la robustez de las contraseñas y el hashing de los usuarios de base de datos.
-− **Qué se pierde:** Obligación operativa de ejecutar un *Redeploy* desmarcando el caché de compilación en Vercel cada vez que se modifique o rote una variable de entorno.
+
+- Los secretos pueden configurarse y rotarse sin escribirlos en el código del navegador o en Git.
+- Se deben comprobar las variables de cada entorno y que el usuario de base tenga solo los permisos necesarios sobre las bases correspondientes.
+- Si se mantiene `0.0.0.0/0`, la restricción de red no limita los orígenes IPv4. La autenticación y los permisos siguen siendo necesarios, pero no eliminan ese riesgo.
+- Un cambio de configuración requiere verificar el nuevo despliegue. Este ADR no establece como requisito general desactivar la caché de compilación.
+
+## Revisión pendiente
+
+Queda pendiente que el responsable del despliegue confirme lista de red, permisos y separación de entornos en los paneles. No se han abierto accesos, rotado claves ni cambiado variables con esta revisión.
+
+## Referencias
+
+- [`backend/bases.js`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/c14954e2183d323b6dbde20b66b3ad0cd0f89ace/backend/bases.js)
+- [`.env.example`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/c14954e2183d323b6dbde20b66b3ad0cd0f89ace/.env.example)
+
+Seguimiento de la revisión: [PCA-197](https://avianca-powercoders.atlassian.net/browse/PCA-197). La revisión por pares sigue pendiente.
