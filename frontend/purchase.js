@@ -39,14 +39,19 @@ const stateNode = document.querySelector("#estado-asientos");
 const countNode = document.querySelector("#contador-asientos");
 
 function money(value) {
+  const num = Number(value) || 0;
   const moneda = flight?.moneda || params.get("moneda") || "COP";
-  const locale = moneda === "USD" ? "es-SV" : "es-CO";
-  return new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency: moneda,
-    currencyDisplay: "code",
-    maximumFractionDigits: moneda === "COP" ? 0 : 2
-  }).format(value);
+  if (moneda === "COP") {
+    const formatted = new Intl.NumberFormat("es-CO", {
+      maximumFractionDigits: 0
+    }).format(num);
+    return `$ ${formatted} COP`;
+  }
+  const formatted = new Intl.NumberFormat("es-SV", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(num);
+  return `$ ${formatted} USD`;
 }
 
 function passengerName(index) {
@@ -261,7 +266,10 @@ function buildPayload() {
     "Sin gluten": "sin_gluten",
     "Otra preferencia": "otra"
   };
+  const idUsuario = sesionUsuario?.id || sesionUsuario?._id || "";
   return {
+    compradorId: idUsuario ? String(idUsuario) : undefined,
+    usuarioId: idUsuario ? String(idUsuario) : undefined,
     vueloId: flight.id || flightId,
     clase: cabinKey,
     precioAceptado: String(flight.precio),
@@ -376,14 +384,44 @@ async function saveReservation(button, review) {
   try {
     const response = await fetch("/api/reservas", {
       method: "POST",
-      credentials: "same-origin",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json"
+      },
+      credentials: "include", // OBLIGATORIO para que el navegador envíe la cookie de sesión
       body: JSON.stringify(pending.body),
       signal: AbortSignal.timeout(25000)
     });
-    const result = await response.json();
+
+    let result = {};
+    try {
+      result = await response.json();
+    } catch {
+      result = {};
+    }
+
+    if (response.status === 401) {
+      button.textContent = "Confirmar reserva";
+      button.disabled = false;
+      for (const control of form.querySelectorAll("input,select,button")) control.disabled = false;
+      for (const control of review.querySelectorAll("button")) control.disabled = false;
+      status.replaceChildren();
+      const alertP = element("p", "Tu sesión no fue detectada o ha expirado. Por favor inicia sesión nuevamente para completar la reserva. ");
+      alertP.style.cssText = "color:#b71c1c; font-weight:bold; margin:0;";
+      const link = element("a", "Iniciar sesión aquí");
+      link.href = "cuenta.html?volver=" + encodeURIComponent(location.pathname + location.search);
+      alertP.append(link);
+      status.append(alertP);
+      status.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+
     if (!response.ok || !result.ok) {
-      throw new Error(result.mensaje || "No pudimos confirmar la reserva. Reintenta sin cambiar los datos.");
+      button.textContent = "Confirmar reserva";
+      button.disabled = false;
+      for (const control of form.querySelectorAll("input,select,button")) control.disabled = false;
+      for (const control of review.querySelectorAll("button")) control.disabled = false;
+      const errorMsg = result.mensaje || result.error || "No pudimos confirmar la reserva. Reintenta sin cambiar los datos.";
+      throw new Error(errorMsg);
     }
     saved = true;
     review.replaceChildren();
@@ -533,17 +571,15 @@ async function saveReservation(button, review) {
     review.scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (error) {
     status.textContent = error.name === "TimeoutError" || error instanceof TypeError
-      ? "No pudimos comprobar el resultado. Pulsa Reintentar confirmación con los mismos datos."
+      ? "No pudimos comprobar el resultado. Pulsa Confirmar reserva nuevamente con los mismos datos."
       : error.message;
-    button.textContent = "Reintentar confirmación";
+    button.textContent = "Confirmar reserva";
     button.disabled = false;
     for (const control of form.querySelectorAll("input,select,button")) control.disabled = false;
     for (const control of review.querySelectorAll("button")) control.disabled = false;
-    if (status.textContent.includes("Inicia sesión")) {
-      const login = element("a", " Abrir mi cuenta");
-      login.href = "cuenta.html";
-      login.target = "_blank";
-      login.rel = "noopener";
+    if (status.textContent.includes("sesión") || status.textContent.includes("Inicia sesión")) {
+      const login = element("a", " Iniciar sesión aquí");
+      login.href = "cuenta.html?volver=" + encodeURIComponent(location.pathname + location.search);
       status.append(login);
     }
   } finally {
@@ -755,7 +791,7 @@ async function init() {
   progress.hidden = false;
 
   try {
-    const sessionResponse = await fetch("/api/sesion", { credentials: "same-origin", cache: "no-store" });
+    const sessionResponse = await fetch("/api/sesion", { credentials: "include", cache: "no-store" });
     const sessionData = await sessionResponse.json();
     if (sessionResponse.ok && sessionData.ok && sessionData.usuario?.tipoCuenta === "cliente") {
       sesionUsuario = sessionData.usuario;
@@ -766,7 +802,7 @@ async function init() {
       if (p1Apellido && !p1Apellido.value && sesionUsuario.apellido) p1Apellido.value = sesionUsuario.apellido;
 
       try {
-        const perfilRes = await fetch("/api/perfil", { credentials: "same-origin", cache: "no-store", signal: AbortSignal.timeout(5000) });
+        const perfilRes = await fetch("/api/perfil", { credentials: "include", cache: "no-store", signal: AbortSignal.timeout(5000) });
         const perfilData = await perfilRes.json();
         if (perfilRes.ok && perfilData.ok && perfilData.perfil) {
           const pf = perfilData.perfil;

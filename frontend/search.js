@@ -38,13 +38,9 @@ function render(flights, data, hayMas) {
   }
   const list = element('div', undefined, 'lista-vuelos');
   for (const flight of flights) {
-    const locale = flight.moneda === 'USD' ? 'es-SV' : 'es-CO';
-    const price = new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency: flight.moneda,
-      currencyDisplay: 'code',
-      maximumFractionDigits: flight.moneda === 'COP' ? 0 : 2
-    }).format(Number(flight.precio));
+    const price = flight.moneda === 'COP'
+      ? `$ ${new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(Number(flight.precio))} COP`
+      : `$ ${new Intl.NumberFormat('es-SV', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(flight.precio))} USD`;
     const duration = `${Math.floor(flight.duracionMinutos / 60)} h ${flight.duracionMinutos % 60} min`;
     const detailButton = element('button', 'Ver detalle', 'boton boton-oscuro');
     detailButton.type = 'button';
