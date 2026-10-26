@@ -293,7 +293,15 @@ async function sembrarVuelosCatalogo(db) {
   if (documentos.length > 0) {
     try {
       await db.collection('vuelos').insertMany(documentos, { ordered: false });
-    } catch {}
+    } catch (err) {
+      if (err.name !== 'MongoBulkWriteError' && err.code !== 11000) {
+        throw err;
+      }
+      // Si son sólo colisiones de clave única en algunos vuelos, continúa
+      if (err.writeErrors?.some(we => we.code !== 11000)) {
+        throw err;
+      }
+    }
   }
 }
 

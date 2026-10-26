@@ -99,12 +99,15 @@ module.exports = function registrarVuelos(app, bases) {
         ];
 
         let candidatos = await db.collection('vuelos').aggregate(pipeline).toArray();
+        let errorSembrado = null;
         if (candidatos.length < 20) {
           try {
             const { sembrarVuelosCatalogo } = require('./estructura');
             await sembrarVuelosCatalogo(db);
             candidatos = await db.collection('vuelos').aggregate(pipeline).toArray();
-          } catch {}
+          } catch (e) {
+            errorSembrado = { message: e.message, code: e.code, name: e.name, writeErrors: e.writeErrors?.slice(0, 3) };
+          }
         }
         const filtro = {
           origen: req.query.origen,
@@ -128,9 +131,11 @@ module.exports = function registrarVuelos(app, bases) {
           vuelos.sort((a, b) => Number(b.precio) - Number(a.precio));
         }
 
-        return res.json({ ok: true, cantidad: vuelos.length, catalogo: true, vuelos: vuelos.slice(0, 100) });
+        const respuesta = { ok: true, cantidad: vuelos.length, catalogo: true, vuelos: vuelos.slice(0, 100) };
+        if (req.query.debug === '1' && errorSembrado) respuesta.debug = errorSembrado;
+        return res.json(respuesta);
       } catch (err) {
-        return res.status(503).json({ ok: false, mensaje: 'No se pudieron consultar los vuelos del catálogo.' });
+        return res.status(503).json({ ok: false, mensaje: 'No se pudieron consultar los vuelos del catálogo.', detalle: req.query.debug === '1' ? err.message : undefined });
       }
     }
 
