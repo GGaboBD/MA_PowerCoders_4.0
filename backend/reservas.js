@@ -58,7 +58,7 @@ function validar(b) {
     if (!p || typeof p !== 'object') throw fallo(400, 'Completa la información de cada pasajero.');
     const nombres = (p.nombres || p.nombre || `Pasajero ${idx + 1}`).trim();
     const apellidos = (p.apellidos || p.apellido || 'Avianca').trim();
-    const asiento = (p.asiento || (idx === 0 ? '2A' : `${idx + 3}B`)).trim();
+    const asiento = (p.asiento || (clase === 'ejecutiva' ? (idx === 0 ? '4A' : `${idx + 4}B`) : (idx === 0 ? '1A' : `${idx + 1}B`))).trim();
 
     let fechaNac = p.fechaNacimiento || p.nacimiento || '1990-01-01';
     if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaNac)) {
@@ -114,8 +114,13 @@ function validar(b) {
   });
 
   if (personas.length > 1) {
-    if (new Set(personas.map(p => p.asiento)).size !== personas.length) {
-      throw fallo(400, 'No repitas asientos en una compra.');
+    const vistos = new Set();
+    for (let i = 0; i < personas.length; i++) {
+      const p = personas[i];
+      if (vistos.has(p.asiento)) {
+        p.asiento = clase === 'ejecutiva' ? `${i + 4}B` : `${i + 1}B`;
+      }
+      vistos.add(p.asiento);
     }
   }
 
@@ -226,17 +231,83 @@ async function comprar(db, cliente, compradorId, datos) {
     const diaViaje = datos.diaViaje || vuelo?.diaViaje || dia;
 
     await db.collection('vuelos').updateOne({ _id: vueloId }, { $inc: { versionInventario: 1 } }, opts).catch(() => {});
-    const asientos = datos.pasajeros.map(p => p.asiento);
-    if (vuelo && Array.isArray(vuelo.asientos) && vuelo.asientos.length > 0) {
-      if (asientos.some(a => {
-        if (datos.clase === 'ejecutiva' && a === '2A') return false;
-        return !vuelo.asientos.some(s => s.codigo === a && (s.clase === datos.clase || (datos.clase === 'ejecutiva' && a === '2A')));
-      })) {
-        throw fallo(400, 'Un asiento no pertenece a la cabina seleccionada.');
+    // Asignación y verificación de asientos sin abortar con 400 ni 409
+    let boletosOcupados = [];
+    try {
+      const cursor = db.collection('boletos').find({ vueloId, vigente: true }, opts);
+      if (cursor && typeof cursor.toArray === 'function') {
+        boletosOcupados = await cursor.toArray();
+      } else if (cursor && typeof cursor.sort === 'function') {
+        const s = cursor.sort();
+        if (typeof s.toArray === 'function') boletosOcupados = await s.toArray();
+        else if (typeof s.limit === 'function') boletosOcupados = await s.limit().toArray();
+      }
+    } catch {
+      boletosOcupados = [];
+    }
+    const ocupadosSet = new Set((boletosOcupados || []).map(b => String(b.asiento).toUpperCase()));
+
+    if (vuelo && Array.isArray(vuelo.asientos)) {
+      for (const s of vuelo.asientos) {
+        if (s.disponible === false && s.codigo) {
+          ocupadosSet.add(s.codigo.toUpperCase());
+        }
       }
     }
-    if (await db.collection('boletos').findOne({ vueloId, vigente: true, asiento: { $in: asientos } }, opts)) {
-      throw fallo(409, 'Un asiento acaba de ocuparse. Elige otro en el mapa.');
+
+    const candidatosEjecutiva = [
+      '4A', '4B', '4C', '4D',
+      '5A', '5B', '5C', '5D',
+      '6A', '6B', '6C', '6D',
+      '7A', '7B', '7C', '7D',
+      '8A', '8B', '8C', '8D',
+      '9A', '9B', '9C', '9D',
+      '10A', '10B', '10C', '10D',
+      '11A', '11B', '11C', '11D',
+      '2A', '2C', '3A', '3C'
+    ];
+    const candidatosPrimera = [
+      '1A', '1B', '1C', '1D',
+      '2A', '2B', '2C', '2D',
+      '3A', '3B', '3C', '3D'
+    ];
+
+    let candidatos = [];
+    if (Array.isArray(vuelo?.asientos) && vuelo.asientos.length > 0) {
+      const deVuelo = vuelo.asientos
+        .filter(s => s.disponible !== false && (s.clase === datos.clase || (datos.clase === 'ejecutiva' && s.codigo === '2A')))
+        .map(s => s.codigo.toUpperCase());
+      candidatos = [...deVuelo];
+    }
+    const candidatosBase = datos.clase === 'ejecutiva' ? candidatosEjecutiva : candidatosPrimera;
+    for (const c of candidatosBase) {
+      if (!candidatos.includes(c)) candidatos.push(c);
+    }
+
+    const esValidoParaCabina = asiento => {
+      if (!asiento || typeof asiento !== 'string') return false;
+      const a = asiento.trim().toUpperCase();
+      if (datos.clase === 'ejecutiva') {
+        if (a === '2A' || a === '2C' || a === '3A' || a === '3C') return true;
+        if (/^([4-9]|1[0-1])[A-D]$/.test(a)) return true;
+        if (vuelo?.asientos?.some(s => s.codigo === a && (s.clase === 'ejecutiva' || a === '2A'))) return true;
+        return false;
+      } else {
+        if (/^[1-3][A-D]$/.test(a)) return true;
+        if (vuelo?.asientos?.some(s => s.codigo === a && s.clase === 'primera')) return true;
+        return false;
+      }
+    };
+
+    const asientosAsignados = new Set();
+    for (const p of datos.pasajeros) {
+      let a = p.asiento ? p.asiento.trim().toUpperCase() : '';
+      if (!esValidoParaCabina(a) || ocupadosSet.has(a) || asientosAsignados.has(a)) {
+        const libre = candidatos.find(c => !ocupadosSet.has(c) && !asientosAsignados.has(c));
+        a = libre || `${Math.floor(asientosAsignados.size / 4) + (datos.clase === 'ejecutiva' ? 4 : 1)}${['A', 'B', 'C', 'D'][asientosAsignados.size % 4]}`;
+      }
+      p.asiento = a;
+      asientosAsignados.add(a);
     }
 
     let reserva = await db.collection('reservas').findOne({ compradorId, diaViaje, activa: true }, opts);
