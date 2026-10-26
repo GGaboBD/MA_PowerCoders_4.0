@@ -20,15 +20,16 @@ const CUENTAS = Object.freeze({
 
 const cookieOptions = {
   httpOnly: true,
-  sameSite: 'strict',
+  sameSite: 'lax',
   secure: EN_PRODUCCION,
   path: '/',
 };
 const digest = token => createHash('sha256').update(token).digest('hex');
 function leerToken(req) {
-  const matches = (req.headers.cookie || '').split(';').map(v => v.trim()).filter(v => v.startsWith(COOKIE + '='));
-  if (matches.length !== 1) return null;
-  const token = matches[0].slice(COOKIE.length + 1);
+  const cookieHeader = req?.headers?.cookie || req?.headers?.Cookie || '';
+  const match = cookieHeader.split(';').map(v => v.trim()).find(v => v.startsWith(COOKIE + '='));
+  if (!match) return null;
+  const token = match.slice(COOKIE.length + 1);
   return /^[a-f0-9]{64}$/.test(token) ? token : null;
 }
 
