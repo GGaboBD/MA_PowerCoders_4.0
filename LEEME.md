@@ -11,6 +11,30 @@ Une el prototipo de abordaje de este repositorio con el sitio conectado a la bas
 - `frontend/`: páginas en HTML, CSS y JavaScript nativo (ADR 0002).
 - `backend/`: API en Node.js/Express que también sirve el frontend y se conecta a dos bases MongoDB.
 - `tests/`: pruebas con `node:test`.
+- `api/` y `vercel.json`: entrada y rutas del despliegue en Vercel.
+- `scripts/`: herramientas de verificación del proyecto.
+- `docs/`: decisiones de arquitectura y documentación de revisión.
+- `playground-1.mongodb.js`: playground original de MongoDB.
+
+El buscador vigente está en `frontend/search.js`: consulta `/api/vuelos` y es el que
+carga `frontend/index.html`. Las pruebas de búsqueda ejecutan ese mismo archivo.
+La copia antigua de la raíz, con horarios simulados, fue retirada.
+
+La instalación se realiza desde la raíz, con un solo `package.json` y su
+`package-lock.json` (ADR 0006). El `.gitignore` de la raíz también cubre
+`backend/`: no se versionan `.env` ni `node_modules`. Si importas archivos de
+un ZIP anterior, conserva esta organización y evita añadir otro manifiesto en
+`backend/` o sobrescribir las funciones de perfiles, personal y pases QR.
+
+### Diseño de escritorio
+
+El sitio mantiene un ancho mínimo de 1100 px; la adaptación a móviles queda
+pendiente. Los estilos compartidos están en `frontend/style.css`; búsqueda y
+compra en `frontend/reservas.css`; cuenta en `frontend/cuenta.css`; reservas en
+`frontend/mis-reservas.css`; y sesión en `frontend/sesion.css`. Los recursos se
+guardan una sola vez en `frontend/assets/`, incluida la licencia
+`FONT-LICENSE.txt`. Las fotografías son conceptuales. Es un prototipo
+universitario independiente de Avianca y no procesa cobros reales.
 
 ## Dos bases de datos
 
