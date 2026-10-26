@@ -1,18 +1,41 @@
 # ADR 0003 · Despliegue desacoplado del frontend en Vercel y API de backend independiente
 
-Estado: Aceptada · 20 de octubre de 2026
-
-> Revisión documental del 26 de octubre de 2026 (UTC): El despliegue separado descrito aquí queda sustituido por el ADR 0008. Se mantiene este registro como antecedente histórico; la configuración actual publica archivos estáticos y API en un solo proyecto de Vercel. Se retiraron las atribuciones de propuestas, aprobaciones y conversaciones sin respaldo verificable; el estado y la fecha se conservan como metadatos del registro, sin acreditar un consenso.
-
 ## Contexto
-### Qué decisiones tomamos y qué estábamos pensando cuando tomamos esa decisión
-El plan original contemplaba alojar el proyecto completo en GitHub Pages. Durante la integración descubrimos que GitHub Pages solo distribuye contenido estático del lado del cliente y no ejecuta código de Node.js ni permite resguardar variables de entorno como la clave de conexión a MongoDB Atlas. Si insistíamos con ese esquema, teníamos que exponer las contraseñas en el código público o la aplicación no podía consultar la base de datos. Se requería con urgencia un enlace público funcional para las revisiones de cátedra.
+
+Cuando llegó el momento de publicar nuestro proyecto, necesitábamos un enlace que permitiera mostrar la aplicación funcionando desde cualquier navegador.
+
+Al principio consideramos utilizar GitHub Pages, porque era una forma sencilla de publicar las páginas del frontend. Sin embargo, descubrimos que no podía ejecutar directamente nuestro backend de Node.js, que era necesario para consultar MongoDB Atlas.
+
+Tampoco podíamos colocar las credenciales de la base de datos en los archivos del frontend, porque quedarían expuestas a cualquier persona que abriera la aplicación.
+
+Por eso buscamos una forma de publicar las pantallas y mantener el backend funcionando en un entorno separado, sin comprometer las credenciales.
+
+## Quién decidió
+
+El equipo optó inicialmente por separar el despliegue del frontend y el backend para resolver el problema de publicación.
+
+En el registro original no quedó documentado de forma verificable qué integrante propuso específicamente esta alternativa.
+
+## Quién aprobó
+
+No se conserva una aprobación individual verificable de esta decisión. Por ese motivo, no atribuimos su aprobación a una persona en particular.
 
 ## Decisión
-Desplegaremos el frontend en la plataforma Vercel y mantendremos la API de Node.js en un servicio de backend independiente conectado a MongoDB Atlas, comunicando ambos entornos mediante peticiones HTTPS seguras y políticas de CORS habilitadas. Descartamos el alojamiento exclusivo en GitHub Pages y los servidores monolíticos manuales.
+
+Decidimos inicialmente utilizar **Vercel para publicar el frontend** y mantener la API de Node.js en un servicio independiente conectado con MongoDB Atlas.
+
+Ambos servicios se comunicarían mediante solicitudes HTTPS y la configuración correspondiente de CORS.
+
+De esta manera, evitábamos depender únicamente de GitHub Pages y manteníamos las credenciales dentro del servidor.
+
+Posteriormente, esta decisión fue reemplazada por la arquitectura del **ADR 0008**, en la que el frontend y la API se publican juntos en un mismo proyecto de Vercel. Conservamos este ADR porque forma parte de las decisiones que tomamos durante el desarrollo.
 
 ## Consecuencias
-+ **Qué se gana:** Despliegue continuo automático en Vercel cada vez que se aprueba e integra un cambio en la rama principal de GitHub.
-+ **Qué se gana:** Seguridad en el manejo de credenciales de infraestructura, manteniéndolas en el backend y fuera del alcance del navegador.
-− **Qué se pierde (Puerta de una vía):** Se introduce complejidad en la configuración de cabeceras de red; un error en las políticas de CORS inhabilita la comunicación entre el frontend y el backend.
-− **Qué se pierde:** Dependencia de servicios gratuitos externos de backend que pueden entrar en reposo por inactividad, provocando demoras de respuesta iniciales durante las evaluaciones.
+
+- **Qué ganamos:** Podíamos publicar las pantallas y disponer de un enlace para mostrar el proyecto.
+- **Qué ganamos:** Las credenciales de MongoDB permanecían en el backend, fuera del código que se ejecuta en el navegador.
+- **Qué sacrificamos:** Necesitábamos configurar y mantener la comunicación entre dos servicios diferentes.
+- **Qué sacrificamos:** Un error en CORS o en la configuración de los servicios podía impedir que el frontend consultara los datos.
+- **Qué sacrificamos:** Dependíamos de servicios externos que podían tener limitaciones de rendimiento o entrar en reposo por inactividad.
+
+Estas consecuencias corresponden a la decisión original, antes del cambio registrado en el ADR 0008.
