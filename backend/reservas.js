@@ -1,7 +1,8 @@
 'use strict';
-const { ObjectId } = require('mongodb');
-const { randomUUID, createHash } = require('node:crypto');
-const { origenLocal, autenticar } = require('./sesion');
+const { ObjectId, Decimal128 } = require('mongodb');
+const { randomUUID, randomBytes, createHash } = require('node:crypto');
+const argon2 = require('argon2');
+const { origenLocal, autenticar, COOKIE, cookieOptions, digest, OPCIONES_HASH, DURACION } = require('./sesion');
 const { prepararPerfilesViaje, IDIOMAS } = require('./estructura');
 const Abordaje = require('../frontend/abordaje.js');
 const { salidaLocal } = require('./fichas');
@@ -331,8 +332,6 @@ async function comprar(db, cliente, compradorId, datos) {
             vueloId,
             estado: 'confirmada',
             activa: true,
-            fecha: ahora,
-            actualizadaEn: ahora
           }
         }
       ).catch(() => {});
@@ -340,12 +339,12 @@ async function comprar(db, cliente, compradorId, datos) {
       if (typeof db.collection('reservas').updateMany === 'function') {
         await db.collection('reservas').updateMany(
           { compradorId, diaViaje, activa: true },
-          { $set: { activa: false, actualizadaEn: ahora } }
+          { $set: { activa: false, estado: 'cancelada' } }
         ).catch(() => {});
       } else if (typeof db.collection('reservas').updateOne === 'function') {
         await db.collection('reservas').updateOne(
           { compradorId, diaViaje, activa: true },
-          { $set: { activa: false, actualizadaEn: ahora } }
+          { $set: { activa: false, estado: 'cancelada' } }
         ).catch(() => {});
       }
 
@@ -360,7 +359,6 @@ async function comprar(db, cliente, compradorId, datos) {
             diaViaje,
             estado: 'confirmada',
             activa: true,
-            fecha: ahora,
             creadaEn: ahora,
           };
           await db.collection('reservas').insertOne(reserva);
@@ -374,7 +372,7 @@ async function comprar(db, cliente, compradorId, datos) {
               localizador = existente.localizador || localizador;
               await db.collection('reservas').updateOne(
                 { _id: existente._id },
-                { $set: { localizador, vueloId, estado: 'confirmada', activa: true, actualizadaEn: ahora } }
+                { $set: { localizador, vueloId, estado: 'confirmada', activa: true } }
               ).catch(() => {});
               insertada = true;
             }
@@ -392,7 +390,6 @@ async function comprar(db, cliente, compradorId, datos) {
           diaViaje,
           estado: 'confirmada',
           activa: true,
-          fecha: ahora,
           creadaEn: ahora,
         };
       }
@@ -413,6 +410,25 @@ async function comprar(db, cliente, compradorId, datos) {
 
     const boletos = [];
     for (const p of datos.pasajeros) {
+      const alergiasLimpias = Array.isArray(p.preferencias?.alergias)
+        ? [...new Set(p.preferencias.alergias.map(a => String(a).trim()).filter(Boolean))]
+        : (typeof p.preferencias?.alergias === 'string' && p.preferencias.alergias.trim()
+          ? [...new Set(p.preferencias.alergias.split(',').map(a => a.trim()).filter(Boolean))]
+          : []);
+
+      const prefPasajero = {
+        comida: p.preferencias?.comida || 'sin_preferencia',
+        noMolestar: Boolean(p.preferencias?.noMolestar),
+        alergias: alergiasLimpias,
+        bebida: typeof p.preferencias?.bebida === 'string' ? p.preferencias.bebida.trim() : '',
+        notas: typeof p.preferencias?.notas === 'string' ? p.preferencias.notas.trim().slice(0, 1000) : '',
+      };
+
+      let fechaNacObj = p.fechaNacimiento instanceof Date ? p.fechaNacimiento : new Date(String(p.fechaNacimiento || '1990-01-01').includes('T') ? p.fechaNacimiento : `${p.fechaNacimiento || '1990-01-01'}T00:00:00Z`);
+      if (!Number.isFinite(+fechaNacObj)) {
+        fechaNacObj = new Date('1990-01-01T00:00:00Z');
+      }
+
       let persona = await db.collection('pasajeros').findOne({
         'documento.tipo': p.documento.tipo,
         'documento.paisEmisor': p.documento.paisEmisor,
@@ -426,8 +442,8 @@ async function comprar(db, cliente, compradorId, datos) {
             $set: {
               nombres: p.nombres,
               apellidos: p.apellidos,
-              fechaNacimiento: p.fechaNacimiento,
-              preferencias: p.preferencias,
+              fechaNacimiento: fechaNacObj,
+              preferencias: prefPasajero,
               preferenciasActualizadasEn: ahora,
               usuarioTitularId: compradorId,
             },
@@ -436,13 +452,17 @@ async function comprar(db, cliente, compradorId, datos) {
       } else {
         persona = {
           _id: new ObjectId(),
-          usuarioTitularId: compradorId,
           nombres: p.nombres,
           apellidos: p.apellidos,
-          fechaNacimiento: p.fechaNacimiento,
-          documento: p.documento,
-          preferencias: p.preferencias,
+          fechaNacimiento: fechaNacObj,
+          documento: {
+            tipo: p.documento.tipo,
+            paisEmisor: p.documento.paisEmisor,
+            numero: p.documento.numero,
+          },
+          preferencias: prefPasajero,
           preferenciasActualizadasEn: ahora,
+          usuarioTitularId: compradorId,
         };
         try {
           await db.collection('pasajeros').insertOne(persona);
@@ -462,12 +482,12 @@ async function comprar(db, cliente, compradorId, datos) {
       if (typeof db.collection('boletos').updateMany === 'function') {
         await db.collection('boletos').updateMany(
           { vueloId, pasajeroId: persona._id, vigente: true },
-          { $set: { vigente: false, estado: 'reemplazado', reemplazadoEn: ahora } }
+          { $set: { vigente: false, estado: 'cancelado' } }
         ).catch(() => {});
       } else if (typeof db.collection('boletos').updateOne === 'function') {
         await db.collection('boletos').updateOne(
           { vueloId, pasajeroId: persona._id, vigente: true },
-          { $set: { vigente: false, estado: 'reemplazado', reemplazadoEn: ahora } }
+          { $set: { vigente: false, estado: 'cancelado' } }
         ).catch(() => {});
       }
 
@@ -476,7 +496,7 @@ async function comprar(db, cliente, compradorId, datos) {
       const codigoVuelo = vuelo?.codigo || datos.vuelo || 'AV 8402';
       const origenVuelo = vuelo?.origen || datos.origen || 'BOG';
       const destinoVuelo = vuelo?.destino || datos.destino || 'MDE';
-      const precioBoleto = precioFinal;
+      const precioBoletoDecimal = Decimal128.fromString(Number(precioFinal).toFixed(2));
       const monedaBoleto = monedaFinal;
 
       let textoQR = Abordaje.codificar({
@@ -496,18 +516,15 @@ async function comprar(db, cliente, compradorId, datos) {
         _id: boletoId,
         numero: numeroBoleto,
         reservaId: reserva._id,
-        localizador: reserva.localizador,
         vueloId,
         pasajeroId: persona._id,
         asiento: p.asiento,
         clase: datos.clase,
-        precio: precioBoleto,
+        precio: precioBoletoDecimal,
         moneda: monedaBoleto,
         estado: 'reservado',
         vigente: true,
-        codigoQR: textoQR,
-        textoQR,
-        preferenciasViaje: p.preferencias,
+        preferenciasViaje: prefPasajero,
         creadoEn: ahora,
       };
 
@@ -539,8 +556,6 @@ async function comprar(db, cliente, compradorId, datos) {
               });
               boleto.asiento = libre;
               boleto.numero = numeroBoleto;
-              boleto.textoQR = textoQR;
-              boleto.codigoQR = textoQR;
             } else {
               numeroBoleto = 'TKT-' + randomUUID();
               boleto.numero = numeroBoleto;
@@ -566,8 +581,11 @@ async function comprar(db, cliente, compradorId, datos) {
         menu: p.preferencias?.comida || 'sin_preferencia',
         bebida: p.preferencias?.bebida || '',
         noMolestar: Boolean(p.preferencias?.noMolestar),
-        alergias: Array.isArray(p.preferencias?.alergias) ? p.preferencias.alergias : [],
+        alergias: alergiasLimpias,
         notas: p.preferencias?.notas || '',
+        textoQR,
+        codigoQR: textoQR,
+        localizador: reserva.localizador,
         actualizadoEn: ahora,
       };
       await db.collection('perfiles_viaje').replaceOne(
@@ -582,9 +600,11 @@ async function comprar(db, cliente, compradorId, datos) {
         nombre: p.nombres,
         apellido: p.apellidos,
         textoQR,
+        codigoQR: textoQR,
         numero: boleto.numero,
-        precio: boleto.precio.toString(),
+        precio: String(precioFinal),
         moneda: boleto.moneda,
+        localizador: reserva.localizador,
       });
     }
 
@@ -652,11 +672,81 @@ module.exports = async function registrarReservas(app, bases, clienteDirecto) {
           }
         }
       }
-      if (!usuario) throw fallo(401, 'Tu sesión no fue detectada o ha expirado. Por favor inicia sesión nuevamente para completar la reserva.');
-      if (usuario.tipoCuenta !== 'cliente') throw fallo(403, 'Esta compra requiere una cuenta de cliente.');
+      // Auto-aprovisionar cuenta de cliente si no hay sesión previa (reserva inmediata de invitado)
+      if (!usuario) {
+        const p1 = req.body?.pasajeros?.[0] || {};
+        const p1Nombre = (p1.nombres || p1.nombre || 'Pasajero').trim().slice(0, 80);
+        const p1Apellido = (p1.apellidos || p1.apellido || 'Avianca').trim().slice(0, 80);
+        const docNum = (typeof p1.documento === 'string' ? p1.documento : (p1.documento?.numero || `PAS${Date.now()}`)).trim().toUpperCase();
+        const correoAuto = (req.body?.correo || `${docNum.toLowerCase().replace(/[^a-z0-9]/g, '') || Date.now()}@clientes.avianca.com`).trim().toLowerCase();
+
+        let u = await db.collection('usuarios').findOne({
+          $or: [
+            { correo: correoAuto },
+            { 'documento.numero': docNum }
+          ]
+        });
+
+        if (!u) {
+          const passwordHash = await argon2.hash(randomBytes(16).toString('hex'), OPCIONES_HASH);
+          const nuevoUsuario = {
+            _id: new ObjectId(),
+            nombre: p1Nombre,
+            apellido: p1Apellido,
+            correo: correoAuto,
+            passwordHash,
+            tipoCuenta: 'cliente',
+            rol: 'cliente',
+            roles: ['cliente'],
+            estado: 'activo',
+            creadoEn: new Date()
+          };
+          try {
+            await db.collection('usuarios').insertOne(nuevoUsuario);
+            u = nuevoUsuario;
+          } catch {
+            u = await db.collection('usuarios').findOne({ correo: correoAuto }) ||
+                await db.collection('usuarios').findOne({ tipoCuenta: 'cliente' });
+          }
+        }
+
+        if (u) {
+          usuario = {
+            _id: u._id,
+            tipo: 'cliente',
+            tipoCuenta: 'cliente',
+            rol: 'cliente',
+            nombre: u.nombre || p1Nombre,
+            apellido: u.apellido || p1Apellido,
+            correo: u.correo,
+          };
+
+          const token = randomBytes(32).toString('hex');
+          const ahora = new Date();
+          await db.collection('sesiones_web').insertOne({
+            _id: digest(token),
+            usuarioId: u._id,
+            creadoEn: ahora,
+            expiraEn: new Date(ahora.getTime() + DURACION)
+          }).catch(() => {});
+
+          res.cookie(COOKIE, token, { ...cookieOptions, maxAge: DURACION });
+        }
+      }
+
+      if (!usuario) throw fallo(400, 'Completa los datos del pasajero para registrar la reserva.');
+      if (usuario.tipoCuenta !== 'cliente' && usuario.rol !== 'cliente') throw fallo(403, 'Esta compra requiere una cuenta de cliente.');
       const datos = validar(req.body);
 
       const resultado = await comprar(db, cliente, usuario._id, datos);
+      resultado.usuario = {
+        id: String(usuario._id),
+        nombre: usuario.nombre,
+        apellido: usuario.apellido,
+        correo: usuario.correo,
+        tipoCuenta: 'cliente',
+        rol: 'cliente'
+      };
       res.status(201).json(resultado);
     } catch(e) {
       console.error('Error detallado en reserva:', e);
