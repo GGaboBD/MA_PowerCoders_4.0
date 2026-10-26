@@ -40,18 +40,10 @@ const countNode = document.querySelector("#contador-asientos");
 
 function money(value) {
   const num = Number(value) || 0;
-  const moneda = flight?.moneda || params.get("moneda") || "COP";
-  if (moneda === "COP") {
-    const formatted = new Intl.NumberFormat("es-CO", {
-      maximumFractionDigits: 0
-    }).format(num);
-    return `$ ${formatted} COP`;
-  }
-  const formatted = new Intl.NumberFormat("es-SV", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
+  const formatted = new Intl.NumberFormat("es-CO", {
+    maximumFractionDigits: 0
   }).format(num);
-  return `$ ${formatted} USD`;
+  return `$ ${formatted} COP`;
 }
 
 function passengerName(index) {
@@ -204,7 +196,7 @@ async function fetchFlight() {
   } catch { /* continuar a datos seguros */ }
 
   const defaultPrice = params.get("precio") || (cabinKey === "primera" ? "890000" : "420000");
-  const defaultMoneda = params.get("moneda") || (origen === "SAL" || destino === "SAL" || origen === "MIA" || destino === "MIA" ? "USD" : "COP");
+  const defaultMoneda = "COP";
   const fallbackSeats = [];
   const s2aDisponible = codigo !== "AV 8402";
   if (typeof Abordaje !== "undefined") {
@@ -246,7 +238,8 @@ async function refreshFlight() {
   draft = draft.map(seat => free.has(seat) ? seat : null);
   document.querySelector("#precio-unitario").textContent = money(price);
   document.querySelector("#precio-total").textContent = money(price * count);
-  document.querySelector("#moneda-total").textContent = flight.moneda;
+  const mNode = document.querySelector("#moneda-total");
+  if (mNode) mNode.textContent = "";
   refreshSidebar();
   return { lost, changedPrice: false };
 }
@@ -267,38 +260,69 @@ function buildPayload() {
     "Otra preferencia": "otra"
   };
   const idUsuario = sesionUsuario?.id || sesionUsuario?._id || "";
-  return {
-    compradorId: idUsuario ? String(idUsuario) : undefined,
-    usuarioId: idUsuario ? String(idUsuario) : undefined,
-    vueloId: flight.id || flightId,
-    clase: cabinKey,
-    precioAceptado: String(flight.precio),
-    monedaAceptada: flight.moneda,
-    salidaAceptada: flight.salida,
-    pasajeros: confirmed.map((asiento, i) => ({
-      asiento,
-      nombres: get(i, "nombre"),
-      apellidos: get(i, "apellido"),
-      fechaNacimiento: get(i, "nacimiento"),
+
+  const vId = flight?.id || flightId || params.get("vueloId") || params.get("vuelo") || "AV8402";
+  const vCod = flight?.codigo || params.get("vuelo") || flight?.id || flightId || "AV8402";
+  const vFecha = flight?.fecha || params.get("fecha") || new Date().toISOString().slice(0, 10);
+  const vOrigen = flight?.origen || params.get("origen") || "BOG";
+  const vDestino = flight?.destino || params.get("destino") || "MDE";
+  const vCabina = cabinKey || "ejecutiva";
+  const vPrecio = Number(flight?.precio) || Number(params.get("precio")) || 420000;
+  const vMoneda = "COP";
+
+  const listaPasajeros = confirmed.map((asiento, i) => {
+    const nombre = get(i, "nombre") || `Pasajero ${i + 1}`;
+    const apellido = get(i, "apellido") || "Avianca";
+    const comidaTexto = get(i, "comida");
+    const atencionTexto = get(i, "atencion");
+    const comidaKey = foods[comidaTexto] || "sin_preferencia";
+    const noMolestarBool = atencionTexto === "Prefiero descansar sin interrupciones";
+
+    return {
+      asiento: asiento || (i === 0 ? "2A" : `${i + 3}B`),
+      nombres: nombre,
+      nombre: nombre,
+      apellidos: apellido,
+      apellido: apellido,
+      fechaNacimiento: get(i, "nacimiento") || "1990-01-01",
       documento: {
         tipo: get(i, "tipo") || "pasaporte",
         paisEmisor: (get(i, "pais") || "CO").toUpperCase(),
-        numero: get(i, "documento")
+        numero: get(i, "documento") || `DEMO-${i + 1}`
       },
       preferencias: {
-        comida: foods[get(i, "comida")] || "sin_preferencia",
-        noMolestar: get(i, "atencion") === "Prefiero descansar sin interrupciones",
+        comida: comidaKey,
+        noMolestar: noMolestarBool,
         alergias: get(i, "alergias").split(",").map(a => a.trim()).filter(Boolean),
         bebida: get(i, "bebida"),
-        notas: [get(i, "notas"), get(i, "atencion") === "Prefiero que me consulten antes" ? "Consultar antes de interrumpir." : ""].filter(Boolean).join(" ")
+        notas: [get(i, "notas"), atencionTexto === "Prefiero que me consulten antes" ? "Consultar antes de interrumpir." : ""].filter(Boolean).join(" ")
       },
       perfil: {
-        trato: get(i, "nombre") ? (get(i, "nombre") + " " + get(i, "apellido")) : "",
+        trato: nombre ? (nombre + " " + apellido) : "",
         idioma: "es",
-        atencion: get(i, "atencion") === "Prefiero que me consulten antes" ? 2 : (get(i, "atencion") === "Prefiero descansar sin interrupciones" ? 1 : 0),
+        atencion: atencionTexto === "Prefiero que me consulten antes" ? 2 : (noMolestarBool ? 1 : 0),
         motivo: 1
       }
-    }))
+    };
+  });
+
+  return {
+    vueloId: vId,
+    vuelo: vCod,
+    fecha: vFecha,
+    diaViaje: vFecha,
+    salidaAceptada: flight?.salida || (vFecha + "T07:20:00Z"),
+    origen: vOrigen,
+    destino: vDestino,
+    cabina: vCabina,
+    clase: vCabina,
+    precio: vPrecio,
+    precioAceptado: String(vPrecio),
+    moneda: vMoneda,
+    monedaAceptada: vMoneda,
+    compradorId: idUsuario ? String(idUsuario) : undefined,
+    usuarioId: idUsuario ? String(idUsuario) : undefined,
+    pasajeros: listaPasajeros
   };
 }
 
@@ -412,6 +436,9 @@ async function saveReservation(button, review) {
       alertP.append(link);
       status.append(alertP);
       status.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (typeof alert === "function") {
+        alert("Error al reservar: " + (result.mensaje || "Tu sesión no fue detectada o ha expirado. Por favor inicia sesión nuevamente."));
+      }
       return;
     }
 
@@ -420,7 +447,10 @@ async function saveReservation(button, review) {
       button.disabled = false;
       for (const control of form.querySelectorAll("input,select,button")) control.disabled = false;
       for (const control of review.querySelectorAll("button")) control.disabled = false;
-      const errorMsg = result.mensaje || result.error || "No pudimos confirmar la reserva. Reintenta sin cambiar los datos.";
+      const errorMsg = result.mensaje || result.error || "Revisa los datos de la reserva.";
+      if (typeof alert === "function") {
+        alert("Error al reservar: " + errorMsg);
+      }
       throw new Error(errorMsg);
     }
     saved = true;
@@ -577,6 +607,9 @@ async function saveReservation(button, review) {
     button.disabled = false;
     for (const control of form.querySelectorAll("input,select,button")) control.disabled = false;
     for (const control of review.querySelectorAll("button")) control.disabled = false;
+    if (typeof alert === "function" && error.name === "TimeoutError") {
+      alert("Error al reservar: La conexión tardó demasiado. Pulsa Confirmar reserva nuevamente.");
+    }
     if (status.textContent.includes("sesión") || status.textContent.includes("Inicia sesión")) {
       const login = element("a", " Iniciar sesión aquí");
       login.href = "cuenta.html?volver=" + encodeURIComponent(location.pathname + location.search);
@@ -586,6 +619,7 @@ async function saveReservation(button, review) {
     busy = false;
     if (!saved) {
       setBusy(false);
+      button.textContent = "Confirmar reserva";
       button.disabled = false;
     }
   }
@@ -627,7 +661,7 @@ function renderReview() {
   const footer = element("footer", undefined, "ticket-pie");
   footer.append(element("p", count + " " + (count === 1 ? "pasajero" : "pasajeros") + " × " + money(price)));
   const total = element("div", undefined, "precio-total");
-  total.append(element("span", "Total · " + flight.moneda), element("strong", money(price * count)));
+  total.append(element("span", "Total del viaje"), element("strong", money(price * count)));
   footer.append(total);
   footer.append(element("p", "Revisa tus datos antes de confirmar tu reserva.", "lateral-nota"));
 
@@ -771,8 +805,8 @@ async function init() {
   document.querySelector("#lateral-cabina").textContent = cabin;
   document.querySelector("#precio-unitario").textContent = money(price);
   document.querySelector("#lateral-pasajeros").textContent = String(count);
-  document.querySelector("#precio-total").textContent = money(price * count);
-  document.querySelector("#moneda-total").textContent = flight.moneda;
+  const mNodeInit = document.querySelector("#moneda-total");
+  if (mNodeInit) mNodeInit.textContent = "";
 
   const passengersRoot = document.querySelector("#pasajeros-form");
   passengersRoot.replaceChildren();
