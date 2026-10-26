@@ -262,4 +262,89 @@ test("Reservas: validar acepta payload flexible con vuelo o vueloId y valores po
   assert.equal(normalizado.pasajeros[0].preferencias.comida, "sin_preferencia");
 });
 
+test("Reservas: comprar acepta tarifa registrada sin rechazar por discrepancia de precio", async () => {
+  const { ObjectId } = require("mongodb");
+  const { comprar } = require("../backend/reservas");
+
+  const datosVueloId = new ObjectId();
+  const compradorId = new ObjectId();
+  const vueloDoc = {
+    _id: datosVueloId,
+    codigo: "AV 8402",
+    salida: new Date(Date.now() + 36000000).toISOString(),
+    estado: "ventas_abiertas",
+    tarifas: { ejecutiva: 480000, primera: 890000 },
+    moneda: "COP",
+    asientos: [{ codigo: "2A", clase: "ejecutiva" }],
+    diaViaje: "2026-10-26"
+  };
+
+  const colecciones = {
+    solicitudes_reserva: new Map(),
+    vuelos: new Map([[String(datosVueloId), vueloDoc]]),
+    boletos: new Map(),
+    reservas: new Map(),
+    pasajeros: new Map(),
+    perfiles_viaje: new Map(),
+    auditoria: new Map(),
+  };
+
+  const fakeCollection = name => {
+    const mapa = colecciones[name];
+    return {
+      findOne: async (filtro = {}) => {
+        for (const item of mapa.values()) {
+          let match = true;
+          for (const [k, v] of Object.entries(filtro)) {
+            if (k === '_id' && !item._id.equals(v)) match = false;
+            else if (k === 'vueloId' && !item.vueloId?.equals?.(v)) match = false;
+            else if (k === 'asiento' && typeof v === 'object' && v.$in && !v.$in.includes(item.asiento)) match = false;
+            else if (k === 'activa' && item.activa !== v) match = false;
+            else if (k === 'vigente' && item.vigente !== v) match = false;
+          }
+          if (match) return item;
+        }
+        return null;
+      },
+      insertOne: async doc => {
+        mapa.set(String(doc._id), doc);
+        return { insertedId: doc._id };
+      },
+      updateOne: async () => ({ modifiedCount: 1 }),
+      replaceOne: async (filtro, doc) => {
+        mapa.set(String(doc._id), doc);
+        return { upsertedId: doc._id };
+      },
+      find: () => ({ sort: () => ({ limit: () => ({ toArray: async () => [] }) }) })
+    };
+  };
+
+  const fakeDb = { collection: name => fakeCollection(name) };
+
+  // El frontend envía precio 420000 mientras el vuelo en BD tiene 480000
+  const datosCompra = {
+    vueloId: String(datosVueloId),
+    clase: "ejecutiva",
+    solicitudId: "abcdef12-3456-7890-abcd-ef1234567890",
+    precioAceptado: "420000",
+    monedaAceptada: "COP",
+    pasajeros: [{
+      asiento: "2A",
+      nombres: "Juliana",
+      apellidos: "Ceballos",
+      fechaNacimiento: new Date("1986-04-12T00:00:00Z"),
+      documento: { tipo: "pasaporte", paisEmisor: "CO", numero: "DEMO-CO-1001" },
+      preferencias: { comida: "vegetariana", noMolestar: false, alergias: [], bebida: "", notas: "" },
+      perfil: { trato: "", idioma: "es", atencion: 0, motivo: 1 }
+    }]
+  };
+
+  const res = await comprar(fakeDb, null, compradorId, datosCompra);
+  assert.equal(res.ok, true);
+  assert.equal(res.boletos.length, 1);
+  assert.equal(res.boletos[0].asiento, "2A");
+  assert.equal(res.boletos[0].precio, "480000"); // Asigna el precio oficial registrado
+});
+
+
 

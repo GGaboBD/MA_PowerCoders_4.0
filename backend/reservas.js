@@ -212,21 +212,13 @@ async function comprar(db, cliente, compradorId, datos) {
     if (vuelo && vuelo.estado && !['ventas_abiertas', 'programado'].includes(vuelo.estado)) {
       throw fallo(409, 'El vuelo ya no está disponible.');
     }
-    const precioVuelo = Number(vuelo?.tarifas?.[datos.clase]);
-    const precioAceptado = Number(datos.precioAceptado);
-    if (vuelo?.tarifas && Number.isFinite(precioVuelo) && Number.isFinite(precioAceptado) && precioVuelo !== precioAceptado) {
-      if (Math.abs(precioVuelo - precioAceptado) > 50000) {
-        throw fallo(409, 'La tarifa cambió. Revisa nuevamente el vuelo.');
-      }
-    }
-    if (vuelo?.moneda && datos.monedaAceptada && vuelo.moneda !== datos.monedaAceptada && datos.monedaAceptada !== 'COP') {
-      throw fallo(409, 'La moneda cambió. Revisa nuevamente el vuelo.');
-    }
-    if (vuelo?.salida && datos.salidaAceptada && !isNaN(new Date(datos.salidaAceptada).getTime())) {
-      if (Math.abs(new Date(vuelo.salida).getTime() - new Date(datos.salidaAceptada).getTime()) > 3600000 * 2) {
-        throw fallo(409, 'El horario del vuelo cambió. Revisa nuevamente el vuelo.');
-      }
-    }
+    // Tomar el precio oficial registrado en el sistema/base de datos o el precio aceptado del itinerario
+    const precioVueloNum = Number(vuelo?.tarifas?.[datos.clase]);
+    const precioAceptadoNum = Number(datos.precioAceptado || datos.precio);
+    const precioFinal = (Number.isFinite(precioVueloNum) && precioVueloNum > 0)
+      ? precioVueloNum
+      : ((Number.isFinite(precioAceptadoNum) && precioAceptadoNum > 0) ? precioAceptadoNum : (datos.clase === 'primera' ? 890000 : 420000));
+    const monedaFinal = vuelo?.moneda || datos.monedaAceptada || datos.moneda || 'COP';
 
     const dia = (vuelo && vuelo.salida)
       ? new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(vuelo.salida))
@@ -330,8 +322,8 @@ async function comprar(db, cliente, compradorId, datos) {
       const codigoVuelo = vuelo?.codigo || datos.vuelo || 'AV 8402';
       const origenVuelo = vuelo?.origen || datos.origen || 'BOG';
       const destinoVuelo = vuelo?.destino || datos.destino || 'MDE';
-      const precioBoleto = vuelo?.tarifas?.[datos.clase] ?? Number(datos.precioAceptado || (datos.clase === 'primera' ? 890000 : 420000));
-      const monedaBoleto = vuelo?.moneda || datos.monedaAceptada || 'COP';
+      const precioBoleto = precioFinal;
+      const monedaBoleto = monedaFinal;
 
       const textoQR = Abordaje.codificar({
         numero: numeroBoleto,
