@@ -1,7 +1,7 @@
 'use strict';
 const express = require('express');
 const path = require('node:path');
-const { prepararAvianca } = require('./estructura');
+const { prepararAvianca, prepararClientes } = require('./estructura');
 const registrarRegistro = require('./registro');
 const registrarSesion = require('./sesion');
 const registrarVuelos = require('./vuelos');
@@ -27,6 +27,13 @@ async function crearApp(bases, opciones = {}) {
   // Base de Avianca: se crea o se actualiza aquí si existe. Base de clientes: se comprueba esquema.
   if (bases.avianca) {
     await prepararAvianca(bases.avianca);
+  }
+  if (bases.clientes) {
+    try {
+      await prepararClientes(bases.clientes);
+    } catch (err) {
+      console.error('Aviso al preparar base de clientes:', err.message);
+    }
   }
   await registrarRegistro.comprobarEsquema(bases.clientes || bases);
 
