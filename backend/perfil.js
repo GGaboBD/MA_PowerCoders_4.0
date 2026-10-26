@@ -9,6 +9,20 @@ const DOC_TIPOS = ["pasaporte", "identidad"];
 
 function normalizarPerfil(raw, usuario) {
   const p = raw || {};
+  const alergias = Array.isArray(p.alergias)
+    ? p.alergias.map(a => String(a).trim()).filter(Boolean).slice(0, 20)
+    : (typeof p.alergias === "string" ? p.alergias.split(",").map(a => a.trim()).filter(Boolean).slice(0, 20) : []);
+  const bebida = typeof p.bebida === "string" && p.bebida.trim()
+    ? p.bebida.trim()
+    : (typeof p.bebidaPreferencia === "string" ? p.bebidaPreferencia.trim() : "");
+  const noMolestar = p.noMolestar === true || p.noMolestar === "true" || p.noMolestar === 1 || p.noMolestar === "1";
+  const atencion = Number.isInteger(p.atencion) && p.atencion >= 0 && p.atencion <= 2
+    ? p.atencion
+    : (typeof p.atencion === "string" && !isNaN(parseInt(p.atencion, 10)) ? parseInt(p.atencion, 10) : (noMolestar ? 1 : 0));
+  const motivo = Number.isInteger(p.motivo) && p.motivo >= 0 && p.motivo <= 3
+    ? p.motivo
+    : (typeof p.motivo === "string" && !isNaN(parseInt(p.motivo, 10)) ? parseInt(p.motivo, 10) : 0);
+
   return {
     trato: typeof p.trato === "string" ? p.trato.trim() : "",
     nombres: typeof p.nombres === "string" ? p.nombres.trim() : (usuario?.nombre || ""),
@@ -21,11 +35,12 @@ function normalizarPerfil(raw, usuario) {
     },
     idioma: IDIOMAS.includes(p.idioma) ? p.idioma : "es",
     comida: COMIDAS.includes(p.comida) ? p.comida : "sin_preferencia",
-    atencion: Number.isInteger(p.atencion) && p.atencion >= 0 && p.atencion <= 2 ? p.atencion : 0,
-    motivo: Number.isInteger(p.motivo) && p.motivo >= 0 && p.motivo <= 3 ? p.motivo : 0,
-    bebida: typeof p.bebida === "string" ? p.bebida.trim() : "",
-    alergias: Array.isArray(p.alergias) ? p.alergias.map(a => String(a).trim()).filter(Boolean).slice(0, 20) : [],
-    noMolestar: Boolean(p.noMolestar),
+    atencion,
+    motivo,
+    bebida,
+    bebidaPreferencia: bebida,
+    alergias,
+    noMolestar,
     notas: typeof p.notas === "string" ? p.notas.trim() : "",
   };
 }
@@ -37,10 +52,15 @@ module.exports = function registrarPerfil(app, bases) {
   app.get("/api/perfil", soloClientes, async (req, res) => {
     res.set("Cache-Control", "no-store");
     try {
-      let guardado = await db.collection("perfiles_usuario").findOne({ usuarioId: req.cuenta._id });
+      const uId = req.cuenta._id;
+      let guardado = await db.collection("perfiles_usuario").findOne({
+        $or: [{ usuarioId: uId }, { usuarioId: String(uId) }, { usuarioId: new ObjectId(uId) }]
+      });
       if (!guardado) {
-        // Fallback: buscar ficha de pasajero vinculada al titular o por correo/nombre
-        const pasajero = await db.collection("pasajeros").findOne({ usuarioTitularId: req.cuenta._id });
+        // Fallback: buscar ficha de pasajero vinculada al titular
+        const pasajero = await db.collection("pasajeros").findOne({
+          $or: [{ usuarioTitularId: uId }, { usuarioTitularId: String(uId) }, { usuarioTitularId: new ObjectId(uId) }]
+        });
         if (pasajero) {
           const perfilViaje = await db.collection("perfiles_viaje").findOne({ pasajeroId: pasajero._id });
           guardado = {

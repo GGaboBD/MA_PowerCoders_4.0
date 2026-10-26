@@ -26,7 +26,127 @@
       <span class="cuenta-imagen-pie">EJECUTIVA & PRIMERA CLASE</span>
     </section>
     <section class="cuenta-panel" aria-label="Acceso a tu cuenta">
-      <section id="perfil-sesion" hidden aria-label="Tu sesión"><p class="etiqueta">SESIÓN INICIADA</p><h2 id="sesion-nombre"></h2><p id="sesion-correo"></p><p>Consulta tus viajes y los boletos guardados en tu cuenta.</p><a class="boton boton-rojo" href="index.html#buscar-vuelos">Buscar vuelos</a> <a class="boton boton-contorno" href="mis-reservas.html">Mis reservas</a></section>
+      <section id="perfil-sesion" hidden aria-label="Tu sesión">
+        <p class="etiqueta cuenta-eyebrow">SESIÓN INICIADA</p>
+        <h2 id="sesion-nombre">Tu cuenta</h2>
+        <p id="sesion-correo" class="cuenta-intro"></p>
+        <div class="cuenta-acciones-sesion">
+          <a class="boton boton-rojo" href="mis-reservas.html">Mis reservas</a>
+          <a class="boton boton-contorno" href="index.html#buscar-vuelos">Buscar vuelos</a>
+          <a class="boton boton-contorno" href="pase.html">Pase de abordar</a>
+          <a class="boton boton-oscuro" id="btn-ir-tripulacion" href="tripulacion.html" hidden>Panel de tripulación</a>
+          <button class="boton boton-claro" type="button" id="btn-cerrar-sesion-panel">Cerrar sesión</button>
+        </div>
+
+        <form id="form-perfil-cuenta" style="margin-top: 24px;">
+          <div class="cuenta-perfil-bloque">
+            <h3>Información personal y de viaje</h3>
+            <p class="cuenta-ayuda" style="margin-bottom: 14px;">Tus datos maestros para emisión de boletos en vuelos ejecutivos.</p>
+            <div class="cuenta-perfil-grid">
+              <div class="cuenta-campo">
+                <label for="c-perfil-trato">Trato de cortesía</label>
+                <input id="c-perfil-trato" name="trato" maxlength="40" placeholder="Ej: Ing. Ceballos, Dr.">
+              </div>
+              <div class="cuenta-campo">
+                <label for="c-perfil-nacimiento">Fecha de nacimiento</label>
+                <input id="c-perfil-nacimiento" name="fechaNacimiento" type="date">
+              </div>
+              <div class="cuenta-campo">
+                <label for="c-perfil-nombres">Nombres</label>
+                <input id="c-perfil-nombres" name="nombres" maxlength="80" required>
+              </div>
+              <div class="cuenta-campo">
+                <label for="c-perfil-apellidos">Apellidos</label>
+                <input id="c-perfil-apellidos" name="apellidos" maxlength="80" required>
+              </div>
+              <div class="cuenta-campo">
+                <label for="c-perfil-tipo-doc">Tipo de documento</label>
+                <select id="c-perfil-tipo-doc" name="tipoDocumento">
+                  <option value="pasaporte">Pasaporte internacional</option>
+                  <option value="identidad">Documento de identidad</option>
+                </select>
+              </div>
+              <div class="cuenta-campo">
+                <label for="c-perfil-pais-doc">País emisor (2 letras)</label>
+                <input id="c-perfil-pais-doc" name="paisEmisor" maxlength="2" pattern="[A-Za-z]{2}" value="CO" required>
+              </div>
+              <div class="cuenta-campo" style="grid-column: 1 / -1;">
+                <label for="c-perfil-num-doc">Número de documento</label>
+                <input id="c-perfil-num-doc" name="numeroDocumento" maxlength="40" placeholder="Ej: CO-1001" required>
+              </div>
+            </div>
+          </div>
+
+          <div class="cuenta-perfil-bloque">
+            <h3>Experiencia y Catering a bordo</h3>
+            <div class="cuenta-perfil-grid">
+              <div class="cuenta-campo">
+                <label for="c-perfil-idioma">Idioma de saludo</label>
+                <select id="c-perfil-idioma" name="idioma">
+                  <option value="es">Español</option>
+                  <option value="en">English</option>
+                  <option value="pt">Português</option>
+                  <option value="fr">Français</option>
+                </select>
+              </div>
+              <div class="cuenta-campo">
+                <label for="c-perfil-comida">Preferencia gastronómica</label>
+                <select id="c-perfil-comida" name="comida">
+                  <option value="sin_preferencia">Sin preferencia / Regular</option>
+                  <option value="vegetariana">Menú Vegetariano</option>
+                  <option value="vegana">Menú Vegano</option>
+                  <option value="sin_gluten">Libre de gluten (Celíacos)</option>
+                  <option value="otra">Otra dieta especial</option>
+                </select>
+              </div>
+              <div class="cuenta-campo">
+                <label for="c-perfil-atencion">Atención a bordo</label>
+                <select id="c-perfil-atencion" name="atencion">
+                  <option value="0">Atención habitual y cálida</option>
+                  <option value="1">Descanso prioritario (sin interrupciones)</option>
+                  <option value="2">Consultar antes de interactuar</option>
+                </select>
+              </div>
+              <div class="cuenta-campo">
+                <label for="c-perfil-motivo">Motivo de viaje</label>
+                <select id="c-perfil-motivo" name="motivo">
+                  <option value="0">Sin especificar</option>
+                  <option value="1">Negocios y trabajo ejecutivo</option>
+                  <option value="2">Turismo, ocio y descanso</option>
+                  <option value="3">Visita familiar o personal</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="cuenta-perfil-bloque">
+            <h3>Bienestar, descanso y notas especiales</h3>
+            <div class="cuenta-perfil-grid">
+              <div class="cuenta-campo">
+                <label for="c-perfil-bebida">Bebida preferida de bienvenida</label>
+                <input id="c-perfil-bebida" name="bebida" maxlength="80" placeholder="Ej: Café americano sin azúcar, Agua con gas">
+              </div>
+              <div class="cuenta-campo">
+                <label for="c-perfil-alergias">Alergias o condiciones médicas</label>
+                <input id="c-perfil-alergias" name="alergias" maxlength="160" placeholder="Ej: Frutos secos, mariscos">
+              </div>
+              <div class="cuenta-campo" style="grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; margin-block: 6px;">
+                <input type="checkbox" id="c-perfil-no-molestar" name="noMolestar" style="width: 20px; height: 20px; cursor: pointer;">
+                <label for="c-perfil-no-molestar" style="margin: 0; cursor: pointer;">Activar modo "No molestar" en cabina por defecto (priorizar sueño y descanso continuo)</label>
+              </div>
+              <div class="cuenta-campo" style="grid-column: 1 / -1;">
+                <label for="c-perfil-notas">Notas o requerimientos especiales para la tripulación</label>
+                <textarea id="c-perfil-notas" name="notas" maxlength="1000" rows="3" placeholder="Ej: Trabajo con laptop durante el vuelo: agradecería verificar disponibilidad de enchufe al abordar."></textarea>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top: 20px;">
+            <button class="boton boton-rojo" type="submit" id="btn-guardar-perfil-cuenta">Guardar preferencias</button>
+            <p id="msg-perfil-cuenta" class="cuenta-mensaje" hidden></p>
+          </div>
+        </form>
+      </section>
       <div id="formularios-acceso"><div class="cuenta-tabs" role="tablist" aria-label="Elige cómo acceder">
         <button id="tab-login" role="tab" aria-selected="true" aria-controls="panel-login" type="button">Iniciar sesión</button>
         <button id="tab-registro" role="tab" aria-selected="false" aria-controls="panel-registro" tabindex="-1" type="button">Crear cuenta</button>

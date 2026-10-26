@@ -143,3 +143,127 @@ loginForm.addEventListener('submit', async event => {
   }
 });
 changePanel('login');
+
+// Manejo del formulario de perfil integrado en Mi cuenta
+const perfilForm = document.getElementById('form-perfil-cuenta');
+const perfilMsg = document.getElementById('msg-perfil-cuenta');
+const perfilSubmit = document.getElementById('btn-guardar-perfil-cuenta');
+const btnTripulacion = document.getElementById('btn-ir-tripulacion');
+const btnCerrarPanel = document.getElementById('btn-cerrar-sesion-panel');
+
+if (btnCerrarPanel) {
+  btnCerrarPanel.addEventListener('click', async () => {
+    btnCerrarPanel.disabled = true;
+    try {
+      await fetch('/api/logout', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      window.SesionUI?.actualizar();
+    } catch {}
+    btnCerrarPanel.disabled = false;
+  });
+}
+
+function llenarPerfilCuenta(p) {
+  if (!p) return;
+  const setV = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ''; };
+  setV('c-perfil-trato', p.trato);
+  setV('c-perfil-nombres', p.nombres);
+  setV('c-perfil-apellidos', p.apellidos);
+  setV('c-perfil-nacimiento', p.fechaNacimiento);
+  if (p.documento) {
+    setV('c-perfil-tipo-doc', p.documento.tipo || 'pasaporte');
+    setV('c-perfil-pais-doc', p.documento.paisEmisor || 'CO');
+    setV('c-perfil-num-doc', p.documento.numero || '');
+  }
+  setV('c-perfil-idioma', p.idioma || 'es');
+  setV('c-perfil-comida', p.comida || 'sin_preferencia');
+  setV('c-perfil-atencion', String(p.atencion ?? 0));
+  setV('c-perfil-motivo', String(p.motivo ?? 0));
+  setV('c-perfil-bebida', p.bebida || p.bebidaPreferencia || '');
+  setV('c-perfil-alergias', Array.isArray(p.alergias) ? p.alergias.join(', ') : (p.alergias || ''));
+  const noMolestarEl = document.getElementById('c-perfil-no-molestar');
+  if (noMolestarEl) noMolestarEl.checked = Boolean(p.noMolestar);
+  setV('c-perfil-notas', p.notas);
+}
+
+async function cargarPerfilCuenta(usuario) {
+  if (!usuario) {
+    if (perfilForm) perfilForm.hidden = true;
+    return;
+  }
+  const esTripulacion = usuario.tipoCuenta === 'personal' || ['tripulacion', 'azafata', 'administrador'].includes(usuario.rol);
+  if (btnTripulacion) btnTripulacion.hidden = !esTripulacion;
+  if (esTripulacion) {
+    if (perfilForm) perfilForm.hidden = true;
+    return;
+  }
+  if (perfilForm) perfilForm.hidden = false;
+  try {
+    const res = await fetch('/api/perfil', { credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.timeout(10000) });
+    const data = await res.json();
+    if (res.ok && data.ok && data.perfil) {
+      llenarPerfilCuenta(data.perfil);
+    }
+  } catch {}
+}
+
+if (perfilForm) {
+  perfilForm.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (!perfilForm.reportValidity()) return;
+    perfilSubmit.disabled = true;
+    perfilSubmit.textContent = 'Guardando preferencias…';
+    perfilMsg.hidden = true;
+
+    const payload = {
+      trato: document.getElementById('c-perfil-trato').value.trim(),
+      nombres: document.getElementById('c-perfil-nombres').value.trim(),
+      apellidos: document.getElementById('c-perfil-apellidos').value.trim(),
+      fechaNacimiento: document.getElementById('c-perfil-nacimiento').value,
+      documento: {
+        tipo: document.getElementById('c-perfil-tipo-doc').value,
+        paisEmisor: document.getElementById('c-perfil-pais-doc').value.trim().toUpperCase(),
+        numero: document.getElementById('c-perfil-num-doc').value.trim().toUpperCase(),
+      },
+      idioma: document.getElementById('c-perfil-idioma').value,
+      comida: document.getElementById('c-perfil-comida').value,
+      atencion: parseInt(document.getElementById('c-perfil-atencion').value, 10),
+      motivo: parseInt(document.getElementById('c-perfil-motivo').value, 10),
+      bebida: document.getElementById('c-perfil-bebida').value.trim(),
+      alergias: document.getElementById('c-perfil-alergias').value.split(',').map(s => s.trim()).filter(Boolean),
+      noMolestar: document.getElementById('c-perfil-no-molestar').checked,
+      notas: document.getElementById('c-perfil-notas').value.trim(),
+    };
+
+    try {
+      const response = await fetch('/api/perfil', {
+        method: 'PUT',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(15000),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.mensaje || 'No se pudieron guardar las preferencias.');
+      llenarPerfilCuenta(data.perfil);
+      perfilMsg.textContent = '✔ Preferencias guardadas correctamente.';
+      perfilMsg.style.borderColor = '#c3e6cb';
+      perfilMsg.style.background = '#d4edda';
+      perfilMsg.style.color = '#155724';
+      perfilMsg.hidden = false;
+      window.SesionUI?.actualizar();
+    } catch (err) {
+      perfilMsg.textContent = err.message;
+      perfilMsg.style.borderColor = '#f0d3cc';
+      perfilMsg.style.background = '#fff5f1';
+      perfilMsg.style.color = '#81362c';
+      perfilMsg.hidden = false;
+    } finally {
+      perfilSubmit.disabled = false;
+      perfilSubmit.textContent = 'Guardar preferencias';
+    }
+  });
+}
+
+window.addEventListener('sesion-cambio', event => cargarPerfilCuenta(event.detail));
+const estadoInicial = window.SesionUI?.estado();
+if (estadoInicial?.listo) cargarPerfilCuenta(estadoInicial.usuario);

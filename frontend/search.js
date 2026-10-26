@@ -38,8 +38,13 @@ function render(flights, data, hayMas) {
   }
   const list = element('div', undefined, 'lista-vuelos');
   for (const flight of flights) {
-    const card = element('article', undefined, 'vuelo-card');
-    const price = new Intl.NumberFormat('es-SV', { style: 'currency', currency: flight.moneda, currencyDisplay: 'code' }).format(Number(flight.precio));
+    const locale = flight.moneda === 'USD' ? 'es-SV' : 'es-CO';
+    const price = new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: flight.moneda,
+      currencyDisplay: 'code',
+      maximumFractionDigits: flight.moneda === 'COP' ? 0 : 2
+    }).format(Number(flight.precio));
     const duration = `${Math.floor(flight.duracionMinutos / 60)} h ${flight.duracionMinutos % 60} min`;
     const detailButton = element('button', 'Ver detalle', 'boton boton-oscuro');
     detailButton.type = 'button';
