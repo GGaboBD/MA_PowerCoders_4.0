@@ -1,25 +1,53 @@
 # ADR 0005 · Aceptamos el flujo de compra heredado sin refactorizar hasta después de la Feria
 
-Estado: Aceptada · 22 de octubre de 2026
-
 ## Contexto
-### Qué decisiones tomamos y qué estábamos pensando cuando tomamos esa decisión
-Al fusionar Proyecto_AviancaWeb dentro de este repositorio (ADR 0004) trajimos tal cual las páginas de compra y de Mis reservas. En `frontend/purchase.js` la función `init()` ocupa unas 315 líneas (23–337): valida los datos, dibuja el mapa de asientos, arma la reserva y la guarda, con nombres mitad en inglés y mitad en español. `frontend/mis-reservas.js` está escrito compactado, sin espacios. En el taller de deuda técnica (S23) lo clasificamos como deuda accidental imprudente: cuando se escribió no sabíamos separar la lógica de la interfaz.
 
-El flujo funciona y la prueba de integración «el cliente reserva con su perfil de atención y solo él ve su pase» lo cubre a través de la API. El frontend no tiene pruebas automáticas, así que refactorizarlo ahora sería reescribir sin red. Lo que falta del Sprint 4 (HU07: editar preferencias, solo personal autorizado, validar antes de guardar) está del lado de la tripulación, no en la compra. Interés bajo y pago caro (~8 h): según la regla del taller, se acepta y se documenta.
+Después de unir el sitio web con el prototipo, nos dimos cuenta de que algunas partes del código necesitaban una mejor organización.
 
-### Quién decidió, quién aprobó y posturas en el equipo
-- **Quién decidió:** el equipo completo en el taller S23, al priorizar la deuda por frecuencia de uso y costo.
-- **Dudas resueltas:** en el intercambio con otro equipo se señaló que el riesgo real es que solo una persona conoce ese código. Se agregó la regla de trabajo en pareja (ver Decisión).
-- **El consenso alcanzado:** dejar la compra como está y gastar las horas del Sprint 4 en la deuda que sí cobra intereses (DT-01 a DT-05).
+Uno de los casos más claros era el flujo de compra. En `frontend/purchase.js`, la función `init()` tenía alrededor de 315 líneas y mezclaba varias responsabilidades: validar información, mostrar los asientos, preparar la reserva y guardarla.
+
+También encontramos que `frontend/mis-reservas.js` estaba escrito de una forma muy compacta, lo que dificultaba leerlo y hacer cambios.
+
+En el taller de deuda técnica S23 identificamos este problema como una deuda que habíamos acumulado mientras tratábamos de avanzar rápidamente con el proyecto.
+
+Sabíamos que lo ideal era reorganizar esos archivos, pero estábamos cerca de la Feria de Producto y todavía teníamos funcionalidades pendientes por completar.
+
+Además, aunque ya existían pruebas de integración para parte del proceso de reservas, no teníamos suficientes pruebas automatizadas de la interfaz para hacer cambios grandes con tranquilidad.
+
+Por eso tuvimos que decidir si valía la pena dedicar tiempo a refactorizar el flujo de compra o si era mejor dejar esa mejora para después.
+
+## Quién decidió
+
+La decisión se tomó como equipo durante el taller S23, cuando evaluamos qué deudas técnicas convenía resolver primero y cuáles podían esperar.
+
+También consideramos la observación de otro equipo sobre el riesgo de depender de una sola persona que conociera bien ese código.
+
+## Quién aprobó
+
+El equipo llegó al acuerdo de posponer esta refactorización y concentrarse en las tareas más importantes para la Feria.
+
+El documento no registra una aprobación individual separada del consenso alcanzado durante el taller.
 
 ## Decisión
-No refactorizamos `purchase.js` ni `mis-reservas.js` en el Sprint 4 ni en la semana de estabilización. Solo se tocan para corregir un defecto, y cada corrección incluye la prueba que lo reproduce (DoD 7). Todo cambio en la compra se hace en pareja: Fernando Calvo con otro developer, para repartir el conocimiento. Los cambios pequeños ya planificados (DT-02, catálogo de aeropuertos; DT-03, catálogo de comidas) se hacen sin reestructurar el archivo. Si aparece un defecto en la compra o una historia nueva necesita cambiarla, reabrimos esta decisión.
+
+Decidimos **no refactorizar completamente `purchase.js` ni `mis-reservas.js` antes de la Feria de Producto**.
+
+Durante ese período, solamente realizaríamos cambios necesarios para corregir errores o completar ajustes pequeños que ya estaban planificados.
+
+Si aparecía un defecto, debíamos acompañar la corrección con una prueba que permitiera comprobarlo, siguiendo nuestra Definition of Done.
+
+También acordamos que los cambios en el flujo de compra se trabajarían en pareja, con Fernando y otro integrante, para que más personas conocieran esa parte del proyecto.
+
+Los ajustes pequeños de los catálogos de aeropuertos y comidas podían continuar sin reorganizar completamente los archivos.
+
+Si aparecía una nueva historia o un problema importante que exigiera modificar el flujo de compra, volveríamos a evaluar esta decisión.
 
 ## Consecuencias
-+ **Qué se gana:** unas 8 horas del Sprint 4 quedan libres para terminar el producto.
-+ **Qué se gana:** no ponemos en riesgo el flujo compra → pase de abordar con el que abre la demo de la Feria.
-− **Qué se pierde:** cualquier cambio en la compra cuesta más, porque hay que leer 300 líneas mezcladas.
-− **Qué se pierde:** dependemos de una persona que conoce ese código; el trabajo en pareja lo reduce, pero no lo elimina.
-− **Qué se pierde:** sin pruebas de frontend, un error de interfaz en la compra solo lo detecta el checklist manual de QA.
-− **Qué se pierde:** el estilo inconsistente queda a la vista de quien revise el repositorio en el hito 3.
+
+- **Qué ganamos:** Podíamos dedicar aproximadamente ocho horas que habíamos estimado para la refactorización a otras tareas pendientes del proyecto.
+- **Qué ganamos:** Reducíamos el riesgo de introducir errores grandes en el flujo de compra poco antes de la demostración.
+- **Qué ganamos:** Dejábamos documentada la deuda técnica para poder retomarla después de la Feria.
+- **Qué sacrificamos:** El código seguiría siendo más difícil de leer y modificar de lo que nos gustaría.
+- **Qué sacrificamos:** Continuábamos dependiendo del conocimiento de quienes habían trabajado directamente en esos archivos, aunque el trabajo en pareja ayudaba a reducir ese problema.
+- **Qué sacrificamos:** Sin pruebas automatizadas suficientes del frontend, algunos errores de interfaz podían pasar desapercibidos y depender de las revisiones manuales de QA.
+- **Qué sacrificamos:** El código conservaría algunas inconsistencias de estilo durante la entrega.
