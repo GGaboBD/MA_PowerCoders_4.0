@@ -1,38 +1,39 @@
-# ADR 0010 - Flexibilización del control de origen (CORS y protección CSRF) para subdominios de despliegue en Vercel
+# ADR 0010 · Validamos el origen de las solicitudes que modifican datos
 
 Estado: Aceptada · 25 de octubre de 2026
 
+Revisión documental: 26 de octubre de 2026 (UTC), sobre `c14954e`. La fecha y el estado originales se conservan como metadatos; no acreditan una aprobación del equipo. Se retiraron las atribuciones personales sin respaldo verificable.
+
 ## Contexto
-### Qué decisiones tomamos y qué estábamos pensando cuando tomamos esa decisión
-Tras restablecer la conexión con MongoDB Atlas e intentar crear una cuenta en el formulario de la aplicación, el sistema rechazó el envío mostrando el mensaje: *«Abre el formulario desde la dirección de la página del proyecto»*.
 
-El backend cuenta con una verificación de seguridad en `sesion.js` que compara el encabezado `Origin` o `Referer` de la solicitud entrante contra la variable `process.env.PUBLIC_ORIGIN` para mitigar ataques de falsificación de peticiones en sitios cruzados (CSRF). El problema radicaba en que la validación era estrictamente literal contra `https://powercoders.vercel.app`:
-- Cuando el equipo o los evaluadores ingresaban a través de URLs de vista previa (*preview deployments*) o enlaces con hash generados por Vercel (por ejemplo: `https://powercoders-2j5eh94f2-power-coders.vercel.app`), el backend consideraba el origen como no autorizado y bloqueaba el formulario.
+Los enlaces de producción y previsualización pueden usar orígenes distintos. Las rutas que incorporan `origenLocal` comprueban el origen de la solicitud antes de procesar el cuerpo JSON.
 
-Teníamos dos opciones:
-1. Forzar a todos los usuarios y evaluadores a utilizar única y exclusivamente el dominio raíz `https://powercoders.vercel.app`.
-2. Flexibilizar el validador de origen en el backend para que admita tanto el dominio canónico como los subdominios legítimos generados por la plataforma de despliegue (`*.vercel.app`) y los entornos locales (`localhost`).
+## Decisión y alcance actual
 
-La primera opción era propensa a fallos durante revisiones en clase o pruebas de ramas en Pull Requests, ya que Vercel siempre genera enlaces únicos por cada despliegue.
+El middleware `origenLocal` consulta `Origin` y, cuando falta, intenta obtener el origen desde `Referer`. Rechaza un origen ausente o no permitido con 403 y exige un cuerpo JSON con 415 si no corresponde.
 
-### Quién decidió, quién aprobó y posturas en el equipo
-- **Quién decidió:** Gabriel identificó la discrepancia entre el dominio de navegación y la variable `PUBLIC_ORIGIN`, y redactó el requerimiento para permitir subdominios de Vercel mediante expresiones regulares.
-- **Quién aprobó:** Aprobado por Paniagua y Diego para evitar bloqueos durante la evaluación en vivo y en revisiones de Pull Requests.
-- **Quiénes estaban de acuerdo:** Gabriel y Calvo apoyaron flexibilizar la regla mediante expresiones regulares controladas para que las revisiones de QA y pruebas en ramas no presentaran rechazos de formulario.
-- **Quiénes no estaban de acuerdo:** Charlie expresó reservas por miedo a abrir una brecha de seguridad si la validación por expresiones regulares resultaba demasiado permisiva.
-- **Por qué se aprobó:** La validación restringida al patrón canónico y al sufijo `.vercel.app` mantiene la protección CSRF contra sitios de terceros maliciosos y permite el funcionamiento fluido de los despliegues de previsualización.
+En el código revisado, `esOrigenPermitido` acepta:
 
-## Decisión
-Modificaremos la función de verificación de origen en el backend (`sesion.js` / middleware de seguridad) para validar que la solicitud provenga de:
-1. El valor exacto configurado en `process.env.PUBLIC_ORIGIN`.
-2. Cualquier subdominio seguro perteneciente al proyecto en Vercel validado mediante expresión regular (`/^https:\/\/[a-z0-9-]+(\.power-coders)?\.vercel\.app$/i`).
-3. Orígenes de desarrollo local seguros (`http://localhost:3000` y `http://127.0.0.1:3000`).
+1. `localhost` y `127.0.0.1`, sin limitarse al puerto 3000.
+2. Orígenes HTTPS cuyo hostname termine en `.vercel.app`.
+3. Los orígenes configurados en `PUBLIC_ORIGIN` o `RENDER_EXTERNAL_URL`.
 
-Descartamos la validación por igualdad estricta de una sola cadena y descartamos deshabilitar por completo la comprobación de origen.
+La comprobación del sufijo admite dominios de otros proyectos de Vercel: no demuestra que pertenezcan al equipo. Esta descripción deja constancia del alcance real, sin aprobar una ampliación adicional. El middleware valida el origen; no configura por sí mismo una política completa de cabeceras CORS.
 
 ## Consecuencias
-+ **Qué se gana:** Capacidad de probar inicios de sesión, registros y reservas tanto en el dominio productivo como en cualquier despliegue de previsualización generado por Vercel.
-+ **Qué se gana:** Preservación de la barrera de seguridad contra peticiones forjadas desde orígenes externos no autorizados.
-+ **Qué se gana:** Continuidad del flujo de desarrollo local sin alterar configuraciones de seguridad para pruebas en máquinas del equipo.
-− **Qué se pierde (Puerta de dos vías):** Si el patrón de la expresión regular no se delimita con precisión, podría permitir peticiones desde dominios no pertenecientes a la organización dentro de Vercel.
-− **Qué se pierde:** Requiere mantener sincronizada la expresión regular si el proyecto llegara a incorporar un dominio personalizado propio fuera del sufijo `.vercel.app`.
+
+- Los formularios pueden funcionar en los orígenes admitidos sin eliminar la comprobación.
+- La regla actual es más amplia que una lista de despliegues propios. No podemos describirla como una barrera limitada al proyecto ni afirmar que garantiza protección frente a CSRF.
+- La cookie declara `HttpOnly` y `SameSite=Lax`; `Secure` depende de `RENDER=true` o `NODE_ENV=production`. La configuración efectiva del entorno requiere comprobación aparte. Estos controles se deben evaluar junto con los orígenes y no sustituyen una política explícita.
+- El código también acepta localhost sin restringirlo a desarrollo. Las diferencias entre local, preview y producción requieren una decisión técnica.
+
+## Revisión pendiente
+
+Propuesta pendiente de autorización técnica: definir una lista explícita de orígenes del proyecto y casos de prueba para dominios ajenos, localhost y solicitudes sin origen. Esta revisión no cambia el middleware ni demuestra una explotación.
+
+## Referencias
+
+- [`backend/sesion.js`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/c14954e2183d323b6dbde20b66b3ad0cd0f89ace/backend/sesion.js)
+- [`backend/app.js`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/c14954e2183d323b6dbde20b66b3ad0cd0f89ace/backend/app.js)
+
+Seguimiento de la revisión: [PCA-197](https://avianca-powercoders.atlassian.net/browse/PCA-197). La revisión por pares sigue pendiente.

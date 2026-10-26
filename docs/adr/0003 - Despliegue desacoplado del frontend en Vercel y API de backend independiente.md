@@ -2,16 +2,11 @@
 
 Estado: Aceptada · 20 de octubre de 2026
 
+> Revisión documental del 26 de octubre de 2026 (UTC): El despliegue separado descrito aquí queda sustituido por el ADR 0008. Se mantiene este registro como antecedente histórico; la configuración actual publica archivos estáticos y API en un solo proyecto de Vercel. Se retiraron las atribuciones de propuestas, aprobaciones y conversaciones sin respaldo verificable; el estado y la fecha se conservan como metadatos del registro, sin acreditar un consenso.
+
 ## Contexto
 ### Qué decisiones tomamos y qué estábamos pensando cuando tomamos esa decisión
 El plan original contemplaba alojar el proyecto completo en GitHub Pages. Durante la integración descubrimos que GitHub Pages solo distribuye contenido estático del lado del cliente y no ejecuta código de Node.js ni permite resguardar variables de entorno como la clave de conexión a MongoDB Atlas. Si insistíamos con ese esquema, teníamos que exponer las contraseñas en el código público o la aplicación no podía consultar la base de datos. Se requería con urgencia un enlace público funcional para las revisiones de cátedra.
-
-### Quién decidió, quién aprobó y posturas en el equipo
-- **Quién decidió:** Gabriel identificó la limitación de GitHub Pages y propuso separar la arquitectura: publicar la interfaz en Vercel y ejecutar el backend de forma independiente en un servicio en la nube.
-- **Quién aprobó:** Aprobado por Paniagua y Diego, respaldados por todo el equipo ante la necesidad de tener el sistema disponible en internet.
-- **Quiénes estaban de acuerdo:** Gabriel y Calvo respaldaban la separación porque protegía las credenciales de la base de datos en variables de entorno seguras y permitía automatizar despliegues continuos.
-- **Quiénes no estaban de acuerdo:** Charlie expresó dudas iniciales por temor a complicaciones técnicas con dominios cruzados, políticas de CORS o cambios en las URLs de consumo del frontend.
-- **Por qué se aprobó:** Mantener todo en GitHub Pages era técnicamente inviable con base de datos real, y montar un servidor propio requería tiempo de administración del que no disponíamos.
 
 ## Decisión
 Desplegaremos el frontend en la plataforma Vercel y mantendremos la API de Node.js en un servicio de backend independiente conectado a MongoDB Atlas, comunicando ambos entornos mediante peticiones HTTPS seguras y políticas de CORS habilitadas. Descartamos el alojamiento exclusivo en GitHub Pages y los servidores monolíticos manuales.
