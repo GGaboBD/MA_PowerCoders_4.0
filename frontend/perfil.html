@@ -18,9 +18,10 @@
   <header class="encabezado">
     <div class="contenedor navegacion">
       <a class="marca" href="index.html">avianca<span class="marca-detalle">PREMIUM CONCEPT</span></a>
-      <div class="acciones-nav">
+        <div class="acciones-nav">
         <a class="volver" href="index.html#buscar-vuelos">Buscar vuelos</a>
         <a class="volver" href="mis-reservas.html">Mis reservas</a>
+        <a class="volver" href="menu.html">Menú a bordo</a>
         <a class="volver" href="pase.html">Pase de abordar</a>
         <a class="volver" href="tripulacion.html" data-permiso="tripulacion.ver" hidden>Tripulación</a>
         <a class="boton boton-oscuro" href="cuenta.html">Mi cuenta</a>
@@ -102,13 +103,16 @@
             </select>
           </div>
           <div class="campo-form">
-            <label for="perfil-comida">Preferencia gastronómica (Catering)</label>
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px;">
+              <label for="perfil-comida" style="margin: 0;">Preferencia gastronómica (Catering)</label>
+              <a href="menu.html" target="_blank" style="font-size: 11px; color: var(--rojo); text-decoration: underline; font-weight: 700;">Ver carta a bordo ↗</a>
+            </div>
             <select id="perfil-comida" name="comida">
-              <option value="sin_preferencia">Sin preferencia / Regular</option>
-              <option value="vegetariana">Menú Vegetariano</option>
-              <option value="vegana">Menú Vegano</option>
-              <option value="sin_gluten">Libre de gluten (Celíacos)</option>
-              <option value="otra">Otra dieta especial</option>
+              <option value="sin_preferencia">Estándar · Sugerencia del Chef (Lomo al Malbec)</option>
+              <option value="vegetariana">Vegetariano · Raviolis de ricota y espinaca</option>
+              <option value="vegana">Vegano · Bowl andino de quinoa real y vegetales asados</option>
+              <option value="sin_gluten">Libre de gluten · Salmón del Pacífico al grill</option>
+              <option value="otra">Otra dieta médica o requerimiento especial</option>
             </select>
           </div>
           <div class="campo-form">

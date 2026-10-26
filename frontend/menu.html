@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Carta y menú gastronómico a bordo de Avianca Premium Concept. Platos gourmet, opciones vegetarianas, veganas y libres de gluten.">
+  <title>Menú gastronómico a bordo · Avianca Premium Concept</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23da291c'/%3E%3Ctext x='16' y='24' text-anchor='middle' font-family='Arial' font-size='28' font-weight='700' fill='white'%3Ea%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="sesion.css">
+  <link rel="stylesheet" href="mis-reservas.css">
+  <style>
+    .menu-main { padding-block: 48px 90px; }
+    .menu-hero { margin-bottom: 48px; max-width: 820px; }
+    .menu-hero h1 { margin: 12px 0 16px; font-size: clamp(40px, 5.5vw, 68px); line-height: 1.02; letter-spacing: -.05em; }
+    .menu-hero h1 span { color: var(--rojo); }
+    .menu-hero p { font-size: 18px; color: var(--gris-texto); line-height: 1.5; }
+    .menu-seccion { margin-bottom: 56px; }
+    .menu-seccion-titulo { display: flex; align-items: baseline; justify-content: space-between; border-bottom: 2px solid var(--negro); padding-bottom: 12px; margin-bottom: 28px; }
+    .menu-seccion-titulo h2 { font-size: 26px; letter-spacing: -.03em; margin: 0; }
+    .menu-seccion-titulo span { font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--gris-texto); }
+    .menu-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; }
+    .plato-card { background: white; border: 1px solid var(--gris-borde); padding: 26px; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 4px 16px rgba(0,0,0,0.03); transition: transform .15s ease, box-shadow .15s ease; border-radius: 4px; }
+    .plato-card:hover { transform: translateY(-3px); box-shadow: 0 10px 28px rgba(0,0,0,0.08); }
+    .plato-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+    .plato-tag { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; padding: 4px 10px; border-radius: 99px; }
+    .plato-tag.vegetariana { background: #e8f5e9; color: #2e7d32; }
+    .plato-tag.vegana { background: #f1f8e9; color: #33691e; }
+    .plato-tag.sin-gluten { background: #fff8e1; color: #f57f17; }
+    .plato-tag.chef { background: #ffebee; color: var(--rojo); }
+    .plato-tag.bebida { background: #e0f2fe; color: #0369a1; }
+    .plato-card h3 { font-size: 20px; line-height: 1.25; margin: 0 0 10px; letter-spacing: -.02em; }
+    .plato-card p { font-size: 14px; color: var(--gris-texto); line-height: 1.55; margin: 0 0 16px; }
+    .plato-pie { border-top: 1px solid #f0f1f2; padding-top: 14px; font-size: 12px; font-weight: 700; color: var(--negro); display: flex; justify-content: space-between; }
+    .menu-cta { background: var(--negro); color: white; padding: 36px 40px; margin-top: 48px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; gap: 24px; flex-wrap: wrap; }
+    .menu-cta h3 { font-size: 28px; letter-spacing: -.03em; margin: 0 0 8px; }
+    .menu-cta p { font-size: 15px; color: #c4c8cc; margin: 0; max-width: 540px; }
+    .menu-cta-botones { display: flex; gap: 14px; }
+    @media (max-width: 768px) {
+      .menu-cta { flex-direction: column; align-items: flex-start; }
+      .menu-cta-botones { width: 100%; flex-direction: column; }
+    }
+  </style>
+  <script src="sesion.js" defer></script>
+</head>
+<body class="pagina-reservas">
+  <header class="encabezado">
+    <div class="contenedor navegacion">
+      <a class="marca" href="index.html">avianca<span class="marca-detalle">PREMIUM CONCEPT</span></a>
+      <div class="acciones-nav">
+        <a class="volver" href="index.html#buscar-vuelos">Buscar vuelos</a>
+        <a class="volver" href="mis-reservas.html">Mis reservas</a>
+        <a class="volver" href="perfil.html">Mi perfil</a>
+        <a class="volver" href="tripulacion.html" data-permiso="tripulacion.ver" hidden>Tripulación</a>
+        <a class="boton boton-oscuro" href="cuenta.html">Mi cuenta</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="contenedor menu-main">
+    <div class="menu-hero">
+      <p class="etiqueta"><span class="punto-rojo" aria-hidden="true"></span> ALTA GASTRONOMÍA A BORDO</p>
+      <h1>Sabores que elevan <span>tu experiencia.</span></h1>
+      <p>Nuestra propuesta gastronómica combina ingredientes selectos del continente americano con técnicas culinarias de vanguardia. Diseñado para ofrecer bienestar, ligereza y placer en cada vuelo.</p>
+    </div>
+
+    <!-- Sección 1: Platos Principales -->
+    <section class="menu-seccion" aria-labelledby="t-principales">
+      <div class="menu-seccion-titulo">
+        <h2 id="t-principales">Platos Fuertes y Especialidades</h2>
+        <span>Primera Clase & Clase Ejecutiva</span>
+      </div>
+      <div class="menu-grid">
+        <article class="plato-card">
+          <div>
+            <div class="plato-top">
+              <span class="plato-tag chef">Sugerencia del Chef</span>
+            </div>
+            <h3>Lomo de Res Braseado al Malbec</h3>
+            <p>Tierno corte de res cocinado a fuego lento en reducción de vino tinto y hierbas andinas, acompañado de risotto cremoso de hongos silvestres y puntas de espárragos al vapor.</p>
+          </div>
+          <div class="plato-pie">
+            <span>Maridaje sugerido: Tinto Reserva</span>
+            <span>Incluido</span>
+          </div>
+        </article>
+
+        <article class="plato-card">
+          <div>
+            <div class="plato-top">
+              <span class="plato-tag sin-gluten">Sin Gluten (Celíacos)</span>
+            </div>
+            <h3>Salmón del Pacífico al Grill</h3>
+            <p>Filete de salmón fresco sellado a la plancha con costra de finas hierbas, puré rústico de papas criollas con mantequilla clarificada y espárragos a la brasa con emulsión de limón.</p>
+          </div>
+          <div class="plato-pie">
+            <span>Maridaje sugerido: Sauvignon Blanc</span>
+            <span>Incluido</span>
+          </div>
+        </article>
+
+        <article class="plato-card">
+          <div>
+            <div class="plato-top">
+              <span class="plato-tag vegetariana">Opción Vegetariana</span>
+            </div>
+            <h3>Raviolis Artesanales de Ricota & Espinaca</h3>
+            <p>Pasta fresca hecha a mano rellena de queso ricota artesanal y espinacas tiernas, servida en salsa pomodoro rústica confitada con albahaca morada y lascas de queso parmesano madurado.</p>
+          </div>
+          <div class="plato-pie">
+            <span>Catering vegetariano certificado</span>
+            <span>Incluido</span>
+          </div>
+        </article>
+
+        <article class="plato-card">
+          <div>
+            <div class="plato-top">
+              <span class="plato-tag vegana">Opción Vegana</span>
+            </div>
+            <h3>Bowl Andino de Quinoa & Vegetales Asados</h3>
+            <p>Combinación de quinoa real tricolor, aguacate hass macerado, garbanzos crocantes al pimentón dulce, tomates cherry confitados y vinagreta cítrica de maracuyá y jengibre.</p>
+          </div>
+          <div class="plato-pie">
+            <span>100% libre de productos animales</span>
+            <span>Incluido</span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- Sección 2: Bebidas y Cafetería -->
+    <section class="menu-seccion" aria-labelledby="t-bebidas">
+      <div class="menu-seccion-titulo">
+        <h2 id="t-bebidas">Cava de Vinos & Café de Especialidad</h2>
+        <span>Selección exclusiva</span>
+      </div>
+      <div class="menu-grid">
+        <article class="plato-card">
+          <div>
+            <div class="plato-top">
+              <span class="plato-tag bebida">Café Juan Valdez®</span>
+            </div>
+            <h3>Café Colombiano Recién Molido</h3>
+            <p>Preparado por nuestra tripulación al momento. Disfruta de un Espresso balanceado, Café Americano suave o Capuccino con leche cremada y toque de canela.</p>
+          </div>
+          <div class="plato-pie">
+            <span>Granos 100% arábica</span>
+            <span>Ilimitado</span>
+          </div>
+        </article>
+
+        <article class="plato-card">
+          <div>
+            <div class="plato-top">
+              <span class="plato-tag bebida">Cava Exclusiva</span>
+            </div>
+            <h3>Selección de Vinos & Espumantes</h3>
+            <p>Copa de bienvenida con Champagne francés Brut, vinos tintos reserva de Mendoza y vinos blancos frescos del Valle del Cauca seleccionados por sommeliers internacionales.</p>
+          </div>
+          <div class="plato-pie">
+            <span>Servicio de cortesía</span>
+            <span>Incluido</span>
+          </div>
+        </article>
+
+        <article class="plato-card">
+          <div>
+            <div class="plato-top">
+              <span class="plato-tag bebida">Bienestar</span>
+            </div>
+            <h3>Infusiones Naturales & Aguas de Manantial</h3>
+            <p>Agua con o sin gas de manantial andino, tés verdes antioxidantes, infusiones de menta poleo, manzanilla relajante y té negro clásico Earl Grey.</p>
+          </div>
+          <div class="plato-pie">
+            <span>Hidratación continua en vuelo</span>
+            <span>Incluido</span>
+          </div>
+        </article>
+
+        <article class="plato-card">
+          <div>
+            <div class="plato-top">
+              <span class="plato-tag chef">Postres Gourmet</span>
+            </div>
+            <h3>Mousse de Cacao & Tartaleta de Frutos</h3>
+            <p>Mousse artesanal de chocolate colombiano al 70% con nibs crujientes y tartaleta de maracuyá y frutos amarillos tropicales con reducción de moras silvestres.</p>
+          </div>
+          <div class="plato-pie">
+            <span>Cierre de experiencia dulce</span>
+            <span>Incluido</span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- Llamado a personalizar menú en perfil -->
+    <div class="menu-cta">
+      <div>
+        <h3>¿Deseas elegir tu plato preferido para tu próximo viaje?</h3>
+        <p>Configura tu régimen alimentario en tu perfil de pasajero para que la tripulación tenga lista tu elección culinaria al momento de abordar.</p>
+      </div>
+      <div class="menu-cta-botones">
+        <a class="boton boton-rojo" href="perfil.html">Configurar en mi perfil</a>
+        <a class="boton boton-claro" href="mis-reservas.html">Ver mis reservas</a>
+      </div>
+    </div>
+  </main>
+
+  <footer class="contenedor abordaje-footer" style="padding-top: 40px; border-top: 1px solid var(--gris-borde);">
+    <span>Avianca Premium Concept · Menú a Bordo</span>
+    <span>Servicio gastronómico diseñado para la comodidad en cabina.</span>
+  </footer>
+</body>
+</html>

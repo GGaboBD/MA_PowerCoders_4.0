@@ -160,27 +160,38 @@ async function prepararAvianca(db) {
   for (const rol of ROLES_PERSONAL) {
     await db.collection('roles').updateOne({ _id: rol }, { $set: { descripcion: DESCRIPCIONES[rol], permisos: permisosDe(rol) } }, { upsert: true });
   }
-  const cuentaAzafata = await db.collection('personal').findOne({ correo: 'azafata@avianca.com' });
-  if (!cuentaAzafata) {
-    try {
-      const { ObjectId } = require('mongodb');
-      const argon2 = require('argon2');
-      const passwordHash = await argon2.hash('Tripulacion2026!', { type: argon2.argon2id, memoryCost: 65536, timeCost: 3, parallelism: 1 });
-      await db.collection('personal').insertOne({
-        _id: new ObjectId(),
-        nombre: 'Azafata',
-        apellido: 'Cabina',
-        correo: 'azafata@avianca.com',
-        passwordHash,
-        rol: 'tripulacion',
-        estado: 'activo',
-        creadoEn: new Date(),
-        creadoPor: null,
-        actualizadoEn: new Date(),
-        ultimoAcceso: new Date(),
-      });
-    } catch {}
-  }
+  const CUENTAS_TRIPULACION = [
+    { nombre: 'Azafata', apellido: 'Cabina', correo: 'azafata@avianca.com' },
+    { nombre: 'Jefe', apellido: 'Cabina', correo: 'jefe.cabina@avianca.com' },
+    { nombre: 'Camila', apellido: 'Morales', correo: 'camila.tripulacion@avianca.com' },
+    { nombre: 'Sofía', apellido: 'Herrera', correo: 'sofia.sobrecargo@avianca.com' },
+    { nombre: 'Carlos', apellido: 'Mendoza', correo: 'carlos.tripulacion@avianca.com' },
+    { nombre: 'Valentina', apellido: 'Gómez', correo: 'valentina.azafata@avianca.com' },
+  ];
+  try {
+    const { ObjectId } = require('mongodb');
+    const argon2 = require('argon2');
+    const passwordHash = await argon2.hash('Tripulacion2026!', { type: argon2.argon2id, memoryCost: 65536, timeCost: 3, parallelism: 1 });
+    const ahora = new Date();
+    for (const c of CUENTAS_TRIPULACION) {
+      const existe = await db.collection('personal').findOne({ correo: c.correo });
+      if (!existe) {
+        await db.collection('personal').insertOne({
+          _id: new ObjectId(),
+          nombre: c.nombre,
+          apellido: c.apellido,
+          correo: c.correo,
+          passwordHash,
+          rol: 'tripulacion',
+          estado: 'activo',
+          creadoEn: ahora,
+          creadoPor: null,
+          actualizadoEn: ahora,
+          ultimoAcceso: ahora,
+        });
+      }
+    }
+  } catch {}
   return reporte;
 }
 

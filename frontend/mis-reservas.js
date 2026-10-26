@@ -37,7 +37,7 @@
     const body=el('div',undefined,'viaje-cuerpo');
     if(f){const times=el('div',undefined,'viaje-fechas');for(const [label,value,airport]of [['Salida',f.salida,f.origen],['Llegada',f.llegada,f.destino]]){const p=el('p');p.append(el('span',`${label} · hora local de ${airport}`),el('b',date(value,airport)));times.append(p);}body.append(times);}
     const wrap=el('div',undefined,'viaje-tabla-contenedor'),table=el('table',undefined,'viaje-tabla'),thead=el('thead'),tr=el('tr');
-    for(const text of ['Pasajero / boleto','Asiento','Cabina','Estado','Importe','Pase de abordar']){const th=el('th',text);th.scope='col';tr.append(th);}thead.append(tr);table.append(thead);
+    for(const text of ['Pasajero / boleto','Asiento','Cabina','Estado','Importe','Pase y Menú']){const th=el('th',text);th.scope='col';tr.append(th);}thead.append(tr);table.append(thead);
     const tbody=el('tbody');const totals=new Map();
     for(const t of r.boletos){
       const row=el('tr'),name=el('td',t.pasajero);name.append(el('small',t.numero));
@@ -48,6 +48,11 @@
         btn.href=`pase.html?boleto=${encodeURIComponent(t.numero)}&boletoId=${encodeURIComponent(t.id||'')}&reservaId=${encodeURIComponent(r.id||'')}`;
         btn.style.fontSize='11px';btn.style.padding='6px 12px';btn.style.whiteSpace='nowrap';
         actions.append(btn);
+
+        const btnMenu=el('a','Ver menú a bordo','boton boton-contorno boton-menu');
+        btnMenu.href=`menu.html?vuelo=${encodeURIComponent(f?.codigo||'')}&clase=${encodeURIComponent(t.clase||'ejecutiva')}&asiento=${encodeURIComponent(t.asiento||'')}`;
+        btnMenu.style.fontSize='11px';btnMenu.style.padding='6px 12px';btnMenu.style.whiteSpace='nowrap';btnMenu.style.marginLeft='6px';
+        actions.append(btnMenu);
       }
       row.append(name,seat,el('td',labels[t.clase]||t.clase),el('td',labels[t.estado]||t.estado),el('td',money(t.precio,t.moneda)),actions);
       tbody.append(row);

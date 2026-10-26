@@ -17,14 +17,18 @@ const Abordaje = require('../../frontend/abordaje.js');
 
 const DIAS = 14;
 const RUTAS = [
-  { origen: 'SAL', destino: 'BOG', minutos: 170, moneda: 'USD', tarifas: ['480.00', '950.00'], salidas: [['AV 0661', '06:40'], ['AV 0663', '14:25']] },
-  { origen: 'BOG', destino: 'SAL', minutos: 165, moneda: 'USD', tarifas: ['480.00', '950.00'], salidas: [['AV 0662', '10:15'], ['AV 0664', '18:05']] },
-  { origen: 'BOG', destino: 'MDE', minutos: 65, moneda: 'COP', tarifas: ['420000', '890000'], salidas: [['AV 8402', '07:20'], ['AV 8418', '11:45'], ['AV 8436', '16:10'], ['AV 8451', '19:35']] },
-  { origen: 'MDE', destino: 'BOG', minutos: 60, moneda: 'COP', tarifas: ['420000', '890000'], salidas: [['AV 8403', '08:30'], ['AV 8437', '17:20']] },
-  { origen: 'BOG', destino: 'CTG', minutos: 90, moneda: 'COP', tarifas: ['465000', '940000'], salidas: [['AV 9120', '09:10']] },
-  { origen: 'CLO', destino: 'BOG', minutos: 60, moneda: 'COP', tarifas: ['410000', '870000'], salidas: [['AV 8233', '06:50']] },
-  { origen: 'SAL', destino: 'MIA', minutos: 150, moneda: 'USD', tarifas: ['520.00', '1100.00'], salidas: [['AV 0480', '10:05']] },
-  { origen: 'MIA', destino: 'SAL', minutos: 155, moneda: 'USD', tarifas: ['520.00', '1100.00'], salidas: [['AV 0481', '15:30']] },
+  { origen: 'SAL', destino: 'BOG', minutos: 170, moneda: 'USD', tarifas: ['480.00', '950.00'], salidas: [['AV 0661', '06:40'], ['AV 0663', '14:25'], ['AV 0665', '20:10']] },
+  { origen: 'BOG', destino: 'SAL', minutos: 165, moneda: 'USD', tarifas: ['480.00', '950.00'], salidas: [['AV 0662', '10:15'], ['AV 0664', '18:05'], ['AV 0666', '22:30']] },
+  { origen: 'BOG', destino: 'MDE', minutos: 65, moneda: 'COP', tarifas: ['420000', '890000'], salidas: [['AV 8402', '07:20'], ['AV 8418', '11:45'], ['AV 8436', '16:10'], ['AV 8451', '19:35'], ['AV 8460', '21:50']] },
+  { origen: 'MDE', destino: 'BOG', minutos: 60, moneda: 'COP', tarifas: ['420000', '890000'], salidas: [['AV 8403', '08:30'], ['AV 8419', '13:00'], ['AV 8437', '17:20'], ['AV 8452', '20:45']] },
+  { origen: 'BOG', destino: 'CTG', minutos: 90, moneda: 'COP', tarifas: ['465000', '940000'], salidas: [['AV 9120', '09:10'], ['AV 9124', '15:40'], ['AV 9130', '18:25']] },
+  { origen: 'CTG', destino: 'BOG', minutos: 85, moneda: 'COP', tarifas: ['465000', '940000'], salidas: [['AV 9121', '11:20'], ['AV 9125', '17:50']] },
+  { origen: 'CLO', destino: 'BOG', minutos: 60, moneda: 'COP', tarifas: ['410000', '870000'], salidas: [['AV 8233', '06:50'], ['AV 8245', '14:15'], ['AV 8251', '19:00']] },
+  { origen: 'BOG', destino: 'CLO', minutos: 60, moneda: 'COP', tarifas: ['410000', '870000'], salidas: [['AV 8234', '08:15'], ['AV 8246', '15:35']] },
+  { origen: 'SAL', destino: 'MIA', minutos: 150, moneda: 'USD', tarifas: ['520.00', '1100.00'], salidas: [['AV 0480', '10:05'], ['AV 0484', '17:40']] },
+  { origen: 'MIA', destino: 'SAL', minutos: 155, moneda: 'USD', tarifas: ['520.00', '1100.00'], salidas: [['AV 0481', '15:30'], ['AV 0485', '21:15']] },
+  { origen: 'MDE', destino: 'CTG', minutos: 65, moneda: 'COP', tarifas: ['390000', '780000'], salidas: [['AV 9540', '10:30'], ['AV 9544', '16:00']] },
+  { origen: 'CTG', destino: 'MDE', minutos: 65, moneda: 'COP', tarifas: ['390000', '780000'], salidas: [['AV 9541', '12:15'], ['AV 9545', '18:00']] },
 ];
 
 // Pasajeros de la demo en clase. La Ing. Ceballos es la persona del mapa de historias.
@@ -45,6 +49,10 @@ const CLIENTES = [
 const PERSONAL = [
   { nombre: 'Azafata', apellido: 'Cabina', correo: 'azafata@avianca.com', rol: 'tripulacion', password: 'Tripulacion2026!' },
   { nombre: 'Jefe', apellido: 'Cabina', correo: 'jefe.cabina@avianca.com', rol: 'tripulacion', password: 'Tripulacion2026!' },
+  { nombre: 'Camila', apellido: 'Morales', correo: 'camila.tripulacion@avianca.com', rol: 'tripulacion', password: 'Tripulacion2026!' },
+  { nombre: 'Sofía', apellido: 'Herrera', correo: 'sofia.sobrecargo@avianca.com', rol: 'tripulacion', password: 'Tripulacion2026!' },
+  { nombre: 'Carlos', apellido: 'Mendoza', correo: 'carlos.tripulacion@avianca.com', rol: 'tripulacion', password: 'Tripulacion2026!' },
+  { nombre: 'Valentina', apellido: 'Gómez', correo: 'valentina.azafata@avianca.com', rol: 'tripulacion', password: 'Tripulacion2026!' },
   { nombre: 'Ana', apellido: 'Rivas', correo: 'azafata@demo.avianca.test', rol: 'azafata' },
   { nombre: 'Mario', apellido: 'Fuentes', correo: 'admin@demo.avianca.test', rol: 'administrador' },
 ];

@@ -405,8 +405,11 @@
   function fichaDeAsiento(asiento) {
     asientoActivo = asiento;
     const p = porAsiento.get(asiento);
-    if (p) mostrarFicha(p, null);
-    else fichaVacia(`Asiento ${asiento} libre.`, 'No hay un boleto vigente para este asiento en el vuelo.');
+    if (p) {
+      mostrarFicha(p, null);
+    } else {
+      fichaVacia(`Asiento ${asiento} libre · Sin asignar`, 'Este asiento no tiene una reserva registrada en este vuelo. Puedes tocar otro asiento ocupado en el mapa para ver la información del pasajero.');
+    }
     pintarCabina();
   }
 
@@ -468,15 +471,50 @@
     pintarLista();
   }
 
-  // HU01 y HU03: lista de pasajeros del vuelo con búsqueda por nombre, apellido o asiento.
+  // Filtros avanzados para tripulación: búsqueda por texto completo, comida y estado
   function pintarLista() {
     const lista = $('lista-abordados');
     const vacia = $('lista-vacia');
+    const contador = $('lista-contador');
     lista.replaceChildren();
     if (!cabina) return;
-    const consulta = sinAcentos($('buscar-pasajero').value.trim());
-    const pasajeros = [...cabina.pasajeros].sort((a, b) => ordenAsiento(a.asiento, b.asiento))
-      .filter(p => !consulta || sinAcentos(`${p.nombre} ${p.apellido} ${p.trato} ${p.asiento}`).includes(consulta));
+
+    const consulta = sinAcentos($('buscar-pasajero')?.value?.trim() || '');
+    const comidaFiltro = $('filtro-comida')?.value || '';
+    const estadoFiltro = $('filtro-estado')?.value || '';
+
+    const pasajeros = [...cabina.pasajeros].sort((a, b) => ordenAsiento(a.asiento, b.asiento)).filter(p => {
+      // 1. Filtro por selector de comida
+      if (comidaFiltro) {
+        if (comidaFiltro === 'sin_preferencia' && !['sin_preferencia', 'estandar'].includes(p.comida)) return false;
+        if (comidaFiltro !== 'sin_preferencia' && p.comida !== comidaFiltro) return false;
+      }
+      // 2. Filtro por estado de abordaje
+      if (estadoFiltro) {
+        if (estadoFiltro === 'a-bordo' && !p.abordaje) return false;
+        if (estadoFiltro === 'por-abordar' && Boolean(p.abordaje)) return false;
+        if (estadoFiltro === 'no-molestar' && !p.noMolestar) return false;
+      }
+      // 3. Filtro por texto libre (nombre, asiento, trato, comida, notas, gustos, bebida, alergias)
+      if (consulta) {
+        const alergiasTexto = Array.isArray(p.alergias) ? p.alergias.join(' ') : (p.alergias || '');
+        const todoElTexto = sinAcentos(`${p.nombre} ${p.apellido} ${p.trato || ''} ${p.asiento} ${p.comida || ''} ${p.bebida || ''} ${p.notas || ''} ${alergiasTexto}`);
+        if (!todoElTexto.includes(consulta)) return false;
+      }
+      return true;
+    });
+
+    if (contador) contador.textContent = `${pasajeros.length} de ${cabina.pasajeros.length}`;
+
+    const COMIDA_ETIQUETAS = {
+      vegetariana: '🥗 Vegetariano',
+      vegana: '🌱 Vegano',
+      sin_gluten: '🌾 Sin gluten',
+      otra: '🍴 Especial',
+      sin_preferencia: '🍽️ Estándar',
+      estandar: '🍽️ Estándar'
+    };
+
     for (const p of pasajeros) {
       const li = document.createElement('li');
       const b = document.createElement('button');
@@ -484,20 +522,39 @@
       if (p.asiento === asientoActivo) b.classList.add('activo');
       const s = document.createElement('strong'); s.textContent = p.asiento;
       const n = document.createElement('span'); n.textContent = p.trato || `${p.nombre} ${p.apellido}`;
-      const h = document.createElement('small'); h.textContent = p.abordaje ? `a bordo ${horaCorta(p.abordaje.registradoEn)}` : 'por abordar';
+      
+      const tags = document.createElement('div');
+      tags.className = 'pasajero-mini-tags';
+      if (p.comida && p.comida !== 'sin_preferencia') {
+        const cSpan = document.createElement('small');
+        cSpan.className = 'tag-comida';
+        cSpan.textContent = COMIDA_ETIQUETAS[p.comida] || p.comida;
+        tags.append(cSpan);
+      }
+      if (p.noMolestar) {
+        const nmSpan = document.createElement('small');
+        nmSpan.className = 'tag-no-molestar';
+        nmSpan.textContent = '🌙 Descanso';
+        tags.append(nmSpan);
+      }
+
+      const h = document.createElement('small');
+      h.textContent = p.abordaje ? `a bordo ${horaCorta(p.abordaje.registradoEn)}` : 'por abordar';
       if (!p.abordaje) h.className = 'pendiente';
-      b.append(s, n, h); li.append(b); lista.append(li);
+      b.append(s, n, tags, h); li.append(b); lista.append(li);
     }
     vacia.hidden = pasajeros.length > 0;
     vacia.textContent = !cabina.pasajeros.length ? 'Este vuelo todavía no tiene pasajeros con boleto.'
-      : `No encontramos a ningún pasajero con «${$('buscar-pasajero').value.trim()}» en este vuelo.`;
+      : 'No se encontraron pasajeros que coincidan con los filtros seleccionados.';
   }
 
   document.addEventListener('click', event => {
     const objetivo = event.target.closest('#plano-vivo [data-asiento], #lista-abordados [data-asiento]');
     if (objetivo) fichaDeAsiento(objetivo.dataset.asiento);
   });
-  $('buscar-pasajero').addEventListener('input', pintarLista);
+  $('buscar-pasajero')?.addEventListener('input', () => { pintarLista(); pintarCabina(); });
+  $('filtro-comida')?.addEventListener('change', () => { pintarLista(); pintarCabina(); });
+  $('filtro-estado')?.addEventListener('change', () => { pintarLista(); pintarCabina(); });
   $('fecha-vuelo').addEventListener('change', () => cargarVuelos());
   $('vuelo').addEventListener('change', () => { recordarVuelo(); cargarCabina(); });
   $('actualizar-cabina').addEventListener('click', () => cargarVuelos());

@@ -56,63 +56,43 @@
         <p class="vuelo-estado" id="vuelo-estado" role="status"></p>
       </section>
 
-      <div class="escaner-layout">
-        <section class="escaner" aria-labelledby="t-escaner">
-          <div class="escaner-cabecera">
-            <h2 id="t-escaner">Escáner de pases</h2>
+      <!-- Sección de Escáner QR de Abordaje -->
+      <section class="escaner-seccion" aria-labelledby="t-escaner">
+        <details class="escaner-acordeon" id="escaner-acordeon" open>
+          <summary class="escaner-resumen">
+            <div class="escaner-titulo-grupo">
+              <span class="icono-camara" aria-hidden="true">📷</span>
+              <h2 id="t-escaner">Escáner de pases de abordar (QR)</h2>
+            </div>
             <span class="escaner-indicador" id="indicador"><i></i><span id="indicador-texto">Cámara apagada</span></span>
-          </div>
-          <div class="visor" id="visor">
-            <video id="video" playsinline muted aria-label="Vista de la cámara"></video>
-            <div class="visor-reposo" id="visor-reposo">
-              <svg viewBox="0 0 48 48" width="56" height="56" aria-hidden="true"><path d="M6 16V8a2 2 0 0 1 2-2h8M32 6h8a2 2 0 0 1 2 2v8M42 32v8a2 2 0 0 1-2 2h-8M16 42H8a2 2 0 0 1-2-2v-8" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><rect x="14" y="14" width="8" height="8" fill="currentColor"/><rect x="26" y="14" width="8" height="8" fill="currentColor"/><rect x="14" y="26" width="8" height="8" fill="currentColor"/><rect x="28" y="28" width="4" height="4" fill="currentColor"/></svg>
-              <p>Activa la cámara y apunta al código QR del pase.</p>
-            </div>
-            <div class="visor-marco" aria-hidden="true"><span></span><span></span><span></span><span></span><i class="visor-linea"></i></div>
-            <div class="visor-flash" id="visor-flash" aria-hidden="true"></div>
-          </div>
-          <div class="escaner-controles">
-            <button class="boton boton-rojo" type="button" id="boton-camara">Activar cámara</button>
-            <label class="selector-camara" id="selector-camara" hidden>Cámara <select id="camaras"></select></label>
-            <label class="boton boton-claro subir-imagen">Subir imagen del pase<input type="file" id="archivo" accept="image/*" hidden></label>
-          </div>
-          <p class="escaner-ayuda" id="escaner-ayuda">La cámara necesita permiso del navegador y una conexión segura (https). Si no está disponible, sube una captura del pase o elige al pasajero en la lista para registrarlo sin QR.</p>
-        </section>
-
-        <section class="ficha" id="ficha" aria-labelledby="t-ficha" aria-live="polite" tabindex="-1">
-          <div class="ficha-vacia" id="ficha-vacia">
-            <p class="etiqueta">FICHA DEL PASAJERO</p>
-            <h2 id="t-ficha">Esperando un pase.</h2>
-            <p>Cuando escanees un código, aquí verás quién es, su asiento y sus preferencias. También puedes tocar un asiento en el plano o buscar al pasajero.</p>
-          </div>
-          <div class="ficha-alerta" id="ficha-alerta" hidden role="alert"></div>
-          <div class="ficha-contenido" id="ficha-contenido" hidden>
-            <div class="ficha-estado" id="ficha-estado"></div>
-            <div class="ficha-cabecera">
-              <div>
-                <p class="etiqueta" id="ficha-trato"></p>
-                <h2 id="ficha-nombre"></h2>
-                <p class="ficha-ruta" id="ficha-ruta"></p>
+          </summary>
+          <div class="escaner-cuerpo">
+            <div class="visor" id="visor">
+              <video id="video" playsinline muted aria-label="Vista de la cámara"></video>
+              <div class="visor-reposo" id="visor-reposo">
+                <svg viewBox="0 0 48 48" width="48" height="48" aria-hidden="true"><path d="M6 16V8a2 2 0 0 1 2-2h8M32 6h8a2 2 0 0 1 2 2v8M42 32v8a2 2 0 0 1-2 2h-8M16 42H8a2 2 0 0 1-2-2v-8" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><rect x="14" y="14" width="8" height="8" fill="currentColor"/><rect x="26" y="14" width="8" height="8" fill="currentColor"/><rect x="14" y="26" width="8" height="8" fill="currentColor"/><rect x="28" y="28" width="4" height="4" fill="currentColor"/></svg>
+                <p>Apunta con la cámara al código QR del pase del pasajero.</p>
               </div>
-              <div class="ficha-asiento"><span>ASIENTO</span><strong id="ficha-asiento"></strong></div>
+              <div class="visor-marco" aria-hidden="true"><span></span><span></span><span></span><span></span><i class="visor-linea"></i></div>
+              <div class="visor-flash" id="visor-flash" aria-hidden="true"></div>
             </div>
-            <blockquote class="ficha-saludo"><span>Saludo sugerido · <b id="ficha-idioma-corto"></b></span><p id="ficha-saludo"></p></blockquote>
-            <div class="ficha-insignias" id="ficha-insignias"></div>
-            <dl class="ficha-datos" id="ficha-datos"></dl>
-            <div class="ficha-acciones" id="ficha-acciones" hidden>
-              <button class="boton boton-oscuro" type="button" id="registrar-manual" data-permiso="abordaje.registrar">Registrar abordaje sin QR</button>
-              <span>Úsalo solo si el pase no se puede leer y verificaste su identidad.</span>
+            <div class="escaner-controles">
+              <button class="boton boton-rojo" type="button" id="boton-camara">Activar cámara</button>
+              <label class="selector-camara" id="selector-camara" hidden>Cámara <select id="camaras"></select></label>
+              <label class="boton boton-claro subir-imagen">Subir imagen del pase<input type="file" id="archivo" accept="image/*" hidden></label>
             </div>
-            <p class="ficha-pie" id="ficha-pie"></p>
+            <p class="escaner-ayuda" id="escaner-ayuda">Puedes activar la cámara de tu tableta o subir una captura del pase para registrar el abordaje automáticamente.</p>
           </div>
-        </section>
-      </div>
+        </details>
+      </section>
 
+      <!-- Cabina en Vivo: Mapa interactivo a la izquierda y Ficha/Lista a la derecha -->
       <section class="cabina-vivo" aria-labelledby="t-cabina">
         <div class="cabina-vivo-cabecera">
           <div>
-            <p class="etiqueta"><span class="numero">03</span> CABINA EN VIVO</p>
-            <h2 id="t-cabina">Quién va en cada asiento.</h2>
+            <p class="etiqueta"><span class="numero">02</span> CABINA EN VIVO INTERACTIVA</p>
+            <h2 id="t-cabina">Quién va en cada asiento</h2>
+            <p class="cabina-subtitulo">Haz clic en un asiento a la izquierda para inspeccionar a la derecha los gustos, comida y atención del pasajero.</p>
           </div>
           <div class="contadores">
             <div><strong id="contador-total">0/0</strong><span>a bordo</span></div>
@@ -121,13 +101,80 @@
             <button class="boton boton-claro" type="button" id="reiniciar" data-permiso="abordaje.reiniciar" hidden>Reiniciar abordaje</button>
           </div>
         </div>
+
+        <!-- Filtros avanzados para tripulación -->
+        <div class="filtros-tripulacion">
+          <div class="campo-form filtro-busqueda">
+            <label for="buscar-pasajero">Buscar pasajero o asiento</label>
+            <input id="buscar-pasajero" type="search" autocomplete="off" placeholder="Ej: Ceballos, 2A, vegetariano, café, enchufe...">
+          </div>
+          <div class="campo-form filtro-comida-box">
+            <label for="filtro-comida">Comida preferida</label>
+            <select id="filtro-comida">
+              <option value="">Todas las comidas</option>
+              <option value="vegetariana">Vegetariana</option>
+              <option value="sin_preferencia">Estándar / Regular</option>
+              <option value="vegana">Vegana</option>
+              <option value="sin_gluten">Sin gluten (Celíacos)</option>
+              <option value="otra">Otra dieta especial</option>
+            </select>
+          </div>
+          <div class="campo-form filtro-estado-box">
+            <label for="filtro-estado">Estado de abordaje</label>
+            <select id="filtro-estado">
+              <option value="">Todos los estados</option>
+              <option value="a-bordo">A bordo</option>
+              <option value="por-abordar">Por abordar</option>
+              <option value="no-molestar">No molestar</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Grid de dos columnas: Mapa Izquierda vs Ficha/Lista Derecha -->
         <div class="cabina-vivo-grid">
-          <div class="plano-vivo" id="plano-vivo" aria-label="Plano de la cabina"></div>
-          <div class="lista-abordados">
-            <h3>Pasajeros del vuelo</h3>
-            <div class="campo-form buscar-pasajero"><label for="buscar-pasajero">Buscar por nombre, apellido o asiento</label><input id="buscar-pasajero" type="search" autocomplete="off" placeholder="Ej. Ceballos o 5A"></div>
-            <ol id="lista-abordados"></ol>
-            <p class="lista-vacia" id="lista-vacia">Elige un vuelo para ver a sus pasajeros.</p>
+          <!-- Columna Izquierda: Mapa de Asientos del Avión -->
+          <div class="columna-mapa">
+            <div class="plano-vivo" id="plano-vivo" aria-label="Plano de la cabina"></div>
+          </div>
+
+          <!-- Columna Derecha: Ficha del Pasajero y Lista de Pasajeros -->
+          <div class="columna-inspeccion">
+            <section class="ficha" id="ficha" aria-labelledby="t-ficha" aria-live="polite" tabindex="-1">
+              <div class="ficha-vacia" id="ficha-vacia">
+                <p class="etiqueta">FICHA DEL PASAJERO</p>
+                <h2 id="t-ficha">Toca un asiento en el plano</h2>
+                <p>Haz clic en cualquier asiento del mapa del avión a la izquierda o escanea un pase para ver sus preferencias completas.</p>
+              </div>
+              <div class="ficha-alerta" id="ficha-alerta" hidden role="alert"></div>
+              <div class="ficha-contenido" id="ficha-contenido" hidden>
+                <div class="ficha-estado" id="ficha-estado"></div>
+                <div class="ficha-cabecera">
+                  <div>
+                    <p class="etiqueta" id="ficha-trato"></p>
+                    <h2 id="ficha-nombre"></h2>
+                    <p class="ficha-ruta" id="ficha-ruta"></p>
+                  </div>
+                  <div class="ficha-asiento"><span>ASIENTO</span><strong id="ficha-asiento"></strong></div>
+                </div>
+                <blockquote class="ficha-saludo"><span>Saludo sugerido · <b id="ficha-idioma-corto"></b></span><p id="ficha-saludo"></p></blockquote>
+                <div class="ficha-insignias" id="ficha-insignias"></div>
+                <dl class="ficha-datos" id="ficha-datos"></dl>
+                <div class="ficha-acciones" id="ficha-acciones" hidden>
+                  <button class="boton boton-oscuro" type="button" id="registrar-manual" data-permiso="abordaje.registrar">Registrar abordaje sin QR</button>
+                  <span>Úsalo si el pase no se puede leer y verificaste su identidad.</span>
+                </div>
+                <p class="ficha-pie" id="ficha-pie"></p>
+              </div>
+            </section>
+
+            <div class="lista-abordados">
+              <div class="lista-cabecera">
+                <h3>Pasajeros del vuelo</h3>
+                <span class="lista-contador" id="lista-contador"></span>
+              </div>
+              <ol id="lista-abordados"></ol>
+              <p class="lista-vacia" id="lista-vacia">Elige un vuelo para ver a sus pasajeros.</p>
+            </div>
           </div>
         </div>
         <p class="nota-prototipo">El registro de abordaje se guarda en la base de Avianca y se comparte entre las tabletas del personal. Los datos del pasajero vienen de la base de clientes y solo se muestran a cuentas autorizadas.</p>

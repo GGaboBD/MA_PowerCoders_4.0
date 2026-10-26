@@ -24,6 +24,7 @@
         <a href="#experiencia">La experiencia</a>
         <a href="#cabinas">Nuestras cabinas</a>
         <a href="#viaje">Tu viaje</a>
+        <a href="menu.html">Menú a bordo</a>
         <a href="pase.html">Pase de abordar</a>
         <a href="mis-reservas.html" data-rol="cliente" hidden>Mis reservas</a>
         <a href="tripulacion.html" data-permiso="tripulacion.ver" hidden>Tripulación</a>
@@ -69,7 +70,10 @@
         <label class="campo campo-pasajeros"><span class="campo-etiqueta">Pasajeros</span><select name="pasajeros"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></label>
         <button class="boton boton-rojo" type="submit">Explorar vuelos <span aria-hidden="true">↗</span></button>
       </form>
-      <p class="nota-prototipo buscador-nota">Horarios locales del origen · Tarifas y asientos consultados en la base de datos del prototipo. La búsqueda no aparta asientos.</p>
+      <div style="display: flex; gap: 14px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-top: 14px;">
+        <p class="nota-prototipo buscador-nota" style="margin: 0;">Horarios locales del origen · Tarifas y asientos consultados en la base de datos.</p>
+        <button class="boton boton-claro" type="button" id="btn-catalogo-completo" style="font-size: 13px; padding: 8px 18px;">✦ Ver catálogo completo (20+ vuelos disponibles)</button>
+      </div>
     </section>
 
     <section class="resultados contenedor" id="resultados" aria-live="polite" hidden></section>

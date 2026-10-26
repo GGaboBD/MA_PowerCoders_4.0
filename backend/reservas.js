@@ -746,92 +746,14 @@ module.exports = async function registrarReservas(app, bases, clienteDirecto) {
           }
         }
       }
-      // Auto-aprovisionar cuenta de cliente si no hay sesión previa (reserva inmediata de invitado)
-      if (!usuario) {
-        const p1 = req.body?.pasajeros?.[0] || {};
-        const p1Nombre = (p1.nombres || p1.nombre || 'Pasajero').trim().slice(0, 80);
-        const p1Apellido = (p1.apellidos || p1.apellido || 'Avianca').trim().slice(0, 80);
-        const docNum = (typeof p1.documento === 'string' ? p1.documento : (p1.documento?.numero || `PAS${Date.now()}`)).trim().toUpperCase();
-        const correoAuto = (req.body?.correo || `${docNum.toLowerCase().replace(/[^a-z0-9]/g, '') || Date.now()}@clientes.avianca.com`).trim().toLowerCase();
-
-        let u = await db.collection('usuarios').findOne({
-          $or: [
-            { correo: correoAuto },
-            { 'documento.numero': docNum }
-          ]
+      // Restricción estricta de reserva: exige inicio de sesión con cuenta de cliente
+      if (!usuario || (usuario.tipoCuenta !== 'cliente' && usuario.rol !== 'cliente')) {
+        return res.status(401).json({
+          ok: false,
+          mensaje: 'Debes iniciar sesión con tu cuenta de cliente para reservar un asiento.'
         });
-
-        if (!u) {
-          const passwordHash = await argon2.hash(randomBytes(16).toString('hex'), OPCIONES_HASH);
-          const usuarioCompleto = {
-            _id: new ObjectId(),
-            nombre: p1Nombre,
-            apellido: p1Apellido,
-            correo: correoAuto,
-            passwordHash,
-            tipoCuenta: 'cliente',
-            rol: 'cliente',
-            roles: ['cliente'],
-            estado: 'activo',
-            creadoEn: new Date()
-          };
-          try {
-            await db.collection('usuarios').insertOne(usuarioCompleto);
-            u = usuarioCompleto;
-          } catch (uErr) {
-            if (uErr.code === 121) {
-              const usuarioOriginal = {
-                _id: usuarioCompleto._id,
-                correo: correoAuto,
-                passwordHash,
-                tipoCuenta: 'cliente',
-                roles: ['cliente'],
-                estado: 'activo',
-                creadoEn: new Date()
-              };
-              try {
-                await db.collection('usuarios').insertOne(usuarioOriginal);
-                u = usuarioOriginal;
-              } catch {
-                u = await db.collection('usuarios').findOne({ correo: correoAuto });
-              }
-            } else if (uErr.code === 11000) {
-              u = await db.collection('usuarios').findOne({ correo: correoAuto });
-            }
-          }
-
-          if (!u) {
-            u = await db.collection('usuarios').findOne({ tipoCuenta: 'cliente' }) ||
-                await db.collection('usuarios').findOne({});
-          }
-        }
-
-        if (u) {
-          usuario = {
-            _id: u._id,
-            tipo: 'cliente',
-            tipoCuenta: 'cliente',
-            rol: 'cliente',
-            nombre: u.nombre || p1Nombre,
-            apellido: u.apellido || p1Apellido,
-            correo: u.correo,
-          };
-
-          const token = randomBytes(32).toString('hex');
-          const ahora = new Date();
-          await db.collection('sesiones_web').insertOne({
-            _id: digest(token),
-            usuarioId: u._id,
-            creadoEn: ahora,
-            expiraEn: new Date(ahora.getTime() + DURACION)
-          }).catch(() => {});
-
-          res.cookie(COOKIE, token, { ...cookieOptions, maxAge: DURACION });
-        }
       }
 
-      if (!usuario) throw fallo(400, 'Completa los datos del pasajero para registrar la reserva.');
-      if (usuario.tipoCuenta !== 'cliente' && usuario.rol !== 'cliente') throw fallo(403, 'Esta compra requiere una cuenta de cliente.');
       const datos = validar(req.body);
 
       const resultado = await comprar(db, cliente, usuario._id, datos);

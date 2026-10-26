@@ -108,12 +108,14 @@ function drawCabin() {
     const otherSeats = seats.filter(s => !/[ABCD]$/.test(s.codigo));
 
     const renderSeat = (seat) => {
-      const button = element("button", seat.codigo, "asiento" + (seat.disponible ? "" : " ocupado"));
+      const disponible = seat.disponible !== false;
+      const button = element("button", seat.codigo, "asiento" + (disponible ? "" : " ocupado no-disponible"));
       button.type = "button";
       button.dataset.seat = seat.codigo;
-      button.disabled = !seat.disponible;
+      button.disabled = !disponible;
       button.setAttribute("aria-pressed", "false");
-      button.setAttribute("aria-label", "Asiento " + seat.codigo + (seat.disponible ? " (Disponible)" : " (Ocupado)"));
+      button.setAttribute("title", disponible ? "Asiento " + seat.codigo + " disponible" : "Asiento " + seat.codigo + " no disponible (reservado)");
+      button.setAttribute("aria-label", "Asiento " + seat.codigo + (disponible ? " (Disponible)" : " (No disponible / Ocupado)"));
       return button;
     };
 
@@ -433,8 +435,10 @@ function descargarPaseCanvas(paseData, qrTexto) {
 async function saveReservation(button, review) {
   if (busy || saved || !form.reportValidity()) return;
 
-  if (!sesionUsuario) {
-    status.textContent = "Confirmando tu reserva y registrando tu cuenta de cliente…";
+  if (!sesionUsuario || (sesionUsuario.tipoCuenta !== "cliente" && sesionUsuario.rol !== "cliente")) {
+    alert("Para confirmar tu reserva debes iniciar sesión o registrarte con tu cuenta de cliente.");
+    location.href = "cuenta.html?volver=" + encodeURIComponent(location.pathname + location.search);
+    return;
   }
 
   const payload = buildPayload();
@@ -727,12 +731,41 @@ function renderReview() {
   seats.type = "button";
   seats.addEventListener("click", () => document.querySelector("#abrir-asientos").click());
 
-  const reserve = element("button", "Confirmar reserva", "boton boton-rojo");
-  reserve.type = "button";
-  reserve.addEventListener("click", () => saveReservation(reserve, review));
+  if (!sesionUsuario || (sesionUsuario.tipoCuenta !== "cliente" && sesionUsuario.rol !== "cliente")) {
+    const alertBox = element("div", undefined, "aviso-requiere-sesion");
+    alertBox.style.padding = "20px";
+    alertBox.style.margin = "16px 0";
+    alertBox.style.background = "#fff3f2";
+    alertBox.style.borderLeft = "4px solid #da291c";
+    alertBox.style.borderRadius = "4px";
+    alertBox.style.width = "100%";
 
-  actions.append(edit, seats, reserve);
-  footer.append(actions);
+    const alertTitle = element("h3", "Inicio de sesión obligatorio para reservar");
+    alertTitle.style.color = "#da291c";
+    alertTitle.style.margin = "0 0 8px";
+    alertTitle.style.fontSize = "18px";
+
+    const alertText = element("p", "Para garantizar la seguridad de tus boletos y vincular tus preferencias a bordo, debes iniciar sesión con tu cuenta de cliente o registrarte antes de confirmar la reserva.");
+    alertText.style.margin = "0 0 16px";
+    alertText.style.fontSize = "14px";
+    alertText.style.color = "#1b1e23";
+
+    const loginBtn = element("a", "Iniciar sesión o registrarme para reservar", "boton boton-rojo");
+    loginBtn.href = "cuenta.html?volver=" + encodeURIComponent(location.pathname + location.search);
+    loginBtn.style.display = "inline-block";
+    loginBtn.style.textAlign = "center";
+
+    alertBox.append(alertTitle, alertText, loginBtn);
+    actions.append(edit, seats);
+    footer.append(alertBox, actions);
+  } else {
+    const reserve = element("button", "Confirmar reserva", "boton boton-rojo");
+    reserve.type = "button";
+    reserve.addEventListener("click", () => saveReservation(reserve, review));
+
+    actions.append(edit, seats, reserve);
+    footer.append(actions);
+  }
   review.append(head, body, footer);
   review.hidden = false;
   setStep("resumen");
@@ -944,10 +977,12 @@ async function init() {
       } catch { /* mantener datos predeterminados */ }
     } else {
       sesionUsuario = null;
-      status.textContent = "Estás navegando como invitado. Completa tus datos y selecciona tus asientos. Para confirmar tu reserva, ";
+      status.textContent = "Estás navegando como invitado. Puedes explorar y elegir asientos; para reservar debes ";
       const link = document.createElement("a");
       link.href = "cuenta.html?volver=" + encodeURIComponent(location.pathname + location.search);
-      link.textContent = "inicia sesión aquí";
+      link.textContent = "iniciar sesión o crear tu cuenta de cliente aquí";
+      link.style.fontWeight = "bold";
+      link.style.textDecoration = "underline";
       status.append(link);
       status.append(".");
     }

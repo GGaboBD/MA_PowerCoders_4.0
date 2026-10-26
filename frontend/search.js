@@ -28,9 +28,10 @@ function field(label, value) {
 }
 function render(flights, data, hayMas) {
   const title = element('div', undefined, 'resultados-titulo');
-  title.append(element('p', `RESULTADOS · ${data.fecha}`, 'etiqueta'),
-    element('h2', `${getCityName(data.origen)} → ${getCityName(data.destino)}`),
-    element('p', `${data.cabina === 'primera' ? 'Primera clase' : 'Clase ejecutiva'} · ${data.pasajeros} pasajero(s)`));
+  const rutaTexto = data.origen && data.destino ? `${getCityName(data.origen)} → ${getCityName(data.destino)}` : 'Catálogo de vuelos disponibles';
+  title.append(element('p', `RESULTADOS · ${data.fecha || 'TODOS LOS VUELOS'}`, 'etiqueta'),
+    element('h2', rutaTexto),
+    element('p', `${data.cabina === 'primera' ? 'Primera clase' : 'Clase ejecutiva'} · ${data.pasajeros || 1} pasajero(s)`));
   results.replaceChildren(title);
   if (!flights.length) {
     title.append(element('p', 'No hay vuelos con suficientes asientos para esta búsqueda. Prueba otra fecha, hora o cabina.'));
@@ -62,8 +63,8 @@ function render(flights, data, hayMas) {
       destino: flight.destino,
       fecha: flight.fecha,
       hora: flight.hora,
-      cabina: data.cabina,
-      pasajeros: data.pasajeros,
+      cabina: data.cabina || 'ejecutiva',
+      pasajeros: data.pasajeros || 1,
       precio: flight.precio,
       moneda: flight.moneda
     })}`;
@@ -74,8 +75,9 @@ function render(flights, data, hayMas) {
       detailButton.setAttribute('aria-expanded', String(!detail.hidden));
       detailButton.textContent = detail.hidden ? 'Ver detalle' : 'Ocultar detalle';
     });
-    card.append(field('SALIDA LOCAL', flight.hora), field('VUELO', flight.codigo),
-      field('DURACIÓN', duration), field('POR PERSONA', price), actions, detail);
+    const salidaTexto = data.catalogo ? `${flight.origen} → ${flight.destino} · ${flight.hora}` : flight.hora;
+    card.append(field('SALIDA LOCAL', salidaTexto), field('VUELO', flight.codigo),
+      field('DURACIÓN', duration), field('ASIENTOS', `${flight.disponibles} disp.`), field('POR PERSONA', price), actions, detail);
     list.append(card);
   }
   results.append(list);
@@ -136,4 +138,38 @@ if ('ResizeObserver' in window) {
   new ResizeObserver(entries => {
     results.style.scrollMarginTop = `${entries[0].target.getBoundingClientRect().height + 36}px`;
   }).observe(document.querySelector('#buscar-vuelos'));
+}
+
+if (typeof document !== 'undefined' && typeof document.getElementById === 'function') {
+  const btnCat = document.getElementById('btn-catalogo-completo');
+  if (btnCat) {
+    btnCat.addEventListener('click', async () => {
+      btnCat.disabled = true;
+      btnCat.textContent = 'Cargando catálogo…';
+      results.hidden = false;
+      message('Consultando más de 20 vuelos activos en el catálogo de Avianca…');
+      results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      try {
+        const response = await fetch('/api/vuelos?catalogo=1', { cache: 'no-store' });
+        const payload = await response.json();
+        if (payload.ok && Array.isArray(payload.vuelos)) {
+          render(payload.vuelos, {
+            origen: '',
+            destino: '',
+            fecha: 'CATÁLOGO DE VUELOS ACTIVOS',
+            cabina: 'ejecutiva',
+            pasajeros: 1,
+            catalogo: true,
+          }, payload.hayMas);
+        } else {
+          message('No se pudo cargar el catálogo de vuelos.');
+        }
+      } catch {
+        message('No se pudo conectar con el catálogo de vuelos.');
+      } finally {
+        btnCat.disabled = false;
+        btnCat.textContent = '✦ Ver catálogo completo (20+ vuelos disponibles)';
+      }
+    });
+  }
 }

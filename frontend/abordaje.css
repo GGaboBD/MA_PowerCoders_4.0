@@ -149,58 +149,73 @@
 .ficha-datos .destacado { grid-column: span 2; padding-left: 12px; border-left: 3px solid var(--rojo); background: #fff6f5; }
 .ficha-pie { margin-top: 16px; font-size: 11px; letter-spacing: .1em; color: var(--gris-texto); text-transform: uppercase; }
 
-/* ---------- Cabina en vivo ---------- */
-.cabina-vivo { margin-top: 64px; padding-top: 40px; border-top: 1px solid var(--gris-borde); }
-.cabina-vivo-cabecera { display: flex; justify-content: space-between; align-items: flex-end; gap: 30px; flex-wrap: wrap; margin-bottom: 28px; }
-.cabina-vivo h2 { margin-top: 16px; font-size: 40px; line-height: 1.05; letter-spacing: -.045em; }
-.contadores { display: flex; align-items: center; gap: 28px; }
-.contadores div { display: grid; }
-.contadores strong { font-size: 30px; font-weight: 900; line-height: 1; letter-spacing: -.03em; }
-.contadores span { font-size: 12px; color: var(--gris-texto); }
-.cabina-vivo-grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 30px; align-items: start; }
-.plano-vivo .asiento.a-bordo { border-color: var(--rojo); background: var(--rojo); color: white; }
-.plano-vivo .asiento.a-bordo.no-molestar { border-color: #2f3337; background: #2f3337; }
-.plano-vivo .asiento.activo { outline: 3px solid var(--negro); outline-offset: 2px; }
-.plano-vivo .asiento:focus-visible { outline: 3px solid var(--rojo); outline-offset: 2px; }
-.plano-vivo .cabina-separador { width: 100%; }
-.leyenda-vivo { display: flex; justify-content: center; gap: 18px; margin-top: 18px; font-size: 12px; color: var(--gris-texto); }
+/* ---------- Escáner de pases (acordeón elegante) ---------- */
+.escaner-seccion { margin-bottom: 32px; }
+.escaner-acordeon { background: var(--negro); color: white; border: 1px solid #ffffff20; box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+.escaner-resumen { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; cursor: pointer; user-select: none; }
+.escaner-resumen:hover { background: #26282a; }
+.escaner-titulo-grupo { display: flex; align-items: center; gap: 12px; }
+.escaner-titulo-grupo h2 { font-size: 19px; letter-spacing: -.02em; margin: 0; }
+.icono-camara { font-size: 20px; }
+.escaner-cuerpo { padding: 0 24px 24px; border-top: 1px solid #ffffff15; }
+
+/* ---------- Filtros avanzados de tripulación ---------- */
+.filtros-tripulacion { display: grid; grid-template-columns: minmax(260px, 1.5fr) 1fr 1fr; gap: 16px; margin-bottom: 24px; padding: 18px 20px; background: white; border: 1px solid var(--gris-borde); box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
+.filtros-tripulacion .campo-form { margin: 0; }
+.filtros-tripulacion label { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--gris-texto); margin-bottom: 6px; display: block; }
+.filtros-tripulacion input, .filtros-tripulacion select { width: 100%; min-height: 42px; border: 1px solid var(--gris-borde); padding: 8px 12px; font: 14px var(--fuente); background: #fdfdfd; }
+.filtros-tripulacion input:focus, .filtros-tripulacion select:focus { border-color: var(--rojo); outline: 2px solid var(--rojo); background: white; }
+
+/* ---------- Cabina en vivo: Layout en 2 columnas ---------- */
+.cabina-vivo { margin-top: 40px; padding-top: 32px; border-top: 1px solid var(--gris-borde); }
+.cabina-vivo-cabecera { display: flex; justify-content: space-between; align-items: flex-end; gap: 30px; flex-wrap: wrap; margin-bottom: 24px; }
+.cabina-vivo h2 { margin: 8px 0 4px; font-size: 38px; line-height: 1.05; letter-spacing: -.045em; }
+.cabina-subtitulo { color: var(--gris-texto); font-size: 15px; margin: 0; }
+.contadores { display: flex; align-items: center; gap: 24px; }
+.contadores div { display: grid; text-align: center; }
+.contadores strong { font-size: 28px; font-weight: 900; line-height: 1; letter-spacing: -.03em; color: var(--negro); }
+.contadores span { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--gris-texto); margin-top: 2px; }
+
+.cabina-vivo-grid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(360px, 1fr); gap: 32px; align-items: start; }
+.columna-mapa { position: sticky; top: 20px; }
+.columna-inspeccion { display: flex; flex-direction: column; gap: 24px; }
+
+/* ---------- Diseño de los asientos en cabina en vivo ---------- */
+.plano-vivo .plano-cabina { background: white; border: 1px solid var(--gris-borde); padding: 24px 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.04); border-radius: 8px; }
+.plano-vivo .asiento { border-radius: 6px; font-weight: 700; font-size: 13px; transition: all .15s ease; cursor: pointer; border: 1.5px solid #c9cdd1; background: #fafafa; color: #495057; min-height: 40px; min-width: 40px; }
+.plano-vivo .asiento:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.08); border-color: var(--negro); }
+.plano-vivo .asiento.reservado { border-color: var(--rojo); border-width: 2px; color: var(--rojo); background: #fff8f7; font-weight: 800; }
+.plano-vivo .asiento.reservado.no-molestar { border-color: #3d4348; color: #3d4348; background: #f2f4f6; }
+.plano-vivo .asiento.a-bordo { border-color: var(--rojo); background: var(--rojo); color: white; box-shadow: 0 2px 6px #da291c33; }
+.plano-vivo .asiento.a-bordo.no-molestar { border-color: #2f3337; background: #2f3337; color: white; }
+.plano-vivo .asiento.activo { outline: 3px solid var(--negro); outline-offset: 3px; transform: scale(1.08); z-index: 2; box-shadow: 0 6px 14px rgba(0,0,0,0.18); }
+.plano-vivo .asiento:focus-visible { outline: 3px solid var(--rojo); outline-offset: 3px; }
+
+.plano-vivo .cabina-separador { width: 100%; margin: 18px 0 12px; font-size: 11px; font-weight: 800; letter-spacing: .15em; color: var(--gris-texto); }
+.leyenda-vivo { display: flex; justify-content: center; gap: 16px; margin-top: 18px; font-size: 12px; color: var(--gris-texto); flex-wrap: wrap; }
 .leyenda-vivo span { display: flex; align-items: center; gap: 6px; }
-.leyenda-vivo i { width: 14px; height: 14px; border: 1px solid #87918b; background: white; }
+.leyenda-vivo i { width: 14px; height: 14px; border-radius: 3px; border: 1px solid #87918b; background: white; }
+.leyenda-vivo i.reservado { border: 2px solid var(--rojo); background: #fff8f7; }
 .leyenda-vivo i.a-bordo { background: var(--rojo); border-color: var(--rojo); }
 .leyenda-vivo i.no-molestar { background: #2f3337; border-color: #2f3337; }
-.lista-abordados { padding: 22px 22px 14px; background: white; border: 1px solid var(--gris-borde); }
-.lista-abordados h3 { font-size: 18px; letter-spacing: -.02em; margin-bottom: 10px; }
-.lista-abordados ol { margin: 0; padding: 0; list-style: none; max-height: 520px; overflow-y: auto; }
-.lista-abordados li button { display: grid; grid-template-columns: 46px 1fr auto; align-items: center; gap: 10px; width: 100%; padding: 11px 4px; border: 0; border-top: 1px solid var(--gris-borde); background: none; text-align: left; cursor: pointer; }
-.lista-abordados li button:hover, .lista-abordados li button.activo { background: #f4f5f6; }
-.lista-abordados li strong { color: var(--rojo); font-size: 17px; }
-.lista-abordados li span { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lista-abordados li small { color: var(--gris-texto); font-size: 12px; }
-.lista-vacia { padding: 10px 0; color: var(--gris-texto); font-size: 14px; }
-.lista-vacia[hidden] { display: none; }
-.cabina-vivo > .nota-prototipo { margin-top: 18px; }
 
-/* ---------- Acceso por rol (tripulación y administración) ---------- */
-.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
-.acceso-bloqueado { max-width: 640px; padding: 40px 0 30px; }
-.acceso-bloqueado .etiqueta { color: var(--rojo); }
-.acceso-bloqueado > p:not(.etiqueta) { margin: 22px 0 26px; font-size: 18px; color: var(--gris-texto); }
-.sesion-personal { display: inline-block; margin-top: 14px; padding: 6px 14px; border-radius: 99px; background: var(--negro); color: white; font-size: 13px; font-weight: 700; letter-spacing: .02em; }
-.sesion-personal:empty { display: none; }
-.vuelo-abordaje { display: grid; grid-template-columns: auto 170px minmax(220px, 1fr) auto; gap: 14px 20px; align-items: end; margin-bottom: 24px; padding: 20px 24px; background: white; border: 1px solid var(--gris-borde); }
-.vuelo-abordaje h2 { align-self: center; margin: 0; }
-.vuelo-abordaje .campo-form label { margin-bottom: 4px; }
-.vuelo-abordaje .boton { min-height: 45px; }
-.vuelo-estado { grid-column: 1 / -1; font-size: 14px; color: var(--gris-texto); }
-.ficha-acciones { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 18px; padding: 14px 16px; background: #f4f5f6; }
-.ficha-acciones span { flex: 1; min-width: 200px; font-size: 13px; color: var(--gris-texto); }
-.plano-vivo .asiento.reservado { border-color: var(--rojo); border-width: 2px; border-bottom-width: 5px; color: var(--rojo); font-weight: 700; }
-.plano-vivo .asiento.reservado.no-molestar { border-color: #2f3337; color: #2f3337; }
-.leyenda-vivo { flex-wrap: wrap; }
-.leyenda-vivo i.reservado { border: 2px solid var(--rojo); background: white; }
-.buscar-pasajero { margin-bottom: 10px; }
-.buscar-pasajero label { font-size: 12px; }
+/* ---------- Lista de pasajeros y badges en tripulación ---------- */
+.lista-abordados { padding: 22px 24px; background: white; border: 1px solid var(--gris-borde); box-shadow: 0 6px 18px rgba(0,0,0,0.03); border-radius: 6px; }
+.lista-cabecera { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--gris-borde); }
+.lista-cabecera h3 { font-size: 18px; letter-spacing: -.02em; margin: 0; }
+.lista-contador { font-size: 12px; font-weight: 700; color: var(--gris-texto); }
+.lista-abordados ol { margin: 0; padding: 0; list-style: none; max-height: 380px; overflow-y: auto; }
+.lista-abordados li button { display: grid; grid-template-columns: 46px 1fr auto auto; align-items: center; gap: 12px; width: 100%; padding: 10px 8px; border: 0; border-top: 1px solid #f0f1f2; background: none; text-align: left; cursor: pointer; border-radius: 4px; transition: background .12s; }
+.lista-abordados li button:hover, .lista-abordados li button.activo { background: #f4f6f8; }
+.lista-abordados li strong { color: var(--rojo); font-size: 16px; font-weight: 800; }
+.lista-abordados li span { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pasajero-mini-tags { display: flex; gap: 6px; align-items: center; }
+.tag-comida { padding: 2px 7px; border-radius: 99px; background: #e8f5e9; color: #2e7d32; font-size: 11px; font-weight: 700; }
+.tag-no-molestar { padding: 2px 7px; border-radius: 99px; background: #eceff1; color: #37474f; font-size: 11px; font-weight: 700; }
+.lista-abordados li small { color: var(--gris-texto); font-size: 12px; white-space: nowrap; }
 .lista-abordados li small.pendiente { color: var(--rojo); font-weight: 700; }
+.lista-vacia { padding: 18px 0; color: var(--gris-texto); font-size: 14px; text-align: center; }
+.lista-vacia[hidden] { display: none; }
 
 /* ---------- Pase del cliente ---------- */
 .acceso-pase { margin: -6px 0 30px; }
