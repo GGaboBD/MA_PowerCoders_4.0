@@ -2,7 +2,7 @@
 
 Estado: Aceptada · 27 de octubre de 2026
 
-Revisión documental: 27 de octubre de 2026 (UTC), sobre `c03e102`. La fecha y el estado originales se conservan como metadatos; no acreditan una aprobación del equipo. Se retiraron las atribuciones personales sin respaldo verificable[cite: 14].
+Revisión documental: 27 de octubre de 2026 (UTC), sobre `c03e102`. La fecha y el estado originales se conservan como metadatos; no acreditan una aprobación del equipo. Se retiraron las atribuciones personales sin respaldo verificable.
 
 ## Contexto
 
@@ -38,4 +38,4 @@ Queda pendiente comprobar si el parámetro de retorno (`volver`) en `cuenta.html
 - [`frontend/purchase.js`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/main/frontend/purchase.js)
 - [`tests/metricas.test.js`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/main/tests/metricas.test.js)
 
-Seguimiento de la revisión: [PCA-197](https://avianca-powercoders.atlassian.net/browse/PCA-197). La revisión por pares sigue pendiente[cite: 14].
+Seguimiento de la revisión: [PCA-197](https://avianca-powercoders.atlassian.net/browse/PCA-197). La revisión por pares sigue pendiente.
