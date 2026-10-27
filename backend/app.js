@@ -13,6 +13,7 @@ const registrarPases = require('./pases');
 const registrarPerfil = require('./perfil');
 const registrarTripulacion = require('./tripulacion');
 const registrarPersonal = require('./personal');
+const registrarMetricas = require('./metricas');
 const { protegerPaginas } = require('./permisos');
 
 const RAIZ_FRONTEND = path.join(__dirname, '..', 'frontend');
@@ -53,6 +54,9 @@ async function crearApp(bases, opciones = {}) {
     registrarTripulacion(app, bases);
     registrarPersonal(app, bases, opciones);
   }
+
+  // Métricas del esqueleto caminante (Sesión 25: Verificar y medir)
+  registrarMetricas(app, bases);
 
   app.get('/api/salud', async (req, res) => {
     res.set('Cache-Control', 'no-store');

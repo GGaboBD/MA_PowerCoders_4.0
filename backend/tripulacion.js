@@ -7,6 +7,7 @@ const { origenLocal, auditarPersonal } = require('./sesion');
 const { exigirPermiso } = require('./permisos');
 const { completarBoletos, salidaLocal } = require('./fichas');
 const { NUMERO } = require('./pases');
+const { registrarPasoEmbudo } = require('./metricas');
 
 const ID = /^[a-f0-9]{24}$/i;
 const fallo = (status, mensaje, extra = {}) => Object.assign(new Error(mensaje), { status, extra });
@@ -168,6 +169,7 @@ module.exports = function registrarTripulacion(app, bases) {
       try {
         await avianca.collection('abordajes').insertOne(registro);
         await auditarPersonal(bases, req.cuenta._id, 'abordaje.registrar', { objetivoId: boleto.numero, detalle: { vuelo: vuelo.codigo, asiento: boleto.asiento, via: req.body.via } });
+        await registrarPasoEmbudo(clientes, 'abordados');
       } catch (error) {
         if (error.code !== 11000) throw error;
         estado = 'repetido';

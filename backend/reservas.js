@@ -6,6 +6,7 @@ const { origenLocal, autenticar, COOKIE, cookieOptions, digest, OPCIONES_HASH, D
 const { prepararPerfilesViaje, IDIOMAS } = require('./estructura');
 const Abordaje = require('../frontend/abordaje.js');
 const { salidaLocal } = require('./fichas');
+const { registrarPasoEmbudo } = require('./metricas');
 const fallo = (status, mensaje) => Object.assign(new Error(mensaje), { status });
 const texto = (v, max = 80) => typeof v === 'string' && v.trim().length > 0 && v.trim().length <= max && !/[\u0000-\u001f]/.test(v);
 
@@ -705,6 +706,8 @@ async function comprar(db, cliente, compradorId, datos) {
       { upsert: true }
     ).catch(() => {});
 
+    await registrarPasoEmbudo(db, 'completados');
+
     return resultado;
   } catch (err) {
     console.error('Error detallado en reserva:', err);
@@ -718,6 +721,7 @@ module.exports = async function registrarReservas(app, bases, clienteDirecto) {
   await preparar(db);
   app.post('/api/reservas', origenLocal, async (req, res) => {
     res.set('Cache-Control', 'no-store');
+    await registrarPasoEmbudo(db, 'iniciados');
     try {
       const vueloIdentificador = req.body?.vueloId || req.body?.vuelo;
       if (!vueloIdentificador) {
@@ -755,6 +759,7 @@ module.exports = async function registrarReservas(app, bases, clienteDirecto) {
       }
 
       const datos = validar(req.body);
+      await registrarPasoEmbudo(db, 'validados');
 
       const resultado = await comprar(db, cliente, usuario._id, datos);
       resultado.usuario = {
