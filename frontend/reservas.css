@@ -132,14 +132,14 @@
 .asignar-pasajero select { max-width: 420px; padding: 7px 12px; border: 1px solid #d5d5cc; border-radius: 5px; background: white; font-size: 12px; }
 #asignaciones { margin: 12px 0; color: var(--gris-texto); font-size: 11px; }
 .mapa-avion { max-height: 37vh; overflow-y: auto; padding: 20px; border: 1px solid var(--gris-borde); border-radius: 10px; background: #f4f4ee; }
-.plano-cabina { max-width: 460px; margin: auto; padding: 20px 25px; border: 1px solid #d4d5c8; border-radius: 120px 120px 40px 40px; background: white; box-shadow: 0 6px 15px #00000005; }
+.plano-cabina { max-width: 480px; margin: auto; padding: 20px 25px; border: 1px solid #d4d5c8; border-radius: 120px 120px 40px 40px; background: white; box-shadow: 0 6px 15px #00000005; }
 .nariz-cabina { padding: 13px 0 20px; text-align: center; color: #909088; font-size: 8px; letter-spacing: .18em; }
 .nariz-cabina::before { content: ''; display: block; width: 58px; height: 16px; margin: 0 auto 22px; border: 3px solid #afafa4; border-bottom-width: 0; border-radius: 80px 80px 0 0; }
 .cabina-separador { padding: 12px 0; border-block: 1px dashed #d8d8ce; text-align: center; color: var(--gris-texto); font-size: 10px; }
-.fila-inventario { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 25px; margin: 20px 0; }
-.numero-inventario { width: 56px; color: var(--gris-texto); font-size: 11px; font-weight: 700; letter-spacing: -.02em; }
-.asiento-pasillo { display: inline-block; width: 28px; }
-.asiento { min-height: 50px; width: 54px; border: 1px solid #c2c3ba; border-bottom: 4px solid #b2b4a7; border-radius: 9px 9px 5px 5px; color: #383a34; background: #ffffff; font-size: 13px; font-weight: 700; cursor: pointer; transition: all .16s ease-in-out; }
+.fila-inventario { display: flex; justify-content: center; align-items: center; flex-wrap: nowrap; gap: 10px; margin: 12px 0; }
+.numero-inventario { width: 52px; flex-shrink: 0; text-align: right; margin-right: 8px; color: var(--gris-texto); font-size: 11px; font-weight: 700; letter-spacing: -.02em; }
+.asiento-pasillo { display: inline-block; width: 22px; flex-shrink: 0; }
+.asiento { min-height: 46px; width: 48px; flex-shrink: 0; border: 1px solid #c2c3ba; border-bottom: 4px solid #b2b4a7; border-radius: 9px 9px 5px 5px; color: #383a34; background: #ffffff; font-size: 13px; font-weight: 700; cursor: pointer; transition: all .16s ease-in-out; }
 .asiento:hover:not(:disabled) { border-color: var(--rojo); background: var(--rojo-suave); color: var(--rojo); transform: translateY(-1px); }
 .asiento.seleccionado { border-color: #b81e13 !important; border-bottom-color: #8c140c !important; background: var(--rojo) !important; color: white !important; box-shadow: 0 4px 14px #da291c3d; transform: translateY(-2px); }
 .asiento:disabled, .asiento.ocupado { opacity: 1; border-color: #d5d5cc !important; border-bottom: 4px solid #c8c8bd !important; color: #85857b !important; background: #e6e6df !important; cursor: not-allowed !important; }
