@@ -1,24 +1,66 @@
+
 # ADR 0004 · Fusión del sitio web y el prototipo con dos bases de datos y acceso por roles
 
 Estado: Aceptada · 20 de octubre de 2026
 
-> Revisión documental del 26 de octubre de 2026 (UTC): El ADR 0008 actualiza la nota histórica sobre Vercel: la configuración actual publica archivos estáticos y API en el mismo proyecto. El ADR 0011 aclara la compatibilidad de cuentas de personal en `usuarios` y la diferencia entre autorización de API y páginas estáticas; por ello, las garantías de separación absoluta descritas originalmente no representan todos los caminos del código actual. El ADR 0010 actualiza la referencia a la cookie (`SameSite=Lax` en la base revisada). Se retiraron las atribuciones de propuestas, aprobaciones y conversaciones sin respaldo verificable; el estado y la fecha se conservan como metadatos del registro, sin acreditar un consenso.
+> Revisión documental del 26 de octubre de 2026 (UTC): Los ADR 0008, 0010 y 0011 aclaran algunos cambios posteriores a esta decisión. Actualmente, el frontend y la API se publican juntos en Vercel, la configuración de sesiones ha cambiado y existen mecanismos de compatibilidad para algunas cuentas del personal. Conservamos este documento como registro de la decisión inicial, sin presentar las características originales como garantías absolutas de la implementación actual.
 
 ## Contexto
+
 ### Qué decisiones tomamos y qué estábamos pensando cuando tomamos esa decisión
-El producto estaba partido en dos repositorios. En MA_PowerCoders_4.0 vivía el prototipo de abordaje (pase de abordar QR, panel de tripulación y plano de cabina), que funcionaba solo en el navegador con pasajeros de muestra y guardaba el registro en `localStorage`. En Proyecto_AviancaWeb estaba el sitio conectado a MongoDB Atlas, donde los clientes ya se registraban, iniciaban sesión, buscaban vuelos y guardaban reservas. La Definition of Done del Sprint 1 exige que la tripulación consulte datos reales de los pasajeros de clase ejecutiva guardados en MongoDB, con búsqueda por nombre, apellido o asiento (HU01–HU04), y que la demo recorra el flujo completo de compra a abordaje sin saltos. Con dos repositorios eso no era posible: el panel no veía las reservas y cualquiera que abriera `tripulacion.html` podía usar el escáner, ver la ficha del pasajero y el mapa de asientos. Tampoco queríamos guardar a las azafatas en la misma colección `usuarios` que los clientes: hubiera mezclado cuentas con permisos muy distintos en la base de clientes existente, y un error en un campo de rol habría bastado para que un cliente viera información de otros pasajeros.
+
+Durante el desarrollo nos encontramos con un problema: teníamos dos partes del proyecto que funcionaban por separado, pero necesitábamos unirlas para mostrar la experiencia completa de Avianca.
+
+En `MA_PowerCoders_4.0` teníamos el prototipo de abordaje, que incluía el pase QR, el panel de tripulación y el mapa de asientos. Sin embargo, este funcionaba principalmente con pasajeros de prueba y datos guardados en `localStorage`.
+
+Por otro lado, en `Proyecto_AviancaWeb` ya teníamos el sitio conectado a MongoDB Atlas, donde los clientes podían registrarse, iniciar sesión, buscar vuelos y realizar reservas.
+
+El problema era que la tripulación no podía consultar directamente las reservas creadas desde el sitio web. Esto nos impedía demostrar un flujo completo, desde que una persona compraba su boleto hasta que el personal consultaba sus preferencias y registraba su abordaje.
+
+Además, la Definition of Done del Sprint 1 nos pedía trabajar con información real de pasajeros de clase ejecutiva y permitir búsquedas por nombre, apellido o asiento.
+
+También necesitábamos controlar quién podía utilizar cada parte de la aplicación. No queríamos que cualquier cliente pudiera entrar al panel de tripulación, consultar información de otros pasajeros o utilizar el escáner de abordaje.
+
+Por estas razones, consideramos necesario unir ambos proyectos y organizar mejor las bases de datos y los permisos.
+
+### Quién decidió, quién aprobó y posturas en el equipo
+
+- **Quién decidió:** La integración quedó registrada como una decisión técnica del equipo para conectar las reservas del sitio web con las funcionalidades del prototipo. No se conserva evidencia suficiente para atribuirla a un integrante específico.
+- **Quién aprobó:** No quedó documentada una aprobación individual verificable, por lo que no asignamos esta aprobación a una persona en particular.
+- **Postura del equipo:** La necesidad principal era contar con un solo producto funcional, utilizando datos reales y diferenciando las operaciones de clientes y tripulación.
 
 ## Decisión
-Fusionaremos Proyecto_AviancaWeb dentro de MA_PowerCoders_4.0 con dos carpetas: `frontend/` (sitio, pase de abordar, panel de tripulación y gestión del personal) y `backend/` (API Express que también sirve el frontend). Usaremos dos bases MongoDB separadas: la **base de clientes**, que ya existe, guarda cuentas y sesiones de clientes, vuelos, reservas, boletos, pasajeros y su perfil de atención; la **base de Avianca**, nueva, guarda las cuentas del personal, sus sesiones, el registro de abordaje y la auditoría. En ambas se guardan nombre, apellido, correo y un hash Argon2id de la contraseña. El inicio de sesión tiene dos accesos, clientes y Personal Avianca, y cada sesión se guarda en la base de su cuenta. Solo una azafata o un administrador ven el escáner QR, la ficha del pasajero y el mapa de asientos; solo un administrador reinicia el abordaje y crea cuentas del personal. El pase pasa al formato AVPC2: el QR lleva una referencia al boleto y los datos visibles del pase, y las preferencias se consultan en la base solo con una cuenta autorizada. Descartamos guardar a las azafatas en `usuarios` con un campo de rol, mantener dos repositorios y proteger el panel solo ocultando enlaces en el navegador.
+
+Decidimos unir `Proyecto_AviancaWeb` con `MA_PowerCoders_4.0` en un solo repositorio, organizando el proyecto principalmente en dos carpetas:
+
+- `frontend/`, donde estarían el sitio web, las reservas, los pases de abordar y el panel de tripulación.
+- `backend/`, donde manejaríamos la API Express, las sesiones, los permisos y las conexiones con MongoDB.
+
+También decidimos utilizar dos bases de datos MongoDB con responsabilidades diferentes.
+
+La **base de clientes** almacenaría las cuentas de usuarios, vuelos, reservas, boletos, pasajeros y preferencias de atención.
+
+La **base de Avianca** estaría orientada a las operaciones del personal, incluyendo sus cuentas, sesiones, registros de abordaje y auditoría.
+
+Para proteger el acceso, implementaríamos permisos según el tipo de cuenta. Las operaciones de la tripulación y de los administradores debían comprobarse desde el backend, en lugar de depender únicamente de ocultar botones o enlaces en el navegador.
+
+También adoptamos el formato de pase `AVPC2`, en el que el QR contiene una referencia al boleto y los datos necesarios del pase, mientras que la información sensible del pasajero, como alergias o preferencias, se consulta desde la base de datos mediante una cuenta autorizada.
+
+Con esta decisión descartamos mantener ambos proyectos separados y depender únicamente de datos simulados para el abordaje.
+
+Posteriormente, el ADR 0008 documentó el despliegue conjunto del frontend y la API en Vercel, mientras que el ADR 0011 aclaró algunos mecanismos de compatibilidad de cuentas y los límites de protección de las páginas estáticas.
 
 ## Consecuencias
-+ **Qué se gana:** El flujo completo de la demo con datos reales: el cliente reserva indicando cómo quiere que lo atiendan, abre su pase desde Mis reservas y la azafata lo escanea y ve su ficha, idioma, país y alergias.
-+ **Qué se gana:** Separación de cuentas y de riesgos: un cliente no puede obtener permisos de tripulación cambiando un campo, y un problema en la base de clientes no expone las cuentas del personal.
-+ **Qué se gana:** Privacidad: el código QR ya no contiene alergias ni preferencias; un tercero que lo escanee con su teléfono no ve datos del pasajero.
-+ **Qué se gana:** El registro de abordaje se comparte entre las tabletas del personal y queda auditado (quién registró a cada pasajero y cuándo), en lugar de vivir en un solo navegador.
-+ **Qué se gana (Puerta de dos vías):** Las dos bases pueden estar en el mismo clúster de Atlas o en clústeres distintos cambiando solo variables de entorno.
-− **Qué se pierde:** No hay transacciones entre las dos bases: si una reserva se cancela después de abordar, el registro de abordaje queda en la base de Avianca aunque el panel ya no muestre a ese pasajero.
-− **Qué se pierde:** El panel de tripulación necesita conexión con el servidor; el respaldo en `localStorage` del ADR 0001 ya no aplica al abordaje.
-− **Qué se pierde (Puerta de una vía):** Los pases AVPC1 generados con el prototipo dejan de ser válidos y hay que abrir el pase desde Mis reservas; volver a cambiar el formato obligaría a regenerar todos los pases emitidos.
-− **Qué se pierde:** Complementa el ADR 0003: como la sesión usa una cookie `SameSite=Strict`, el frontend se sirve desde el mismo servicio Express que la API. GitHub Pages o Vercel solo publican la parte estática, sin inicio de sesión ni datos.
-− **Qué se pierde:** Más configuración: una variable de entorno nueva (`MONGODB_DB_AVIANCA`), un usuario de Atlas con permisos sobre las dos bases y un script para crear la primera cuenta de administración.
+
++ **Qué se gana:** Podemos conectar el proceso de compra con el pase de abordar y la consulta de pasajeros desde el panel de tripulación.
++ **Qué se gana:** La tripulación puede consultar datos del pasajero, como su asiento, idioma, preferencias de alimentación y solicitudes especiales.
++ **Qué se gana:** Las operaciones del personal y de los clientes pueden diferenciarse mediante permisos controlados desde el backend.
++ **Qué se gana:** El QR evita incluir directamente información sensible del pasajero, como alergias o preferencias personales.
++ **Qué se gana:** Los registros de abordaje pueden consultarse desde diferentes tabletas y guardar información sobre quién realizó cada registro y cuándo.
++ **Qué se gana (Puerta de dos vías):** Podemos mantener las dos bases de datos en un mismo clúster de Atlas o utilizar clústeres diferentes mediante variables de entorno.
+
+- **Qué se pierde:** Al trabajar con dos bases de datos, debemos cuidar que la información se mantenga consistente entre las reservas y las operaciones de abordaje.
+- **Qué se pierde:** El panel de tripulación depende de la conexión con el servidor para consultar y registrar información real.
+- **Qué se pierde (Puerta de una vía):** El cambio al formato AVPC2 afecta la compatibilidad con los pases anteriores del prototipo y puede requerir generar nuevos pases.
+- **Qué se pierde:** Integrar ambos proyectos aumenta la complejidad del código y requiere mantener una configuración adecuada de sesiones, permisos y bases de datos.
+- **Qué se pierde:** Aunque inicialmente buscamos separar las cuentas del personal de las de clientes, la implementación posterior incorporó mecanismos de compatibilidad que deben revisarse para garantizar que los permisos funcionen correctamente.
