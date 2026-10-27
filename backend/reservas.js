@@ -10,15 +10,26 @@ const { registrarPasoEmbudo } = require('./metricas');
 const fallo = (status, mensaje) => Object.assign(new Error(mensaje), { status });
 const texto = (v, max = 80) => typeof v === 'string' && v.trim().length > 0 && v.trim().length <= max && !/[\u0000-\u001f]/.test(v);
 
+const MAPA_IDIOMAS = {
+  es: 'es', espanol: 'es', español: 'es', spanish: 'es',
+  en: 'en', ingles: 'en', inglés: 'en', english: 'en',
+  pt: 'pt', portugues: 'pt', português: 'pt',
+  fr: 'fr', frances: 'fr', français: 'fr', french: 'fr'
+};
+
 // Cómo quiere ser reconocido el pasajero en este viaje: trato, idioma del saludo, atención a bordo y motivo.
 // Es opcional para no romper clientes anteriores; sin perfil se usan valores neutros.
 function validarPerfil(perfil, preferencias) {
   if (perfil === undefined) return { trato: '', idioma: 'es', atencion: preferencias.noMolestar ? 1 : 0, motivo: 0 };
-  if (!perfil || typeof perfil !== 'object' || Array.isArray(perfil) || Object.keys(perfil).some(k => !['trato','idioma','atencion','motivo'].includes(k)) ||
-      typeof perfil.trato !== 'string' || perfil.trato.length > 40 || /[\u0000-\u001f]/.test(perfil.trato) || !IDIOMAS.includes(perfil.idioma) ||
+  if (!perfil || typeof perfil !== 'object' || Array.isArray(perfil) || Object.keys(perfil).some(k => !['trato','idioma','atencion','motivo'].includes(k))) {
+    throw fallo(400,'Revisa cómo prefiere ser atendido cada pasajero.');
+  }
+  const idiomaClave = typeof perfil.idioma === 'string' ? perfil.idioma.toLowerCase().trim() : '';
+  const idiomaNormalizado = MAPA_IDIOMAS[idiomaClave] || perfil.idioma;
+  if (typeof perfil.trato !== 'string' || perfil.trato.length > 40 || /[\u0000-\u001f]/.test(perfil.trato) || !IDIOMAS.includes(idiomaNormalizado) ||
       !Number.isInteger(perfil.atencion) || perfil.atencion < 0 || perfil.atencion > 2 ||
       !Number.isInteger(perfil.motivo) || perfil.motivo < 0 || perfil.motivo > 3) throw fallo(400,'Revisa cómo prefiere ser atendido cada pasajero.');
-  return { trato: perfil.trato.trim(), idioma: perfil.idioma, atencion: perfil.atencion, motivo: perfil.motivo };
+  return { trato: perfil.trato.trim(), idioma: idiomaNormalizado, atencion: perfil.atencion, motivo: perfil.motivo };
 }
 
 function validar(b) {

@@ -33,7 +33,11 @@ function normalizarPerfil(raw, usuario) {
       numero: typeof p.documento?.numero === "string" ? p.documento.numero.trim().toUpperCase() : "",
       paisEmisor: typeof p.documento?.paisEmisor === "string" && /^[A-Za-z]{2}$/.test(p.documento.paisEmisor) ? p.documento.paisEmisor.trim().toUpperCase() : "CO",
     },
-    idioma: IDIOMAS.includes(p.idioma) ? p.idioma : "es",
+    idioma: (() => {
+      const MAPA = { es: 'es', espanol: 'es', español: 'es', spanish: 'es', en: 'en', ingles: 'en', inglés: 'en', english: 'en', pt: 'pt', portugues: 'pt', português: 'pt', fr: 'fr', frances: 'fr', français: 'fr', french: 'fr' };
+      const raw = typeof p.idioma === 'string' ? p.idioma.toLowerCase().trim() : '';
+      return MAPA[raw] || (IDIOMAS.includes(p.idioma) ? p.idioma : 'es');
+    })(),
     comida: COMIDAS.includes(p.comida) ? p.comida : "sin_preferencia",
     atencion,
     motivo,

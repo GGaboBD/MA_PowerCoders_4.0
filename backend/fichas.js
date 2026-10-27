@@ -33,7 +33,7 @@ async function completarBoletos(db, boletos) {
       boleto: boleto.numero, asiento: boleto.asiento, cabina: boleto.clase,
       nombre: persona?.nombres || 'Pasajero', apellido: persona?.apellidos || 'sin nombre',
       pais: persona?.documento?.paisEmisor || '',
-      trato: perfil?.trato || '', idioma: perfil?.idioma || 'es',
+      trato: perfil?.trato || '', idioma: perfil?.idioma || persona?.preferencias?.idioma || 'es',
       atencion: perfil?.atencion ?? (noMolestar ? 1 : 0), motivo: perfil?.motivo ?? 0,
       comida, bebida, notas, alergias, noMolestar,
       estado: boleto.estado || 'reservado',

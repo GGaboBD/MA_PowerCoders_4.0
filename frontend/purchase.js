@@ -328,6 +328,9 @@ function buildPayload() {
     const comidaKey = foods[comidaTexto] || "sin_preferencia";
     const noMolestarBool = atencionTexto === "Prefiero descansar sin interrupciones";
 
+    const idiomaSel = get(i, "idioma");
+    const idiomaVal = ["es", "en", "pt", "fr"].includes(idiomaSel) ? idiomaSel : "es";
+
     return {
       asiento: asiento || (cabinKey === "ejecutiva" ? (i === 0 ? "4A" : `${i + 4}B`) : (i === 0 ? "1A" : `${i + 1}B`)),
       nombres: nombre,
@@ -343,13 +346,14 @@ function buildPayload() {
       preferencias: {
         comida: comidaKey,
         noMolestar: noMolestarBool,
+        idioma: idiomaVal,
         alergias: get(i, "alergias").split(",").map(a => a.trim()).filter(Boolean),
         bebida: get(i, "bebida"),
         notas: [get(i, "notas"), atencionTexto === "Prefiero que me consulten antes" ? "Consultar antes de interrumpir." : ""].filter(Boolean).join(" ")
       },
       perfil: {
         trato: nombre ? (nombre + " " + apellido) : "",
-        idioma: "es",
+        idioma: idiomaVal,
         atencion: atencionTexto === "Prefiero que me consulten antes" ? 2 : (noMolestarBool ? 1 : 0),
         motivo: 1
       }
@@ -898,7 +902,7 @@ async function init() {
   passengersRoot.replaceChildren();
   for (let i = 1; i <= count; i++) {
     const field = (label, control, extra = '') => `<div class="campo-form ${extra}"><label for="p${i}-${label.id}">${label.text}</label>${control}</div>`;
-    passengersRoot.insertAdjacentHTML('beforeend', `<section class="pasajero-bloque"><div class="pasajero-titulo"><h2>Pasajero ${i}</h2><span>Información para este itinerario</span></div><div class="campos-pasajero">${field({ text: 'Nombre', id: 'nombre' }, `<input id="p${i}-nombre" name="nombre" maxlength="80" autocomplete="off" required>`)}${field({ text: 'Apellido', id: 'apellido' }, `<input id="p${i}-apellido" name="apellido" maxlength="80" autocomplete="off" required>`)}${field({ text: 'Fecha de nacimiento', id: 'nacimiento' }, `<input id="p${i}-nacimiento" type="date" min="1900-01-01" max="${new Date().toISOString().slice(0, 10)}" required>`)}${field({ text: 'Tipo de documento', id: 'tipo' }, `<select id="p${i}-tipo"><option value="pasaporte">Pasaporte</option><option value="identidad">Identidad</option></select>`)}${field({ text: 'País emisor (2 letras, ej. CO)', id: 'pais' }, `<input id="p${i}-pais" maxlength="2" pattern="[A-Za-z]{2}" value="CO" required>`)}${field({ text: 'Documento de identidad', id: 'documento' }, `<input id="p${i}-documento" name="documento" maxlength="40" autocomplete="off" required>`)}${field({ text: 'Preferencia de comida', id: 'comida' }, `<select id="p${i}-comida" name="comida"><option value="Sin preferencia">Sin preferencia</option><option value="Vegetariana">Vegetariana</option><option value="Vegana">Vegana</option><option value="Sin gluten">Sin gluten</option><option value="Otra preferencia">Otra preferencia</option></select>`)}${field({ text: 'Atención a bordo', id: 'atencion' }, `<select id="p${i}-atencion" name="atencion"><option value="Atención habitual">Atención habitual</option><option value="Prefiero descansar sin interrupciones">Prefiero descansar sin interrupciones</option><option value="Prefiero que me consulten antes">Prefiero que me consulten antes</option></select>`)}${field({ text: 'Bebida (opcional)', id: 'bebida' }, `<input id="p${i}-bebida" maxlength="80">`)}${field({ text: 'Notas (opcional)', id: 'notas' }, `<input id="p${i}-notas" maxlength="900">`)}${field({ text: 'Alergias separadas por comas (opcional)', id: 'alergias' }, `<input id="p${i}-alergias" name="alergias" autocomplete="off" placeholder="Déjalo vacío si no aplica">`, 'alergias')}</div></section>`);
+    passengersRoot.insertAdjacentHTML('beforeend', `<section class="pasajero-bloque"><div class="pasajero-titulo"><h2>Pasajero ${i}</h2><span>Información para este itinerario</span></div><div class="campos-pasajero">${field({ text: 'Nombre', id: 'nombre' }, `<input id="p${i}-nombre" name="nombre" maxlength="80" autocomplete="off" required>`)}${field({ text: 'Apellido', id: 'apellido' }, `<input id="p${i}-apellido" name="apellido" maxlength="80" autocomplete="off" required>`)}${field({ text: 'Fecha de nacimiento', id: 'nacimiento' }, `<input id="p${i}-nacimiento" type="date" min="1900-01-01" max="${new Date().toISOString().slice(0, 10)}" required>`)}${field({ text: 'Tipo de documento', id: 'tipo' }, `<select id="p${i}-tipo"><option value="pasaporte">Pasaporte</option><option value="identidad">Identidad</option></select>`)}${field({ text: 'País emisor (2 letras, ej. CO)', id: 'pais' }, `<input id="p${i}-pais" maxlength="2" pattern="[A-Za-z]{2}" value="CO" required>`)}${field({ text: 'Documento de identidad', id: 'documento' }, `<input id="p${i}-documento" name="documento" maxlength="40" autocomplete="off" required>`)}${field({ text: 'Idioma de atención', id: 'idioma' }, `<select id="p${i}-idioma" name="idioma"><option value="es">Español</option><option value="en">English</option><option value="pt">Português</option><option value="fr">Français</option></select>`)}${field({ text: 'Preferencia de comida', id: 'comida' }, `<select id="p${i}-comida" name="comida"><option value="Sin preferencia">Sin preferencia</option><option value="Vegetariana">Vegetariana</option><option value="Vegana">Vegana</option><option value="Sin gluten">Sin gluten</option><option value="Otra preferencia">Otra preferencia</option></select>`)}${field({ text: 'Atención a bordo', id: 'atencion' }, `<select id="p${i}-atencion" name="atencion"><option value="Atención habitual">Atención habitual</option><option value="Prefiero descansar sin interrupciones">Prefiero descansar sin interrupciones</option><option value="Prefiero que me consulten antes">Prefiero que me consulten antes</option></select>`)}${field({ text: 'Bebida (opcional)', id: 'bebida' }, `<input id="p${i}-bebida" maxlength="80">`)}${field({ text: 'Notas (opcional)', id: 'notas' }, `<input id="p${i}-notas" maxlength="900">`)}${field({ text: 'Alergias separadas por comas (opcional)', id: 'alergias' }, `<input id="p${i}-alergias" name="alergias" autocomplete="off" placeholder="Déjalo vacío si no aplica">`, 'alergias')}</div></section>`);
   }
 
   const back = new URLSearchParams(params);
@@ -948,6 +952,9 @@ async function init() {
             if (pf.documento.tipo) setSelectByTextOrValue(document.querySelector("#p1-tipo"), pf.documento.tipo);
             if (pf.documento.paisEmisor) setVal("#p1-pais", pf.documento.paisEmisor);
             if (pf.documento.numero) setVal("#p1-documento", pf.documento.numero);
+          }
+          if (pf.idioma) {
+            setSelectByTextOrValue(document.querySelector("#p1-idioma"), pf.idioma);
           }
           if (pf.comida) {
             const comidaMap = {
