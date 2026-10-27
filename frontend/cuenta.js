@@ -1,147 +1,186 @@
-/* Registro conectado a la API. Inicio de sesión conectado a MongoDB. */
-'use strict';
-const tabs = [...document.querySelectorAll('[role="tab"]')];
-function changePanel(mode, focusTab = false) {
-  tabs.forEach(tab => {
-    const active = tab.id === `tab-${mode}`;
-    tab.setAttribute('aria-selected', String(active));
-    tab.tabIndex = active ? 0 : -1;
-    document.getElementById(tab.getAttribute('aria-controls')).hidden = !active;
-    if (active && focusTab) tab.focus();
-  });
-  document.querySelectorAll('.cuenta-mensaje').forEach(message => { message.hidden = true; });
+// Manejo de tabs en la vista de cuenta: alternar entre login y registro.
+const tabLogin = document.getElementById('tab-login');
+const tabRegistro = document.getElementById('tab-registro');
+const panelLogin = document.getElementById('panel-login');
+const panelRegistro = document.getElementById('panel-registro');
+
+function changePanel(panel) {
+  const isLogin = panel === 'login';
+  tabLogin.setAttribute('aria-selected', isLogin ? 'true' : 'false');
+  tabRegistro.setAttribute('aria-selected', !isLogin ? 'true' : 'false');
+  tabLogin.tabIndex = isLogin ? 0 : -1;
+  tabRegistro.tabIndex = !isLogin ? 0 : -1;
+  panelLogin.hidden = !isLogin;
+  panelRegistro.hidden = isLogin;
 }
-tabs.forEach((tab, index) => {
-  tab.addEventListener('click', () => changePanel(tab.id.replace('tab-', '')));
-  tab.addEventListener('keydown', event => {
-    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-    event.preventDefault();
-    const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + 1) % tabs.length;
-    changePanel(tabs[next].id.replace('tab-', ''), true);
-  });
-});
-document.querySelectorAll('[data-switch]').forEach(button => {
-  button.addEventListener('click', () => changePanel(button.dataset.switch, true));
-});
+
+tabLogin.addEventListener('click', () => changePanel('login'));
+tabRegistro.addEventListener('click', () => changePanel('registro'));
+
+// Botones para mostrar/ocultar contraseña (accesibilidad).
 document.querySelectorAll('[data-password]').forEach(button => {
   button.addEventListener('click', () => {
-    const input = document.getElementById(button.dataset.password);
-    const show = input.type === 'password';
-    input.type = show ? 'text' : 'password';
-    button.textContent = show ? 'Ocultar' : 'Mostrar';
-    button.setAttribute('aria-pressed', String(show));
-    button.setAttribute('aria-label', `${show ? 'Ocultar' : 'Mostrar'} ${input.id.endsWith('confirmacion') ? 'confirmación de contraseña' : 'contraseña'}`);
+    const target = document.getElementById(button.dataset.password);
+    if (!target) return;
+    const isPassword = target.type === 'password';
+    target.type = isPassword ? 'text' : 'password';
+    button.textContent = isPassword ? 'Ocultar' : 'Mostrar';
+    button.setAttribute('aria-pressed', isPassword ? 'true' : 'false');
   });
 });
-const registration = document.getElementById('form-registro');
-const password = document.getElementById('registro-password');
-const confirmation = document.getElementById('registro-confirmacion');
-function validateRegistration() {
-  confirmation.setCustomValidity(confirmation.value && confirmation.value !== password.value ? 'Las contraseñas deben coincidir.' : '');
-  ['registro-nombre', 'registro-apellido'].forEach(id => {
-    const input = document.getElementById(id);
-    input.setCustomValidity(input.value && !input.value.trim() ? 'Escribe un nombre o apellido válido.' : '');
-  });
-}
-registration.addEventListener('input', validateRegistration);
 
-const message = document.getElementById('mensaje-registro');
-const submit = registration.querySelector('[type="submit"]');
-submit.disabled = false;
-let pending = false;
-registration.addEventListener('input', () => { if (!pending) message.hidden = true; });
-registration.addEventListener('submit', async event => {
-  event.preventDefault();
-  if (pending) return;
-  validateRegistration();
-  if (!registration.reportValidity()) return;
-  const body = {
-    nombre: document.getElementById('registro-nombre').value,
-    apellido: document.getElementById('registro-apellido').value,
-    correo: document.getElementById('registro-email').value,
-    password: password.value,
-  };
-  pending = true;
-  const controls = [...registration.querySelectorAll('input, button')];
-  controls.forEach(control => { control.disabled = true; });
-  submit.textContent = 'Creando cuenta…';
-  registration.setAttribute('aria-busy', 'true');
-  message.textContent = 'Guardando tu cuenta…'; message.hidden = false;
-  try {
-    const response = await fetch('/api/registro', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body), signal: AbortSignal.timeout(20000),
-    });
-    const result = await response.json();
-    if (!response.ok || !result.ok) {
-      message.textContent = result.mensaje || 'No se pudo completar el registro.';
-      return;
-    }
-    registration.reset();
-    password.type = 'password'; confirmation.type = 'password';
-    registration.querySelectorAll('[data-password]').forEach(button => {
-      button.textContent = 'Mostrar'; button.setAttribute('aria-pressed', 'false');
-      button.setAttribute('aria-label', button.dataset.password.endsWith('confirmacion') ? 'Mostrar confirmación de contraseña' : 'Mostrar contraseña');
-    });
-    message.textContent = 'Cuenta creada correctamente. Abre Iniciar sesión para acceder con tu correo y contraseña.';
-    document.getElementById('login-email').value = body.correo.trim().toLowerCase();
-  } catch {
-    message.textContent = 'No pudimos confirmar el resultado. La cuenta podría haberse guardado: comprueba usuarios en MongoDB antes de reintentar.';
-  } finally {
-    pending = false;
-    controls.forEach(control => { control.disabled = false; });
-    submit.textContent = 'Crear cuenta';
-    registration.setAttribute('aria-busy', 'false');
-    message.hidden = false;
-  }
+// Validación en tiempo real del formulario de registro.
+const regNombre = document.getElementById('reg-nombre');
+const regEmail = document.getElementById('reg-email');
+const regPassword = document.getElementById('reg-password');
+const regConfirm = document.getElementById('reg-confirm');
+const regSubmit = document.querySelector('#form-registro button[type="submit"]');
+
+const reqLength = document.getElementById('req-length');
+const reqUpper = document.getElementById('req-upper');
+const reqLower = document.getElementById('req-lower');
+const reqDigit = document.getElementById('req-digit');
+const reqSymbol = document.getElementById('req-symbol');
+const reqConfirm = document.getElementById('req-confirm');
+
+function updateRule(element, isValid) {
+  element.dataset.valid = isValid ? 'true' : 'false';
+  element.setAttribute('aria-checked', isValid ? 'true' : 'false');
+}
+
+function validatePassword() {
+  const password = regPassword.value;
+  const hasLength = password.length >= 8 && password.length <= 128;
+  const hasUpper = /[A-Z]/.test(password);
+  const hasLower = /[a-z]/.test(password);
+  const hasDigit = /[0-9]/.test(password);
+  const hasSymbol = /[^A-Za-z0-9]/.test(password);
+  const hasConfirm = regConfirm.value.length > 0 && regConfirm.value === password;
+
+  updateRule(reqLength, hasLength);
+  updateRule(reqUpper, hasUpper);
+  updateRule(reqLower, hasLower);
+  updateRule(reqDigit, hasDigit);
+  updateRule(reqSymbol, hasSymbol);
+  updateRule(reqConfirm, hasConfirm);
+
+  const isFormValid =
+    regNombre.value.trim().length > 0 &&
+    regEmail.checkValidity() &&
+    hasLength &&
+    hasUpper &&
+    hasLower &&
+    hasDigit &&
+    hasSymbol &&
+    hasConfirm;
+
+  regSubmit.disabled = !isFormValid;
+}
+
+[regNombre, regEmail, regPassword, regConfirm].forEach(input => {
+  input.addEventListener('input', validatePassword);
 });
-const loginForm = document.getElementById('form-login');
-const loginMessage = document.getElementById('mensaje-login');
-const loginSubmit = loginForm.querySelector('[type="submit"]');
-loginSubmit.disabled = false;
-let loggingIn = false;
-loginForm.addEventListener('submit', async event => {
+
+// Activación del botón de submit en login al tener valores no vacíos.
+const loginEmail = document.getElementById('login-email');
+const loginPassword = document.getElementById('login-password');
+const loginSubmit = document.querySelector('#form-login button[type="submit"]');
+
+function validateLogin() {
+  loginSubmit.disabled = !(loginEmail.value.trim() && loginPassword.value);
+}
+
+loginEmail.addEventListener('input', validateLogin);
+loginPassword.addEventListener('input', validateLogin);
+
+// Envío con fetch para no perder la página ni los datos del usuario.
+const formLogin = document.getElementById('form-login');
+const mensajeLogin = document.getElementById('mensaje-login');
+
+formLogin.addEventListener('submit', async event => {
   event.preventDefault();
-  if (loggingIn || !loginForm.reportValidity()) return;
-  loggingIn = true;
-  const controls = [...loginForm.querySelectorAll('input, button')];
-  const body = { correo: document.getElementById('login-email').value, password: document.getElementById('login-password').value };
-  controls.forEach(control => { control.disabled = true; });
-  loginSubmit.textContent = 'Ingresando…';
-  loginForm.setAttribute('aria-busy', 'true');
-  loginMessage.textContent = 'Comprobando tus datos…'; loginMessage.hidden = false;
+  loginSubmit.disabled = true;
+  mensajeLogin.hidden = true;
+  const email = loginEmail.value.trim();
+  const password = loginPassword.value;
   try {
-    const response = await fetch('/api/login', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(20000) });
-    const result = await response.json();
-    if (!response.ok || !result.ok) { loginMessage.textContent = result.mensaje || 'No se pudo iniciar sesión.'; return; }
-    document.getElementById('login-password').value = '';
-    window.SesionUI.autenticar(result.usuario);
-    const params = new URLSearchParams(window.location.search);
-    const esTripulacion = result.usuario && (
-      result.usuario.tipoCuenta === 'personal' ||
-      ['tripulacion', 'azafata', 'administrador'].includes(result.usuario.rol) ||
-      (Array.isArray(result.usuario.permisos) && result.usuario.permisos.includes('tripulacion.ver'))
-    );
-    if (esTripulacion) {
-      window.location.href = 'tripulacion.html';
+    const response = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ok) {
+      mensajeLogin.textContent = data.mensaje || 'No fue posible iniciar sesión. Revisa tus datos.';
+      mensajeLogin.hidden = false;
+      loginSubmit.disabled = false;
       return;
     }
-    const volver = params.get('volver') || params.get('redirect');
-    if (volver && !volver.includes('tripulacion.html') && !volver.startsWith('http')) {
+    window.SesionUI?.actualizar();
+    const params = new URLSearchParams(window.location.search);
+    const volver = params.get('volver');
+    if (volver && !volver.startsWith('//') && !volver.includes('://')) {
       window.location.href = volver;
       return;
     }
-    window.location.href = 'index.html';
-    return;
-  } catch {
-    loginMessage.textContent = 'No pudimos confirmar el acceso. Recarga la página para comprobar si la sesión se inició.';
-  } finally {
-    loggingIn = false;
-    controls.forEach(control => { control.disabled = false; });
-    loginSubmit.textContent = 'Iniciar sesión';
-    loginForm.setAttribute('aria-busy', 'false');
+    const usuario = data.usuario;
+    const destino = (usuario.tipoCuenta === 'personal' || ['tripulacion', 'azafata', 'administrador'].includes(usuario.rol))
+      ? 'tripulacion.html'
+      : 'index.html';
+    window.location.href = destino;
+  } catch (error) {
+    mensajeLogin.textContent = 'Hubo un error de conexión al iniciar sesión. Inténtalo de nuevo.';
+    mensajeLogin.hidden = false;
+    loginSubmit.disabled = false;
   }
 });
+
+// Envío del registro con fetch y auto-login tras éxito.
+const formRegistro = document.getElementById('form-registro');
+const mensajeRegistro = document.getElementById('mensaje-registro');
+
+formRegistro.addEventListener('submit', async event => {
+  event.preventDefault();
+  regSubmit.disabled = true;
+  mensajeRegistro.hidden = true;
+  const nombre = regNombre.value.trim();
+  const email = regEmail.value.trim();
+  const password = regPassword.value;
+  try {
+    const response = await fetch('/api/registro', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nombre, email, password }),
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ok) {
+      mensajeRegistro.textContent = data.mensaje || 'No fue posible crear la cuenta. Revisa los datos.';
+      mensajeRegistro.hidden = false;
+      regSubmit.disabled = false;
+      return;
+    }
+    // Tras crear la cuenta, iniciamos sesión con las mismas credenciales.
+    const loginRes = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const loginData = await loginRes.json();
+    if (loginRes.ok && loginData.ok) {
+      window.SesionUI?.actualizar();
+      window.location.href = 'index.html';
+      return;
+    }
+    mensajeRegistro.textContent = 'Cuenta creada. Inicia sesión con tus credenciales.';
+    mensajeRegistro.hidden = false;
+    changePanel('login');
+  } catch (error) {
+    mensajeRegistro.textContent = 'Hubo un error de red al crear la cuenta. Inténtalo de nuevo.';
+    mensajeRegistro.hidden = false;
+    regSubmit.disabled = false;
+  }
+});
+
 changePanel('login');
 
 // Manejo del formulario de perfil integrado en Mi cuenta
@@ -150,9 +189,92 @@ const perfilMsg = document.getElementById('msg-perfil-cuenta');
 const perfilSubmit = document.getElementById('btn-guardar-perfil-cuenta');
 const btnTripulacion = document.getElementById('btn-ir-tripulacion');
 const btnCerrarPanel = document.getElementById('btn-cerrar-sesion-panel');
+const btnRegresarCuenta = document.getElementById('btn-regresar-inicio-cuenta');
+
+let snapshotPerfilCuenta = null;
+let guardandoAuto = false;
+
+function serializarPerfilCuenta() {
+  if (!perfilForm) return '';
+  return JSON.stringify({
+    trato: document.getElementById('c-perfil-trato')?.value.trim() || '',
+    nombres: document.getElementById('c-perfil-nombres')?.value.trim() || '',
+    apellidos: document.getElementById('c-perfil-apellidos')?.value.trim() || '',
+    fechaNacimiento: document.getElementById('c-perfil-nacimiento')?.value || '',
+    tipo: document.getElementById('c-perfil-tipo-doc')?.value || '',
+    paisEmisor: document.getElementById('c-perfil-pais-doc')?.value.trim().toUpperCase() || '',
+    numero: document.getElementById('c-perfil-num-doc')?.value.trim().toUpperCase() || '',
+    idioma: document.getElementById('c-perfil-idioma')?.value || 'es',
+    comida: document.getElementById('c-perfil-comida')?.value || 'sin_preferencia',
+    atencion: document.getElementById('c-perfil-atencion')?.value || '0',
+    motivo: document.getElementById('c-perfil-motivo')?.value || '0',
+    bebida: document.getElementById('c-perfil-bebida')?.value.trim() || '',
+    alergias: document.getElementById('c-perfil-alergias')?.value.trim() || '',
+    noMolestar: Boolean(document.getElementById('c-perfil-no-molestar')?.checked),
+    notas: document.getElementById('c-perfil-notas')?.value.trim() || '',
+  });
+}
+
+function hayCambiosEnCuenta() {
+  if (!snapshotPerfilCuenta || !perfilForm || perfilForm.hidden) return false;
+  return serializarPerfilCuenta() !== snapshotPerfilCuenta;
+}
+
+function construirPayloadPerfilCuenta() {
+  return {
+    trato: document.getElementById('c-perfil-trato')?.value.trim() || '',
+    nombres: document.getElementById('c-perfil-nombres')?.value.trim() || '',
+    apellidos: document.getElementById('c-perfil-apellidos')?.value.trim() || '',
+    fechaNacimiento: document.getElementById('c-perfil-nacimiento')?.value || '',
+    documento: {
+      tipo: document.getElementById('c-perfil-tipo-doc')?.value || 'pasaporte',
+      paisEmisor: (document.getElementById('c-perfil-pais-doc')?.value || 'CO').trim().toUpperCase(),
+      numero: (document.getElementById('c-perfil-num-doc')?.value || '').trim().toUpperCase(),
+    },
+    idioma: document.getElementById('c-perfil-idioma')?.value || 'es',
+    comida: document.getElementById('c-perfil-comida')?.value || 'sin_preferencia',
+    atencion: parseInt(document.getElementById('c-perfil-atencion')?.value || '0', 10),
+    motivo: parseInt(document.getElementById('c-perfil-motivo')?.value || '0', 10),
+    bebida: document.getElementById('c-perfil-bebida')?.value.trim() || '',
+    alergias: (document.getElementById('c-perfil-alergias')?.value || '').split(',').map(s => s.trim()).filter(Boolean),
+    noMolestar: Boolean(document.getElementById('c-perfil-no-molestar')?.checked),
+    notas: document.getElementById('c-perfil-notas')?.value.trim() || '',
+  };
+}
+
+async function guardarCambiosPerfilCuenta(silencioso = false) {
+  if (!hayCambiosEnCuenta() || guardandoAuto) return true;
+  guardandoAuto = true;
+  try {
+    const payload = construirPayloadPerfilCuenta();
+    if (navigator.sendBeacon && silencioso) {
+      const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+      navigator.sendBeacon('/api/perfil', blob);
+      return true;
+    }
+    const response = await fetch('/api/perfil', {
+      method: 'PUT',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      keepalive: true,
+      signal: AbortSignal.timeout(10000),
+    });
+    if (response.ok) {
+      snapshotPerfilCuenta = serializarPerfilCuenta();
+      return true;
+    }
+  } catch (e) {
+    // Silencioso al salir
+  } finally {
+    guardandoAuto = false;
+  }
+  return false;
+}
 
 if (btnCerrarPanel) {
   btnCerrarPanel.addEventListener('click', async () => {
+    await guardarCambiosPerfilCuenta(true);
     btnCerrarPanel.disabled = true;
     try {
       await fetch('/api/logout', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: '{}' });
@@ -183,6 +305,7 @@ function llenarPerfilCuenta(p) {
   const noMolestarEl = document.getElementById('c-perfil-no-molestar');
   if (noMolestarEl) noMolestarEl.checked = Boolean(p.noMolestar);
   setV('c-perfil-notas', p.notas);
+  snapshotPerfilCuenta = serializarPerfilCuenta();
 }
 
 async function cargarPerfilCuenta(usuario) {
@@ -214,25 +337,7 @@ if (perfilForm) {
     perfilSubmit.textContent = 'Guardando preferencias…';
     perfilMsg.hidden = true;
 
-    const payload = {
-      trato: document.getElementById('c-perfil-trato').value.trim(),
-      nombres: document.getElementById('c-perfil-nombres').value.trim(),
-      apellidos: document.getElementById('c-perfil-apellidos').value.trim(),
-      fechaNacimiento: document.getElementById('c-perfil-nacimiento').value,
-      documento: {
-        tipo: document.getElementById('c-perfil-tipo-doc').value,
-        paisEmisor: document.getElementById('c-perfil-pais-doc').value.trim().toUpperCase(),
-        numero: document.getElementById('c-perfil-num-doc').value.trim().toUpperCase(),
-      },
-      idioma: document.getElementById('c-perfil-idioma').value,
-      comida: document.getElementById('c-perfil-comida').value,
-      atencion: parseInt(document.getElementById('c-perfil-atencion').value, 10),
-      motivo: parseInt(document.getElementById('c-perfil-motivo').value, 10),
-      bebida: document.getElementById('c-perfil-bebida').value.trim(),
-      alergias: document.getElementById('c-perfil-alergias').value.split(',').map(s => s.trim()).filter(Boolean),
-      noMolestar: document.getElementById('c-perfil-no-molestar').checked,
-      notas: document.getElementById('c-perfil-notas').value.trim(),
-    };
+    const payload = construirPayloadPerfilCuenta();
 
     try {
       const response = await fetch('/api/perfil', {
@@ -261,6 +366,42 @@ if (perfilForm) {
       perfilSubmit.disabled = false;
       perfilSubmit.textContent = 'Guardar preferencias';
     }
+  });
+
+  // Guardado automático al navegar fuera mediante enlaces internos
+  document.addEventListener('click', async event => {
+    const enlace = event.target.closest('a');
+    if (!enlace || !enlace.href) return;
+    if (enlace.target === '_blank' || enlace.href.startsWith('javascript:')) return;
+    if (hayCambiosEnCuenta()) {
+      event.preventDefault();
+      const href = enlace.href;
+      await guardarCambiosPerfilCuenta(false);
+      window.location.href = href;
+    }
+  });
+
+  // Guardado automático al cambiar de visibilidad o cerrar pestaña
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden' && hayCambiosEnCuenta()) {
+      guardarCambiosPerfilCuenta(true);
+    }
+  });
+  window.addEventListener('pagehide', () => {
+    if (hayCambiosEnCuenta()) {
+      guardarCambiosPerfilCuenta(true);
+    }
+  });
+}
+
+if (btnRegresarCuenta) {
+  btnRegresarCuenta.addEventListener('click', async () => {
+    if (hayCambiosEnCuenta()) {
+      btnRegresarCuenta.disabled = true;
+      btnRegresarCuenta.textContent = 'Guardando cambios…';
+      await guardarCambiosPerfilCuenta(false);
+    }
+    window.location.href = 'index.html';
   });
 }
 
