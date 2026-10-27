@@ -140,6 +140,7 @@
 
     $('vuelo').replaceChildren(new Option(`07:20 · AV 8402 · BOG → MDE · 0/${PASAJEROS_DEMO.length} a bordo`, vuelo.id));
     $('vuelo').value = vuelo.id;
+    buscadorVuelo.actualizar();
 
     const copiaPasajeros = structuredClone(PASAJEROS_DEMO);
     cabina = {
@@ -191,6 +192,165 @@
     try { const r = JSON.parse(localStorage.getItem(CLAVE_VUELO) || 'null'); return r?.fecha === fecha ? r.id : null; } catch { return null; }
   }
 
+  // El select original conserva los IDs, la selección y su evento change.
+  // El menú solo filtra sus códigos en memoria: escribir no consulta la API.
+  const buscadorVuelo = (() => {
+    const selector = $('vuelo');
+    const contenedor = $('vuelo-buscador');
+    const abrir = $('vuelo-abrir');
+    const menu = $('vuelo-menu');
+    const buscar = $('buscar-vuelo');
+    const lista = $('vuelo-opciones');
+    const limpiar = $('limpiar-buscar-vuelo');
+    const normalizar = texto => String(texto).toUpperCase().replace(/[\s-]/g, '');
+    let resultados = [];
+    let activo = -1;
+
+    function cerrar(devolverFoco = false) {
+      menu.hidden = true;
+      abrir.setAttribute('aria-expanded', 'false');
+      buscar.setAttribute('aria-expanded', 'false');
+      buscar.removeAttribute('aria-activedescendant');
+      if (devolverFoco) abrir.focus();
+    }
+
+    function activar(indice, desplazar = false) {
+      activo = indice;
+      [...lista.children].forEach((opcion, i) => opcion.classList.toggle('activa', i === activo));
+      const opcion = lista.children[activo];
+      if (opcion) {
+        buscar.setAttribute('aria-activedescendant', opcion.id);
+        if (desplazar) {
+          const fila = opcion.getBoundingClientRect();
+          const marco = lista.getBoundingClientRect();
+          if (fila.top < marco.top) lista.scrollTop -= marco.top - fila.top;
+          else if (fila.bottom > marco.bottom) lista.scrollTop += fila.bottom - marco.bottom;
+        }
+      } else buscar.removeAttribute('aria-activedescendant');
+    }
+
+    function pintar() {
+      const consulta = normalizar(buscar.value.trim());
+      const anterior = resultados[activo]?.value;
+      const posicionScroll = lista.scrollTop;
+      resultados = [...selector.options].map((opcion, orden) => {
+        const [hora = '', codigo = '', ruta = ''] = opcion.textContent.split(' · ');
+        const clave = normalizar(codigo);
+        const numero = clave.replace(/^[A-Z]+/, '');
+        const posicion = clave.indexOf(consulta);
+        const prioridad = clave === consulta || numero === consulta ? 0
+          : clave.startsWith(consulta) || numero.startsWith(consulta) ? 1 : 2;
+        return { value: opcion.value, hora, codigo, ruta, orden, posicion, prioridad };
+      }).filter(opcion => !consulta || opcion.posicion >= 0)
+        .sort((a, b) => consulta ? a.prioridad - b.prioridad || a.orden - b.orden : a.orden - b.orden);
+
+      lista.replaceChildren(...resultados.map((opcion, i) => {
+        const fila = document.createElement('li');
+        fila.className = 'vuelo-opcion';
+        fila.id = `vuelo-opcion-${i}`;
+        fila.dataset.vuelo = opcion.value;
+        fila.setAttribute('role', 'option');
+        fila.setAttribute('aria-selected', String(opcion.value === selector.value));
+        const codigo = document.createElement('strong');
+        // Resaltar como texto, sin interpretar el código ni la consulta como HTML.
+        if (consulta) {
+          const indices = [...opcion.codigo].map((letra, indice) => /[\s-]/.test(letra) ? -1 : indice).filter(indice => indice >= 0);
+          const inicio = indices[opcion.posicion];
+          const fin = indices[opcion.posicion + consulta.length - 1] + 1;
+          const marca = document.createElement('mark');
+          marca.textContent = opcion.codigo.slice(inicio, fin);
+          codigo.append(opcion.codigo.slice(0, inicio), marca, opcion.codigo.slice(fin));
+        } else codigo.textContent = opcion.codigo;
+        const hora = document.createElement('span'); hora.textContent = opcion.hora;
+        const check = document.createElement('span');
+        check.className = 'vuelo-opcion-check';
+        check.setAttribute('aria-hidden', 'true');
+        check.textContent = opcion.value === selector.value ? '✓' : '';
+        const ruta = document.createElement('span');
+        ruta.className = 'vuelo-opcion-ruta';
+        const [origen, destino] = opcion.ruta.split(' → ');
+        ruta.textContent = A.CIUDADES[origen] && A.CIUDADES[destino]
+          ? `${opcion.ruta} · ${A.CIUDADES[origen]} → ${A.CIUDADES[destino]}` : opcion.ruta;
+        fila.append(codigo, hora, check, ruta);
+        return fila;
+      }));
+      $('vuelo-coincidencias').textContent = consulta
+        ? `${resultados.length} ${resultados.length === 1 ? 'coincidencia' : 'coincidencias'}`
+        : `${resultados.length} vuelos disponibles`;
+      $('vuelo-sin-resultados').hidden = resultados.length > 0;
+      limpiar.hidden = buscar.value.length === 0;
+      const anteriorIndice = resultados.findIndex(opcion => opcion.value === anterior);
+      activar(anteriorIndice >= 0 ? anteriorIndice : resultados.length ? 0 : -1);
+      lista.scrollTop = posicionScroll;
+    }
+
+    function actualizar() {
+      $('vuelo-elegido').textContent = selector.selectedOptions[0]?.textContent || 'No hay vuelos disponibles';
+      abrir.disabled = selector.options.length === 0;
+      if (abrir.disabled) cerrar();
+      if (!menu.hidden) pintar();
+    }
+
+    function mostrar() {
+      if (abrir.disabled) return;
+      buscar.value = '';
+      menu.hidden = false;
+      abrir.setAttribute('aria-expanded', 'true');
+      buscar.setAttribute('aria-expanded', 'true');
+      pintar();
+      activar(resultados.findIndex(opcion => opcion.value === selector.value), true);
+      buscar.focus({ preventScroll: true });
+    }
+
+    function elegir(id) {
+      if (!resultados.some(opcion => opcion.value === id)) return;
+      const cambio = selector.value !== id;
+      selector.value = id;
+      actualizar();
+      cerrar(true);
+      if (cambio) selector.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    abrir.addEventListener('click', () => menu.hidden ? mostrar() : cerrar());
+    abrir.addEventListener('keydown', event => {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); mostrar(); }
+    });
+    buscar.addEventListener('input', () => { activo = -1; lista.scrollTop = 0; pintar(); });
+    limpiar.addEventListener('click', () => { buscar.focus(); buscar.value = ''; activo = -1; lista.scrollTop = 0; pintar(); });
+    buscar.addEventListener('keydown', event => {
+      if (event.isComposing) return;
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        if (resultados.length) activar((activo + (event.key === 'ArrowDown' ? 1 : -1) + resultados.length) % resultados.length, true);
+      } else if (event.key === 'Enter') {
+        event.preventDefault();
+        if (resultados[activo]) elegir(resultados[activo].value);
+      }
+    });
+    menu.addEventListener('keydown', event => {
+      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); cerrar(true); }
+    });
+    // Mantener el foco en el buscador hasta que se confirme la opción pulsada.
+    lista.addEventListener('mousedown', event => event.preventDefault());
+    lista.addEventListener('click', event => {
+      const opcion = event.target.closest('[data-vuelo]');
+      if (opcion && lista.contains(opcion)) elegir(opcion.dataset.vuelo);
+    });
+    contenedor.addEventListener('focusout', event => {
+      if (!contenedor.contains(event.relatedTarget)) cerrar();
+    });
+    document.addEventListener('click', event => { if (!contenedor.contains(event.target)) cerrar(); });
+    selector.addEventListener('change', actualizar);
+    $('fecha-vuelo').addEventListener('change', () => { cerrar(); buscar.value = ''; });
+    $('actualizar-cabina').addEventListener('click', () => { cerrar(); buscar.value = ''; });
+
+    selector.hidden = true;
+    contenedor.hidden = false;
+    $('etiqueta-vuelo').htmlFor = abrir.id;
+    actualizar();
+    return { actualizar };
+  })();
+
   async function cargarVuelos() {
     const fecha = $('fecha-vuelo').value;
     const estado = $('vuelo-estado');
@@ -203,12 +363,14 @@
       const anterior = selector.value || vueloRecordado(fecha);
       selector.replaceChildren(...datos.vuelos.map(v => new Option(`${v.hora} · ${v.codigo} · ${v.origen} → ${v.destino} · ${v.abordados}/${v.pasajeros} a bordo`, v.id)));
       if (!datos.vuelos.length) {
+        buscadorVuelo.actualizar();
         vuelo = null; limpiarCabina();
         estado.textContent = `No hay vuelos registrados que salgan el ${A.formatearFecha(fecha)}. Prueba con otra fecha.`;
         return;
       }
       const conPasajeros = datos.vuelos.find(v => v.pasajeros > 0);
       selector.value = datos.vuelos.some(v => v.id === anterior) ? anterior : (conPasajeros || datos.vuelos[0]).id;
+      buscadorVuelo.actualizar();
       await cargarCabina();
     } catch (error) {
       estado.textContent = error.name === 'TimeoutError' ? 'La consulta tardó demasiado. Pulsa Actualizar.' : error.message;
@@ -239,6 +401,7 @@
       const abordados = datos.pasajeros.filter(p => p.abordaje).length;
       const opcion = $('vuelo').selectedOptions[0];
       if (opcion) opcion.textContent = `${vuelo.hora} · ${vuelo.codigo} · ${vuelo.origen} → ${vuelo.destino} · ${abordados}/${datos.pasajeros.length} a bordo`;
+      buscadorVuelo.actualizar();
       $('vuelo-estado').textContent = `${vuelo.codigo} · ${A.CIUDADES[vuelo.origen] || vuelo.origen} → ${A.CIUDADES[vuelo.destino] || vuelo.destino} · ${A.formatearFecha(vuelo.fecha)} · ${vuelo.hora} · ${abordados} de ${datos.pasajeros.length} pasajeros a bordo.`;
       // Mantener al día la ficha abierta (por ejemplo, si otra tableta registró al pasajero).
       const abierto = fichaActual && !$('ficha-contenido').hidden && datos.pasajeros.find(p => p.boleto === fichaActual.boleto);

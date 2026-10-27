@@ -51,7 +51,26 @@
       <section class="vuelo-abordaje" aria-labelledby="t-vuelo">
         <h2 id="t-vuelo" class="etiqueta"><span class="numero">01</span> VUELO EN ABORDAJE</h2>
         <div class="campo-form"><label for="fecha-vuelo">Fecha de salida</label><input id="fecha-vuelo" type="date" required></div>
-        <div class="campo-form vuelo-selector"><label for="vuelo">Vuelo</label><select id="vuelo"></select></div>
+        <div class="campo-form vuelo-selector">
+          <label for="vuelo" id="etiqueta-vuelo">Vuelo</label><select id="vuelo"></select>
+          <div class="vuelo-buscador" id="vuelo-buscador" hidden>
+            <button class="vuelo-abrir" id="vuelo-abrir" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="vuelo-menu" aria-labelledby="etiqueta-vuelo vuelo-elegido">
+              <span id="vuelo-elegido">Selecciona un vuelo</span><span aria-hidden="true">⌄</span>
+            </button>
+            <div class="vuelo-menu" id="vuelo-menu" role="dialog" aria-label="Seleccionar vuelo" hidden>
+              <label class="vuelo-buscar-etiqueta" for="buscar-vuelo">Buscar por código de vuelo</label>
+              <div class="vuelo-buscar-campo">
+                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="10" cy="10" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="m15 15 5 5" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                <input id="buscar-vuelo" type="search" role="combobox" autocomplete="off" spellcheck="false" placeholder="Ej.: 91 o AV 9124" aria-autocomplete="list" aria-expanded="false" aria-controls="vuelo-opciones" aria-describedby="vuelo-coincidencias">
+                <button class="vuelo-limpiar" id="limpiar-buscar-vuelo" type="button" aria-label="Borrar búsqueda de vuelo" hidden>×</button>
+              </div>
+              <p class="vuelo-coincidencias" id="vuelo-coincidencias" role="status"></p>
+              <ul class="vuelo-opciones" id="vuelo-opciones" role="listbox" aria-label="Vuelos disponibles"></ul>
+              <p class="vuelo-sin-resultados" id="vuelo-sin-resultados" hidden>No hay vuelos que coincidan con ese código.</p>
+              <p class="vuelo-buscar-ayuda">Escribe una parte del código para filtrar.</p>
+            </div>
+          </div>
+        </div>
         <button class="boton boton-claro" type="button" id="actualizar-cabina">Actualizar</button>
         <p class="vuelo-estado" id="vuelo-estado" role="status"></p>
       </section>

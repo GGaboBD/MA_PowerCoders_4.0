@@ -17,6 +17,31 @@
 .campo-form input[aria-invalid], .campo-form select[aria-invalid] { border-color: var(--rojo); background: #fff6f5; }
 .abordaje-footer { display: flex; justify-content: space-between; gap: 20px; padding-bottom: 26px; font-size: 12px; color: var(--gris-texto); }
 
+/* ---------- Búsqueda del vuelo: solo el selector de tripulación ---------- */
+.pagina-tripulacion .vuelo-buscador { position: relative; display: inline-block; vertical-align: middle; width: 450px; max-width: calc(100% - 48px); }
+.pagina-tripulacion .vuelo-abrir { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 42px; padding: 8px 12px; border: 1px solid #96999c; border-radius: 6px; background: white; text-align: left; font-size: 15px; line-height: 1.4; }
+.pagina-tripulacion .vuelo-abrir > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pagina-tripulacion .vuelo-abrir:disabled { color: var(--gris-texto); }
+.pagina-tripulacion .vuelo-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 30; width: 560px; max-width: calc(100vw - 64px); padding: 16px; border: 1px solid var(--gris-borde); border-radius: 12px; background: white; box-shadow: 0 12px 32px #13131326; }
+.pagina-tripulacion .vuelo-buscar-etiqueta { display: block; margin-bottom: 6px; font-size: 13px; }
+.pagina-tripulacion .vuelo-buscar-campo { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border: 1px solid #96999c; border-radius: 6px; }
+.pagina-tripulacion .vuelo-buscar-campo:focus-within { border-color: var(--rojo); box-shadow: 0 0 0 1px var(--rojo); }
+.pagina-tripulacion .vuelo-buscar-campo svg { flex: none; }
+.pagina-tripulacion #buscar-vuelo { width: 100%; min-width: 0; padding: 8px 0; border: 0; background: transparent; outline: none; font-size: 16px; }
+.pagina-tripulacion #buscar-vuelo::-webkit-search-cancel-button { display: none; }
+.pagina-tripulacion .vuelo-limpiar { flex: none; padding: 0 4px; border: 0; background: transparent; color: var(--gris-texto); font-size: 24px; line-height: 1; }
+.pagina-tripulacion .vuelo-coincidencias { margin: 10px 0; font-size: 13px; color: var(--gris-texto); }
+.pagina-tripulacion .vuelo-opciones { max-height: min(330px, 40vh); overflow-y: auto; overscroll-behavior: contain; margin: 0; padding: 0; list-style: none; }
+.pagina-tripulacion .vuelo-opcion { display: grid; grid-template-columns: minmax(0, 1fr) auto 18px; gap: 2px 12px; padding: 10px 12px; border-top: 1px solid var(--gris-borde); border-radius: 6px; cursor: pointer; font-size: 15px; }
+.pagina-tripulacion .vuelo-opcion[aria-selected="true"] { background: var(--rojo-suave); }
+.pagina-tripulacion .vuelo-opcion:hover, .pagina-tripulacion .vuelo-opcion.activa { box-shadow: inset 0 0 0 1px var(--rojo); background: #fff8f7; }
+.pagina-tripulacion .vuelo-opcion strong { font-size: 17px; }
+.pagina-tripulacion .vuelo-opcion mark { background: #ffd1cd; color: inherit; }
+.pagina-tripulacion .vuelo-opcion-ruta { grid-column: 1 / -1; color: var(--gris-texto); font-size: 13px; }
+.pagina-tripulacion .vuelo-opcion-check { color: var(--rojo); font-weight: 700; }
+.pagina-tripulacion .vuelo-sin-resultados { padding: 18px 12px; color: var(--gris-texto); font-size: 14px; }
+.pagina-tripulacion .vuelo-buscar-ayuda { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--gris-borde); color: var(--gris-texto); font-size: 12px; }
+
 /* ---------- Generador: formulario + pase ---------- */
 .pase-layout { display: grid; grid-template-columns: minmax(0, 1fr) 430px; gap: 40px; align-items: start; }
 .campos-pase { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 17px 20px; }
