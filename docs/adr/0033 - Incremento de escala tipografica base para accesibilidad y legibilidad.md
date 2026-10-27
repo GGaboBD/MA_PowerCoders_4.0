@@ -1,4 +1,4 @@
-# ADR 0034 · Incremento de escala tipografica base para accesibilidad y legibilidad
+# ADR 0033 · Incremento de escala tipografica base para accesibilidad y legibilidad
 
 Estado: Aceptada · 2026-10-27
 
