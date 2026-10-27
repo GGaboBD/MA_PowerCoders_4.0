@@ -161,11 +161,31 @@
         </div>
       </section>
 
-      <div style="display: flex; gap: 16px; align-items: center; margin-top: 24px;">
+      <div style="display: flex; gap: 16px; align-items: center; margin-top: 24px; flex-wrap: wrap;">
         <button class="boton boton-rojo" type="submit" id="btn-guardar-perfil" style="min-width: 200px;">Guardar preferencias</button>
         <span id="perfil-guardado-msg" style="color: #007a3d; font-weight: 700; font-size: 13px;" hidden>✔ Preferencias actualizadas correctamente</span>
       </div>
+      <div style="margin-top: 14px;">
+        <button type="button" class="boton boton-contorno" id="btn-regresar-inicio" style="min-width: 200px;">← Regresar al inicio</button>
+      </div>
     </form>
   </main>
+
+  <dialog id="dialog-cambios-sin-guardar" class="dialog-modal" aria-labelledby="dialog-cambios-titulo">
+    <div class="dialog-cabecera">
+      <div>
+        <p class="etiqueta"><span class="punto-rojo" aria-hidden="true"></span> CAMBIOS SIN GUARDAR</p>
+        <h2 id="dialog-cambios-titulo">¿Deseas guardar tus cambios?</h2>
+      </div>
+      <button class="cerrar-dialogo" type="button" id="cerrar-dialog-cambios" aria-label="Cerrar ventana">×</button>
+    </div>
+    <p style="margin: 16px 0 24px; font-size: 15px; color: var(--gris-texto); line-height: 1.6;">
+      Has modificado datos de tu perfil o preferencias de viaje que aún no han sido guardados. ¿Qué deseas hacer antes de regresar a la pantalla de inicio?
+    </p>
+    <div class="dialog-acciones" style="display: flex; justify-content: flex-end; gap: 12px; flex-wrap: wrap;">
+      <button type="button" class="boton boton-contorno" id="btn-descartar-salir">Continuar sin guardar</button>
+      <button type="button" class="boton boton-rojo" id="btn-guardar-salir">Guardar y continuar ↗</button>
+    </div>
+  </dialog>
 </body>
 </html>

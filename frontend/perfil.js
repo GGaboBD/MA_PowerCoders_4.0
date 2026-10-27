@@ -8,6 +8,33 @@
   const msgOk = document.getElementById("perfil-guardado-msg");
 
   let busy = false;
+  let instantaneaOriginal = null;
+  let redirigirTrasGuardar = false;
+
+  function serializarEstadoFormulario() {
+    return JSON.stringify({
+      trato: document.getElementById("perfil-trato")?.value.trim() || "",
+      nombres: document.getElementById("perfil-nombres")?.value.trim() || "",
+      apellidos: document.getElementById("perfil-apellidos")?.value.trim() || "",
+      fechaNacimiento: document.getElementById("perfil-nacimiento")?.value || "",
+      tipo: document.getElementById("perfil-tipo-doc")?.value || "",
+      paisEmisor: document.getElementById("perfil-pais-doc")?.value.trim().toUpperCase() || "",
+      numero: document.getElementById("perfil-num-doc")?.value.trim().toUpperCase() || "",
+      idioma: document.getElementById("perfil-idioma")?.value || "es",
+      comida: document.getElementById("perfil-comida")?.value || "sin_preferencia",
+      atencion: document.getElementById("perfil-atencion")?.value || "0",
+      motivo: document.getElementById("perfil-motivo")?.value || "0",
+      bebida: document.getElementById("perfil-bebida")?.value.trim() || "",
+      alergias: document.getElementById("perfil-alergias")?.value.trim() || "",
+      noMolestar: Boolean(document.getElementById("perfil-no-molestar")?.checked),
+      notas: document.getElementById("perfil-notas")?.value.trim() || "",
+    });
+  }
+
+  function hayCambiosSinGuardar() {
+    if (!instantaneaOriginal) return false;
+    return serializarEstadoFormulario() !== instantaneaOriginal;
+  }
 
   function llenarFormulario(perfil) {
     if (!perfil) return;
@@ -28,6 +55,7 @@
     document.getElementById("perfil-alergias").value = Array.isArray(perfil.alergias) ? perfil.alergias.join(", ") : (perfil.alergias || "");
     document.getElementById("perfil-no-molestar").checked = Boolean(perfil.noMolestar);
     document.getElementById("perfil-notas").value = perfil.notas || "";
+    instantaneaOriginal = serializarEstadoFormulario();
   }
 
   async function cargarPerfil(usuario) {
@@ -108,6 +136,11 @@
       msgOk.hidden = false;
       status.textContent = data.mensaje || "Tus preferencias se guardaron exitosamente.";
       window.SesionUI?.actualizar();
+
+      if (redirigirTrasGuardar) {
+        window.location.href = "index.html";
+        return;
+      }
     } catch (error) {
       status.textContent = error.message;
       alert("Error: " + error.message);
@@ -117,6 +150,49 @@
       saveBtn.textContent = "Guardar preferencias";
     }
   });
+
+  const btnRegresar = document.getElementById("btn-regresar-inicio");
+  const dialogCambios = document.getElementById("dialog-cambios-sin-guardar");
+  const btnDescartar = document.getElementById("btn-descartar-salir");
+  const btnGuardarSalir = document.getElementById("btn-guardar-salir");
+  const btnCerrarDialog = document.getElementById("cerrar-dialog-cambios");
+
+  if (btnCerrarDialog) {
+    btnCerrarDialog.addEventListener("click", () => dialogCambios?.close());
+  }
+
+  if (btnDescartar) {
+    btnDescartar.addEventListener("click", () => {
+      dialogCambios?.close();
+      window.location.href = "index.html";
+    });
+  }
+
+  if (btnGuardarSalir) {
+    btnGuardarSalir.addEventListener("click", () => {
+      if (!form.reportValidity()) {
+        dialogCambios?.close();
+        return;
+      }
+      redirigirTrasGuardar = true;
+      dialogCambios?.close();
+      form.requestSubmit();
+    });
+  }
+
+  if (btnRegresar) {
+    btnRegresar.addEventListener("click", () => {
+      if (!hayCambiosSinGuardar()) {
+        window.location.href = "index.html";
+      } else {
+        if (dialogCambios && typeof dialogCambios.showModal === "function") {
+          dialogCambios.showModal();
+        } else if (confirm("Tienes cambios sin guardar en tu perfil. ¿Deseas salir sin guardar?")) {
+          window.location.href = "index.html";
+        }
+      }
+    });
+  }
 
   window.addEventListener("sesion-cambio", event => cargarPerfil(event.detail));
   const inicial = window.SesionUI?.estado();
