@@ -68,6 +68,39 @@ function render(flights, data, hayMas) {
       precio: flight.precio,
       moneda: flight.moneda
     })}`;
+    choose.addEventListener('click', async (e) => {
+      if (typeof window === 'undefined' || typeof fetch === 'undefined') return;
+      let usuario = window.SesionUI?.estado()?.usuario;
+      if (!usuario) {
+        try {
+          const res = await fetch('/api/sesion', { credentials: 'same-origin', cache: 'no-store' });
+          if (res.ok) {
+            const dataSesion = await res.json();
+            if (dataSesion.ok && dataSesion.usuario?.tipoCuenta === 'cliente') {
+              usuario = dataSesion.usuario;
+            }
+          }
+        } catch {
+          // continuar
+        }
+      }
+
+      if (!usuario || usuario.tipoCuenta !== 'cliente') {
+        e.preventDefault();
+        const dialog = document.getElementById('dialog-sesion-requerida');
+        const loginBtn = document.getElementById('btn-ir-iniciar-sesion');
+        const targetUrl = choose.getAttribute('href');
+        if (loginBtn) {
+          loginBtn.href = `cuenta.html?volver=${encodeURIComponent(targetUrl)}`;
+        }
+        if (dialog && typeof dialog.showModal === 'function') {
+          dialog.showModal();
+        } else {
+          alert('Debes iniciar sesión con tu cuenta de cliente para elegir un vuelo y reservar asientos.');
+          window.location.href = `cuenta.html?volver=${encodeURIComponent(targetUrl)}`;
+        }
+      }
+    });
     const actions = element('div');
     actions.append(choose, detailButton);
     detailButton.addEventListener('click', () => {
@@ -172,4 +205,11 @@ if (typeof document !== 'undefined' && typeof document.getElementById === 'funct
       }
     });
   }
+
+  document.getElementById('cerrar-dialog-sesion')?.addEventListener('click', () => {
+    document.getElementById('dialog-sesion-requerida')?.close();
+  });
+  document.getElementById('btn-cancelar-sesion')?.addEventListener('click', () => {
+    document.getElementById('dialog-sesion-requerida')?.close();
+  });
 }

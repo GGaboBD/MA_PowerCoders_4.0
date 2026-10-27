@@ -984,14 +984,20 @@ async function init() {
       } catch { /* mantener datos predeterminados */ }
     } else {
       sesionUsuario = null;
-      status.textContent = "Estás navegando como invitado. Puedes explorar y elegir asientos; para reservar debes ";
+      status.textContent = "Para reservar y elegir asientos debes iniciar sesión con tu cuenta de cliente. ";
       const link = document.createElement("a");
       link.href = "cuenta.html?volver=" + encodeURIComponent(location.pathname + location.search);
-      link.textContent = "iniciar sesión o crear tu cuenta de cliente aquí";
+      link.textContent = "Inicia sesión o crea tu cuenta aquí";
       link.style.fontWeight = "bold";
       link.style.textDecoration = "underline";
       status.append(link);
       status.append(".");
+      const dlg = document.querySelector("#dialog-sesion-compra");
+      const btnLog = document.querySelector("#btn-login-compra");
+      if (btnLog) btnLog.href = "cuenta.html?volver=" + encodeURIComponent(location.pathname + location.search);
+      if (dlg && typeof dlg.showModal === "function") {
+        try { dlg.showModal(); } catch { /* ignorar si ya está abierto */ }
+      }
     }
   } catch {
     sesionUsuario = null;

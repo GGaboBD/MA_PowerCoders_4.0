@@ -40,5 +40,20 @@
     </aside></div>
   </main>
   <dialog class="dialog-asientos" id="dialog-asientos" aria-labelledby="titulo-asientos"><div class="dialog-cabecera"><div><p class="etiqueta">ASIENTOS DEL VUELO</p><h2 id="titulo-asientos">Elige tus asientos</h2></div><button class="cerrar-dialogo" type="button" aria-label="Cerrar mapa de asientos">×</button></div><p class="nota-prototipo">Asientos disponibles para esta cabina. Selecciona uno por pasajero para continuar.</p><div class="leyenda-asientos"><span><i></i>Disponible</span><span><i class="elegido"></i>Elegido</span><span><i class="ocupado"></i>No disponible</span></div><label class="asignar-pasajero" for="pasajero-activo">Asignar asiento a <select id="pasajero-activo"></select></label><p id="asignaciones" aria-live="polite"></p><div class="mapa-avion" id="mapa-avion"></div><div class="dialog-acciones"><p id="contador-asientos">0 seleccionados</p><button class="boton boton-rojo" type="button" id="confirmar-asientos">Usar esta selección</button></div></dialog>
+  <dialog class="dialog-modal" id="dialog-sesion-compra" aria-labelledby="titulo-sesion-compra">
+    <div class="dialog-cabecera">
+      <div>
+        <p class="etiqueta"><span class="punto-rojo" aria-hidden="true"></span> INICIO DE SESIÓN REQUERIDO</p>
+        <h2 id="titulo-sesion-compra">Inicia sesión para reservar</h2>
+      </div>
+    </div>
+    <p style="margin: 16px 0 24px; font-size: 15px; color: var(--gris-texto); line-height: 1.6;">
+      Para seleccionar tus asientos y completar la reserva de este vuelo es necesario acceder con tu cuenta de cliente de Avianca. Así tus boletos y preferencias quedarán guardados en tu perfil.
+    </p>
+    <div class="dialog-acciones" style="display: flex; justify-content: flex-end; gap: 12px; flex-wrap: wrap;">
+      <a href="index.html" class="boton boton-contorno" id="btn-volver-catalogo">Buscar otros vuelos</a>
+      <a href="cuenta.html" class="boton boton-rojo" id="btn-login-compra">Iniciar sesión ahora ↗</a>
+    </div>
+  </dialog>
   <script src="purchase.js" defer></script>
 </body></html>

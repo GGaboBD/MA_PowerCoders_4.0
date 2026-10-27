@@ -129,6 +129,22 @@
       <div class="pie-inferior"><span>Proyecto universitario · 2026</span><span>Prototipo independiente, no es el sitio oficial de Avianca.</span><span>Diseñado para imaginar.</span></div>
     </div>
   </footer>
+  <dialog id="dialog-sesion-requerida" class="dialog-modal" aria-labelledby="dialog-sesion-titulo">
+    <div class="dialog-cabecera">
+      <div>
+        <p class="etiqueta"><span class="punto-rojo" aria-hidden="true"></span> INICIO DE SESIÓN REQUERIDO</p>
+        <h2 id="dialog-sesion-titulo">Inicia sesión para reservar</h2>
+      </div>
+      <button class="cerrar-dialogo" type="button" id="cerrar-dialog-sesion" aria-label="Cerrar ventana">×</button>
+    </div>
+    <p style="margin: 16px 0 24px; font-size: 15px; color: var(--gris-texto); line-height: 1.6;">
+      Para elegir un vuelo, seleccionar tus asientos y registrar tus preferencias de viaje, es necesario iniciar sesión con tu cuenta de cliente de Avianca. Así garantizamos que tu reserva quede vinculada a tu perfil sin tener que volver a ingresar tus datos.
+    </p>
+    <div class="dialog-acciones" style="display: flex; justify-content: flex-end; gap: 12px; flex-wrap: wrap;">
+      <button type="button" class="boton boton-contorno" id="btn-cancelar-sesion">Seguir explorando</button>
+      <a href="cuenta.html" class="boton boton-rojo" id="btn-ir-iniciar-sesion">Iniciar sesión ahora ↗</a>
+    </div>
+  </dialog>
   <script src="search.js" defer></script>
 </body>
 </html>
