@@ -624,7 +624,7 @@
       const div = document.createElement('div');
       div.className = `fila-asientos ${fila.clase}`;
       const mitad = Math.ceil(fila.asientos.length / 2);
-      div.style.gridTemplateColumns = `35px repeat(${mitad}, 42px) minmax(26px, 1fr) repeat(${fila.asientos.length - mitad}, 42px)`;
+      div.style.gridTemplateColumns = `44px repeat(${mitad}, 50px) 24px repeat(${fila.asientos.length - mitad}, 50px)`;
       const num = document.createElement('span'); num.className = 'numero-fila'; num.textContent = numero; div.append(num);
       fila.asientos.forEach((asiento, i) => {
         if (i === mitad) { const pasillo = document.createElement('span'); pasillo.className = 'pasillo'; pasillo.setAttribute('aria-hidden', 'true'); div.append(pasillo); }

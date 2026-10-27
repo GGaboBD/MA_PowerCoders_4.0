@@ -206,8 +206,13 @@
 .columna-inspeccion { display: flex; flex-direction: column; gap: 24px; }
 
 /* ---------- Diseño de los asientos en cabina en vivo ---------- */
-.plano-vivo .plano-cabina { background: white; border: 1px solid var(--gris-borde); padding: 24px 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.04); border-radius: 8px; }
-.plano-vivo .asiento { border-radius: 6px; font-weight: 700; font-size: 13px; transition: all .15s ease; cursor: pointer; border: 1.5px solid #c9cdd1; background: #fafafa; color: #495057; min-height: 40px; min-width: 40px; }
+.plano-vivo .plano-cabina { max-width: 500px; margin: 0 auto; background: white; border: 1px solid var(--gris-borde); padding: 24px 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.04); border-radius: 8px; }
+.plano-vivo .nariz-cabina { text-align: center; margin-bottom: 12px; }
+.plano-vivo .servicios-cabina { display: flex; justify-content: space-around; margin-bottom: 16px; color: var(--gris-texto); font-size: 11px; }
+.plano-vivo .fila-asientos { display: grid; align-items: center; justify-content: center; gap: 10px; margin: 10px 0; }
+.plano-vivo .numero-fila { font-size: 13px; font-weight: 700; color: var(--gris-texto); text-align: right; padding-right: 6px; }
+.plano-vivo .pasillo { width: 24px; }
+.plano-vivo .asiento { border-radius: 6px; font-weight: 700; font-size: 14px; transition: all .15s ease; cursor: pointer; border: 1.5px solid #c9cdd1; background: #fafafa; color: #495057; min-height: 48px; min-width: 48px; width: 50px; height: 48px; display: inline-flex; align-items: center; justify-content: center; }
 .plano-vivo .asiento:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.08); border-color: var(--negro); }
 .plano-vivo .asiento.reservado { border-color: var(--rojo); border-width: 2px; color: var(--rojo); background: #fff8f7; font-weight: 800; }
 .plano-vivo .asiento.reservado.no-molestar { border-color: #3d4348; color: #3d4348; background: #f2f4f6; }
@@ -216,7 +221,7 @@
 .plano-vivo .asiento.activo { outline: 3px solid var(--negro); outline-offset: 3px; transform: scale(1.08); z-index: 2; box-shadow: 0 6px 14px rgba(0,0,0,0.18); }
 .plano-vivo .asiento:focus-visible { outline: 3px solid var(--rojo); outline-offset: 3px; }
 
-.plano-vivo .cabina-separador { width: 100%; margin: 18px 0 12px; font-size: 11px; font-weight: 800; letter-spacing: .15em; color: var(--gris-texto); }
+.plano-vivo .cabina-separador { width: 100%; margin: 18px 0 12px; font-size: 11px; font-weight: 800; letter-spacing: .15em; color: var(--gris-texto); text-align: center; }
 .leyenda-vivo { display: flex; justify-content: center; gap: 16px; margin-top: 18px; font-size: 12px; color: var(--gris-texto); flex-wrap: wrap; }
 .leyenda-vivo span { display: flex; align-items: center; gap: 6px; }
 .leyenda-vivo i { width: 14px; height: 14px; border-radius: 3px; border: 1px solid #87918b; background: white; }
