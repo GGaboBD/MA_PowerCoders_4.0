@@ -46,3 +46,48 @@
 #dialog-cancelar #cancelar-estado { font-weight: 700; color: #973b31; }
 .cancelar-acciones { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; margin-top: 26px; }
 .cancelar-acciones .boton { font-size: 13px; padding-inline: 18px; }
+@media (max-width: 960px) {
+  .viajes-heading {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 18px;
+    margin-bottom: 24px;
+  }
+  .viajes-heading h1 {
+    font-size: clamp(34px, 6vw, 48px);
+    margin: 8px 0 10px;
+  }
+  .viaje-cabecera {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 20px;
+  }
+  .viaje-cuerpo {
+    padding: 0 20px 20px;
+  }
+  .viaje-fechas {
+    flex-wrap: wrap;
+    gap: 20px 36px;
+    margin: 0 -20px 14px;
+    padding: 16px 20px;
+  }
+}
+@media (max-width: 640px) {
+  .viajes-main {
+    padding-top: 36px;
+    padding-bottom: 48px;
+  }
+  .viaje-tabla th, .viaje-tabla td {
+    padding: 12px 8px;
+    font-size: 12px;
+  }
+  .viaje-tabla th:first-child, .viaje-tabla td:first-child {
+    width: auto;
+  }
+  #dialog-cancelar {
+    width: calc(100vw - 32px);
+    padding: 24px 18px;
+  }
+}
+

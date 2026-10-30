@@ -43,5 +43,32 @@
 .cuenta-perfil-grid select, .cuenta-perfil-grid textarea { width: 100%; min-height: 48px; padding: 11px 13px; border: 1px solid #d4d4ce; border-radius: 8px; background: #fff; font-size: 13px; font-family: inherit; }
 .cuenta-perfil-grid textarea { resize: vertical; }
 .cuenta-perfil-grid :is(select, textarea):focus { outline: 0; border-color: var(--rojo); box-shadow: 0 0 0 3px #da291c12; }
-@media (max-width: 1200px) { .cuenta-panel { padding-inline: 36px; } .cuenta-imagen { padding-inline: 36px; } }
-@media (max-width: 768px) { .cuenta-perfil-grid { grid-template-columns: 1fr; } }
+@media (max-width: 1200px) {
+  .cuenta-panel { padding-inline: 36px; }
+  .cuenta-imagen { padding-inline: 36px; }
+}
+@media (max-width: 960px) {
+  .cuenta-layout {
+    grid-template-columns: 1fr;
+    min-height: auto;
+    margin-block: 20px;
+    border-radius: 14px;
+  }
+  .cuenta-imagen {
+    min-height: 280px;
+    padding: 32px 24px;
+  }
+  .cuenta-panel {
+    padding: 32px 24px;
+  }
+}
+@media (max-width: 768px) {
+  .cuenta-perfil-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
+  .cuenta-nombres { grid-template-columns: 1fr; }
+  .cuenta-tabs button { font-size: 11px; padding: 10px 4px; }
+  .cuenta-panel h2 { font-size: 30px; }
+  .cuenta-footer { flex-direction: column; gap: 8px; }
+}
+

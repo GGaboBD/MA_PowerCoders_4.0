@@ -19,7 +19,7 @@
 }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; scroll-padding-top: 32px; }
-body { margin: 0; min-width: 1100px; background: var(--blanco); color: var(--negro); font: 400 16px/1.6 var(--fuente); -webkit-font-smoothing: antialiased; }
+body { margin: 0; min-width: 0; background: var(--blanco); color: var(--negro); font: 400 16px/1.6 var(--fuente); -webkit-font-smoothing: antialiased; }
 h1, h2, h3, h4, p { margin: 0; }
 h1, h2, h3, h4 { font-weight: 700; }
 a { color: inherit; text-decoration: none; }
@@ -142,7 +142,45 @@ img { display: block; max-width: 100%; }
   .experiencia, .viaje { gap: 60px; }
   .portada h1 { font-size: 90px; }
 }
+@media (max-width: 1024px) {
+  .contenedor { width: calc(100% - 48px); }
+  .seccion { padding-block: 72px; }
+  .navegacion { min-height: 72px; flex-wrap: wrap; gap: 14px 20px; padding-block: 12px; }
+  .navegacion nav { flex-wrap: wrap; gap: 14px; }
+  .acciones-nav { margin-left: auto; flex-wrap: wrap; gap: 12px; }
+  .portada { height: auto; min-height: 500px; padding-bottom: 70px; }
+  .portada .avion { width: 90%; opacity: 0.85; }
+  .portada h1 { font-size: clamp(54px, 7vw, 84px); }
+  .experiencia, .viaje { grid-template-columns: 1fr; gap: 40px; }
+  .cabinas-grid { grid-template-columns: 1fr; gap: 24px; }
+  .cabina-ejecutiva { min-height: 420px; }
+  .cabina-texto { min-height: 420px; }
+  .pie-superior { flex-direction: column; align-items: flex-start; gap: 28px; }
+}
+@media (max-width: 768px) {
+  .contenedor { width: calc(100% - 32px); }
+  .seccion { padding-block: 52px; }
+  .navegacion { justify-content: space-between; }
+  .marca { font-size: 32px; }
+  .navegacion nav { width: 100%; order: 3; padding-block: 8px; border-top: 1px solid #ededea; }
+  .acciones-nav { margin-left: 0; }
+  .beneficios { grid-template-columns: 1fr; gap: 24px; }
+  .cabinas-encabezado { flex-direction: column; align-items: flex-start; gap: 14px; }
+  .cabinas h2 { font-size: 42px; }
+  .cabina-primera h3 { font-size: 44px; }
+  .pie-inferior { flex-direction: column; gap: 12px; }
+  .dialog-modal { width: calc(100vw - 32px); padding: 24px 20px; }
+}
+@media (max-width: 480px) {
+  .contenedor { width: calc(100% - 24px); }
+  .portada h1 { font-size: 44px; }
+  .portada-pie { position: static; margin-top: 32px; flex-direction: column; align-items: flex-start; gap: 10px; }
+  .portada-pie > span:last-child { gap: 14px; }
+  .introduccion h2, .viaje h2 { font-size: 34px; }
+  .momentos article { gap: 16px; }
+}
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
