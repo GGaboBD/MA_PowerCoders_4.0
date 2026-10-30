@@ -50,8 +50,11 @@
       idioma: 'es',
       pais: 'CO',
       comida: 'vegetariana',
+      menuPreferencia: 'vegetariana',
       bebida: 'Café americano sin azúcar',
+      bebidaPreferencia: 'Café americano sin azúcar',
       alergias: ['Frutos secos'],
+      requerimientoEspecial: true,
       noMolestar: false,
       atencion: 0,
       motivo: 1,
@@ -67,8 +70,11 @@
       idioma: 'en',
       pais: 'US',
       comida: 'sin_preferencia',
+      menuPreferencia: 'sin_preferencia',
       bebida: 'Agua con gas',
+      bebidaPreferencia: 'Agua con gas',
       alergias: [],
+      requerimientoEspecial: false,
       noMolestar: false,
       atencion: 0,
       motivo: 1,
@@ -84,8 +90,11 @@
       idioma: 'pt',
       pais: 'BR',
       comida: 'vegetariana',
+      menuPreferencia: 'vegetariana',
       bebida: '',
+      bebidaPreferencia: '',
       alergias: [],
+      requerimientoEspecial: true,
       noMolestar: true,
       atencion: 1,
       motivo: 2,
@@ -688,6 +697,7 @@
 
     if (contador) contador.textContent = `${pasajeros.length} de ${cabina.pasajeros.length}`;
 
+  function crearBotonPasajero(p, asientoActivo = null) {
     const COMIDA_ETIQUETAS = {
       vegetariana: '🥗 Vegetariano',
       vegana: '🌱 Vegano',
@@ -696,35 +706,50 @@
       sin_preferencia: '🍽️ Estándar',
       estandar: '🍽️ Estándar'
     };
+    const b = document.createElement('button');
+    b.type = 'button'; b.dataset.asiento = p.asiento;
+    if (p.asiento === asientoActivo) b.classList.add('activo');
+    const s = document.createElement('strong'); s.textContent = p.asiento;
+    const n = document.createElement('span'); n.textContent = p.trato || `${p.nombre} ${p.apellido}`;
 
-    for (const p of pasajeros) {
-      const li = document.createElement('li');
-      const b = document.createElement('button');
-      b.type = 'button'; b.dataset.asiento = p.asiento;
-      if (p.asiento === asientoActivo) b.classList.add('activo');
-      const s = document.createElement('strong'); s.textContent = p.asiento;
-      const n = document.createElement('span'); n.textContent = p.trato || `${p.nombre} ${p.apellido}`;
-      
-      const tags = document.createElement('div');
-      tags.className = 'pasajero-mini-tags';
-      if (p.comida && p.comida !== 'sin_preferencia') {
-        const cSpan = document.createElement('small');
-        cSpan.className = 'tag-comida';
-        cSpan.textContent = COMIDA_ETIQUETAS[p.comida] || p.comida;
-        tags.append(cSpan);
-      }
-      if (p.noMolestar) {
-        const nmSpan = document.createElement('small');
-        nmSpan.className = 'tag-no-molestar';
-        nmSpan.textContent = '🌙 Descanso';
-        tags.append(nmSpan);
-      }
-
-      const h = document.createElement('small');
-      h.textContent = p.abordaje ? `a bordo ${horaCorta(p.abordaje.registradoEn)}` : 'por abordar';
-      if (!p.abordaje) h.className = 'pendiente';
-      b.append(s, n, tags, h); li.append(b); lista.append(li);
+    // HU06a: Agregar lógica condicional del indicador visual de requerimiento especial
+    if (p.requerimientoEspecial === true) {
+      const alertaIcono = document.createElement('span');
+      alertaIcono.className = 'icono-requerimiento-especial';
+      alertaIcono.setAttribute('role', 'img');
+      alertaIcono.setAttribute('aria-label', 'Requerimiento especial');
+      alertaIcono.setAttribute('title', 'Requerimiento especial');
+      alertaIcono.textContent = '⚠️';
+      n.append(' ', alertaIcono);
     }
+
+    const tags = document.createElement('div');
+    tags.className = 'pasajero-mini-tags';
+    if (p.comida && p.comida !== 'sin_preferencia') {
+      const cSpan = document.createElement('small');
+      cSpan.className = 'tag-comida';
+      cSpan.textContent = COMIDA_ETIQUETAS[p.comida] || p.comida;
+      tags.append(cSpan);
+    }
+    if (p.noMolestar) {
+      const nmSpan = document.createElement('small');
+      nmSpan.className = 'tag-no-molestar';
+      nmSpan.textContent = '🌙 Descanso';
+      tags.append(nmSpan);
+    }
+
+    const h = document.createElement('small');
+    h.textContent = p.abordaje ? `a bordo ${horaCorta(p.abordaje.registradoEn)}` : 'por abordar';
+    if (!p.abordaje) h.className = 'pendiente';
+    b.append(s, n, tags, h);
+    return b;
+  }
+
+  for (const p of pasajeros) {
+    const li = document.createElement('li');
+    const b = crearBotonPasajero(p, asientoActivo);
+    li.append(b); lista.append(li);
+  }
     vacia.hidden = pasajeros.length > 0;
     vacia.textContent = !cabina.pasajeros.length ? 'Este vuelo todavía no tiene pasajeros con boleto.'
       : 'No se encontraron pasajeros que coincidan con los filtros seleccionados.';
@@ -895,4 +920,13 @@
   const inicial = window.SesionUI?.estado();
   if (inicial?.listo) configurar(inicial.usuario);
   else setTimeout(() => { if (!cuenta) configurar(null); }, 350);
+
+  const TripulacionUI = { crearBotonPasajero };
+  if (typeof window !== 'undefined') window.TripulacionUI = TripulacionUI;
+  if (typeof globalThis !== 'undefined') globalThis.TripulacionUI = TripulacionUI;
 })();
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = globalThis.TripulacionUI || {};
+}
+

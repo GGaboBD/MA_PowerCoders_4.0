@@ -186,8 +186,18 @@ const Abordaje = (() => {
     return { modulos: n, lado };
   }
 
+  function tieneRequerimientoEspecial(pasajero) {
+    if (!pasajero || typeof pasajero !== 'object') return false;
+    if (typeof pasajero.requerimientoEspecial === 'boolean') return pasajero.requerimientoEspecial;
+    if (pasajero.requerimientoEspecial === 'true') return true;
+    if (pasajero.requerimientoEspecial === 'false') return false;
+    const tieneAlergias = Array.isArray(pasajero.alergias) ? pasajero.alergias.length > 0 : Boolean(pasajero.alergias);
+    const comidaEspecial = Boolean(pasajero.comida && !['sin_preferencia', 'estandar'].includes(pasajero.comida));
+    return Boolean(pasajero.asistencia || pasajero.medica || tieneAlergias || comidaEspecial);
+  }
+
   return { CIUDADES, IDIOMAS, PAISES, COMIDAS, ATENCION, MOTIVOS, CABINAS, LETRAS,
-    limpiar, codificar, decodificar, describir, describirPase, asientosDe, cabinaDeAsiento, claveCabina, dibujarQR, hoyISO, formatearFecha, restarMinutos };
+    limpiar, codificar, decodificar, describir, describirPase, asientosDe, cabinaDeAsiento, claveCabina, dibujarQR, hoyISO, formatearFecha, restarMinutos, tieneRequerimientoEspecial };
 })();
 
 // Permite usar la misma lógica en Node (pruebas y backend) sin cambiar su uso en el navegador.

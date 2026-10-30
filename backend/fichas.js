@@ -28,6 +28,16 @@ async function completarBoletos(db, boletos) {
     const alergias = Array.isArray(alergiasRaw) ? alergiasRaw.filter(Boolean) : (typeof alergiasRaw === 'string' ? alergiasRaw.split(',').map(s=>s.trim()).filter(Boolean) : []);
     const noMolestar = Boolean(perfil?.noMolestar ?? (boleto?.preferenciasViaje?.noMolestar ?? persona?.preferencias?.noMolestar));
 
+    const tieneAlergias = alergias && alergias.length > 0;
+    const comidaEspecial = comida && !['sin_preferencia', 'estandar'].includes(comida);
+    const requerimientoEspecial = Boolean(
+      perfil?.requerimientoEspecial ?? (
+        boleto?.preferenciasViaje?.requerimientoEspecial ??
+        persona?.preferencias?.requerimientoEspecial ??
+        (Boolean(perfil?.asistencia) || Boolean(perfil?.medica) || tieneAlergias || comidaEspecial)
+      )
+    );
+
     return {
       boletoId: boleto._id,
       boleto: boleto.numero, asiento: boleto.asiento, cabina: boleto.clase,
@@ -35,7 +45,11 @@ async function completarBoletos(db, boletos) {
       pais: persona?.documento?.paisEmisor || '',
       trato: perfil?.trato || '', idioma: perfil?.idioma || persona?.preferencias?.idioma || 'es',
       atencion: perfil?.atencion ?? (noMolestar ? 1 : 0), motivo: perfil?.motivo ?? 0,
-      comida, bebida, notas, alergias, noMolestar,
+      comida, bebida,
+      menuPreferencia: comida,
+      bebidaPreferencia: bebida,
+      requerimientoEspecial,
+      notas, alergias, noMolestar,
       estado: boleto.estado || 'reservado',
     };
   });
