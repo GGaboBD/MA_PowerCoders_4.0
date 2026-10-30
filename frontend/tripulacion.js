@@ -5,7 +5,7 @@
    Todo el contenido del QR y de la API se trata como texto (textContent): nunca se interpreta como HTML. */
 'use strict';
 (() => {
-  const A = Abordaje;
+  const A = typeof Abordaje !== 'undefined' ? Abordaje : (typeof require !== 'undefined' ? require('./abordaje.js') : {});
   const $ = id => document.getElementById(id);
   const CLAVE_VUELO = 'avpc-tripulacion-vuelo';
   const VIAS = { camara: 'cámara', imagen: 'imagen', manual: 'registro sin QR' };
@@ -662,50 +662,16 @@
     pintarLista();
   }
 
-  // Filtros avanzados para tripulación: búsqueda por texto completo, comida y estado
-  function pintarLista() {
-    const lista = $('lista-abordados');
-    const vacia = $('lista-vacia');
-    const contador = $('lista-contador');
-    lista.replaceChildren();
-    if (!cabina) return;
-
-    const consulta = sinAcentos($('buscar-pasajero')?.value?.trim() || '');
-    const comidaFiltro = $('filtro-comida')?.value || '';
-    const estadoFiltro = $('filtro-estado')?.value || '';
-
-    const pasajeros = [...cabina.pasajeros].sort((a, b) => ordenAsiento(a.asiento, b.asiento)).filter(p => {
-      // 1. Filtro por selector de comida
-      if (comidaFiltro) {
-        if (comidaFiltro === 'sin_preferencia' && !['sin_preferencia', 'estandar'].includes(p.comida)) return false;
-        if (comidaFiltro !== 'sin_preferencia' && p.comida !== comidaFiltro) return false;
-      }
-      // 2. Filtro por estado de abordaje
-      if (estadoFiltro) {
-        if (estadoFiltro === 'a-bordo' && !p.abordaje) return false;
-        if (estadoFiltro === 'por-abordar' && Boolean(p.abordaje)) return false;
-        if (estadoFiltro === 'no-molestar' && !p.noMolestar) return false;
-      }
-      // 3. Filtro por texto libre (nombre, asiento, trato, comida, notas, gustos, bebida, alergias)
-      if (consulta) {
-        const alergiasTexto = Array.isArray(p.alergias) ? p.alergias.join(' ') : (p.alergias || '');
-        const todoElTexto = sinAcentos(`${p.nombre} ${p.apellido} ${p.trato || ''} ${p.asiento} ${p.comida || ''} ${p.bebida || ''} ${p.notas || ''} ${alergiasTexto}`);
-        if (!todoElTexto.includes(consulta)) return false;
-      }
-      return true;
-    });
-
-    if (contador) contador.textContent = `${pasajeros.length} de ${cabina.pasajeros.length}`;
+  const COMIDA_ETIQUETAS = {
+    vegetariana: '🥗 Vegetariano',
+    vegana: '🌱 Vegano',
+    sin_gluten: '🌾 Sin gluten',
+    otra: '🍴 Especial',
+    sin_preferencia: '🍽️ Estándar',
+    estandar: '🍽️ Estándar'
+  };
 
   function crearBotonPasajero(p, asientoActivo = null) {
-    const COMIDA_ETIQUETAS = {
-      vegetariana: '🥗 Vegetariano',
-      vegana: '🌱 Vegano',
-      sin_gluten: '🌾 Sin gluten',
-      otra: '🍴 Especial',
-      sin_preferencia: '🍽️ Estándar',
-      estandar: '🍽️ Estándar'
-    };
     const b = document.createElement('button');
     b.type = 'button'; b.dataset.asiento = p.asiento;
     if (p.asiento === asientoActivo) b.classList.add('activo');
@@ -745,11 +711,46 @@
     return b;
   }
 
-  for (const p of pasajeros) {
-    const li = document.createElement('li');
-    const b = crearBotonPasajero(p, asientoActivo);
-    li.append(b); lista.append(li);
-  }
+  // Filtros avanzados para tripulación: búsqueda por texto completo, comida y estado
+  function pintarLista() {
+    const lista = $('lista-abordados');
+    const vacia = $('lista-vacia');
+    const contador = $('lista-contador');
+    lista.replaceChildren();
+    if (!cabina) return;
+
+    const consulta = sinAcentos($('buscar-pasajero')?.value?.trim() || '');
+    const comidaFiltro = $('filtro-comida')?.value || '';
+    const estadoFiltro = $('filtro-estado')?.value || '';
+
+    const pasajeros = [...cabina.pasajeros].sort((a, b) => ordenAsiento(a.asiento, b.asiento)).filter(p => {
+      // 1. Filtro por selector de comida
+      if (comidaFiltro) {
+        if (comidaFiltro === 'sin_preferencia' && !['sin_preferencia', 'estandar'].includes(p.comida)) return false;
+        if (comidaFiltro !== 'sin_preferencia' && p.comida !== comidaFiltro) return false;
+      }
+      // 2. Filtro por estado de abordaje
+      if (estadoFiltro) {
+        if (estadoFiltro === 'a-bordo' && !p.abordaje) return false;
+        if (estadoFiltro === 'por-abordar' && Boolean(p.abordaje)) return false;
+        if (estadoFiltro === 'no-molestar' && !p.noMolestar) return false;
+      }
+      // 3. Filtro por texto libre (nombre, asiento, trato, comida, notas, gustos, bebida, alergias)
+      if (consulta) {
+        const alergiasTexto = Array.isArray(p.alergias) ? p.alergias.join(' ') : (p.alergias || '');
+        const todoElTexto = sinAcentos(`${p.nombre} ${p.apellido} ${p.trato || ''} ${p.asiento} ${p.comida || ''} ${p.bebida || ''} ${p.notas || ''} ${alergiasTexto}`);
+        if (!todoElTexto.includes(consulta)) return false;
+      }
+      return true;
+    });
+
+    if (contador) contador.textContent = `${pasajeros.length} de ${cabina.pasajeros.length}`;
+
+    for (const p of pasajeros) {
+      const li = document.createElement('li');
+      const b = crearBotonPasajero(p, asientoActivo);
+      li.append(b); lista.append(li);
+    }
     vacia.hidden = pasajeros.length > 0;
     vacia.textContent = !cabina.pasajeros.length ? 'Este vuelo todavía no tiene pasajeros con boleto.'
       : 'No se encontraron pasajeros que coincidan con los filtros seleccionados.';
@@ -915,11 +916,13 @@
   });
 
   /* ---------- Inicio ---------- */
-  (async () => { detector = await prepararDetector(); })();
-  window.addEventListener('sesion-cambio', event => configurar(event.detail));
-  const inicial = window.SesionUI?.estado();
-  if (inicial?.listo) configurar(inicial.usuario);
-  else setTimeout(() => { if (!cuenta) configurar(null); }, 350);
+  if (typeof window !== 'undefined' && !window.__TEST_MODE__) {
+    (async () => { detector = await prepararDetector(); })();
+    window.addEventListener('sesion-cambio', event => configurar(event.detail));
+    const inicial = window.SesionUI?.estado();
+    if (inicial?.listo) configurar(inicial.usuario);
+    else setTimeout(() => { if (!cuenta) configurar(null); }, 350);
+  }
 
   const TripulacionUI = { crearBotonPasajero };
   if (typeof window !== 'undefined') window.TripulacionUI = TripulacionUI;
