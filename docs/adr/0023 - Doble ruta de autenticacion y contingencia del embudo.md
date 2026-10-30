@@ -1,4 +1,4 @@
-# ADR 0027 · Soportamos doble ruta de acceso y contingencia del embudo
+# ADR 0023 · Soportamos doble ruta de acceso y contingencia del embudo
 
 Estado: Aceptada · 27 de octubre de 2026
 

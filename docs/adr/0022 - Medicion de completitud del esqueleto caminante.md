@@ -1,4 +1,4 @@
-# ADR 0026 · Medimos la completitud del esqueleto caminante con contadores atómicos
+# ADR 0022 · Medimos la completitud del esqueleto caminante con contadores atómicos
 
 Estado: Aceptada · 27 de octubre de 2026
 

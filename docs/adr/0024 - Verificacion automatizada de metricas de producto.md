@@ -1,4 +1,4 @@
-# ADR 0028 · Verificamos las métricas mediante pruebas desde criterios
+# ADR 0024 · Verificamos las métricas mediante pruebas desde criterios
 
 Estado: Aceptada · 27 de octubre de 2026
 

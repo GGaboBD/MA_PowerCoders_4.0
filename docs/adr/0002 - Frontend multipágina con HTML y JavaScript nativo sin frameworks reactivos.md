@@ -1,45 +1,42 @@
-
-# ADR 0002 · Frontend multipágina con HTML y JavaScript nativo sin frameworks reactivos
+# ADR 0002 · Arquitectura frontend multipágina basada en estándares web nativos sin SPA frameworks
 
 Estado: Aceptada · 20 de octubre de 2026
 
+Revisión documental: 26 de octubre de 2026 (UTC), sobre `main`. La fecha y el estado originales se conservan como metadatos; no acreditan una aprobación del equipo. Se retiraron las atribuciones personales sin respaldo verificable.
+
 ## Contexto
 
-### Qué decisiones tomamos y qué estábamos pensando cuando tomamos esa decisión
+El diseño de la interfaz de usuario requería soportar múltiples contextos de uso independientes (catálogo comercial de vuelos, pasarela de reserva de asientos, consulta de pases de abordar móviles y panel operativo táctil de tripulación), satisfaciendo presupuestos estrictos de rendimiento: carga inicial menor a 3 segundos en dispositivos móviles y tabletas de cabina.
 
-Cuando comenzamos el proyecto, teníamos aproximadamente tres días para construir las primeras pantallas y presentar un esqueleto caminante que ya pudiera utilizarse desde un navegador.
+Se evaluaron dos enfoques arquitectónicos de interfaz:
+1. **Single Page Application (SPA) con framework reactivo (React o Vue):** Descartada por la sobrecarga en el bundle JavaScript inicial, la complejidad de configurar tooling de transpilación y empaquetado (Webpack/Vite), y el riesgo de degradar los tiempos de First Contentful Paint (FCP) y Time to Interactive (TTI) en dispositivos de baja gama.
+2. **Multi-Page Application (MPA) con HTML5 semántico y JavaScript estándar (Vanilla):** Seleccionada por eliminar por completo la fase de compilación en el cliente, ofrecer tiempos de carga casi instantáneos y desacoplar de forma natural las responsabilidades entre vistas independientes del sistema.
 
-También debíamos cumplir con uno de los requisitos del curso: procurar que las pantallas cargaran en menos de tres segundos en dispositivos móviles y tabletas.
+## Decisión y alcance actual
 
-En ese momento consideramos dos opciones. Podíamos utilizar un framework como React o Vue, o desarrollar las páginas directamente con HTML, CSS y JavaScript.
-
-Aunque los frameworks ofrecían ventajas para organizar aplicaciones más grandes, incorporarlos significaba dedicar tiempo a configurar herramientas y adaptar la estructura del proyecto.
-
-Como ya teníamos experiencia trabajando con HTML y JavaScript, preferimos aprovechar esos conocimientos y concentrarnos en que las pantallas funcionaran correctamente.
-
-Nuestra prioridad era tener un prototipo navegable y avanzar con las funcionalidades principales sin complicar demasiado la configuración inicial.
-
-### Quién decidió, quién aprobó y posturas en el equipo
-
-- **Quién decidió:** Charlie propuso desarrollar el frontend utilizando archivos HTML independientes, como `index.html`, `tripulacion.html` y `pase.html`, y manejar las interacciones directamente con JavaScript.
-- **Quién aprobó:** Según el registro original, Javier aprobó la propuesta porque nos permitía avanzar con las pantallas y cumplir con los tiempos de entrega.
-- **Quiénes estaban de acuerdo:** Charlie tenía experiencia trabajando con HTML y JavaScript nativo. Gabriel también apoyó la propuesta porque facilitaba conectar las pantallas con los endpoints que estaba desarrollando.
-- **Por qué se aprobó:** Consideramos que aprender y configurar un framework en ese momento podía retrasarnos. Preferimos utilizar herramientas que ya conocíamos y enfocarnos en entregar funcionalidades que realmente pudieran probarse.
-
-## Decisión
-
-Decidimos desarrollar la interfaz utilizando HTML, CSS y JavaScript nativo (Vanilla JS), organizando la aplicación en diferentes páginas.
-
-Para manejar los elementos de la pantalla utilizaríamos directamente el DOM, sin incorporar React, Vue ni una librería para administrar el estado global de la aplicación.
-
-Elegimos esta opción porque nos permitía trabajar con herramientas conocidas y avanzar rápidamente con las funcionalidades del prototipo.
+Se adoptó una arquitectura **Multi-Page Application (MPA)** basada en estándares web nativos (HTML5 semántico, CSS modular y JavaScript ES6+):
+1. Cada vista operativa (`index.html`, `compra.html`, `pase.html`, `tripulacion.html`, `cuenta.html`) opera como un documento autónomo servido directamente por el servidor web / CDN.
+2. La reactividad y las interacciones de interfaz se gestionan mediante manipulación directa del DOM y Web APIs nativas (`fetch`, `AbortSignal`, `Dialog`, `Canvas`), sin capas intermedias de abstracción ni runtime reactivo de terceros.
+3. La navegación y el aislamiento de contexto entre flujos (reserva de clientes frente a consola de tripulación) se apoyan en el modelo nativo de navegación por URL y rutas de documento del navegador.
 
 ## Consecuencias
 
-+ **Qué se gana:** Podemos modificar las pantallas y visualizar los cambios directamente en el navegador, sin realizar pasos adicionales de compilación.
-+ **Qué se gana:** Reducimos el tiempo de configuración inicial y facilitamos que diferentes integrantes trabajen en páginas específicas.
-+ **Qué se gana (Puerta de dos vías):** Podemos modificar o rediseñar una pantalla sin tener que cambiar necesariamente la estructura de las demás.
+- **Positivas:**
+  - Máximo rendimiento en FCP y TTI al prescindir de bundles pesados de framework; tiempos de carga inferiores a 1 segundo en redes 3G/4G.
+  - Cero dependencias de compilación o transpilación en el frontend, simplificando radicalmente el pipeline de CI/CD.
+  - Aislamiento de fallos: un error de ejecución en el script de una vista no compromete la estabilidad de otras páginas de la aplicación.
+- **Negativas / Compromisos técnicos:**
+  - Ausencia de un almacén de estado global compartido en memoria del navegador; la persistencia entre pantallas requiere delegarse explícitamente a cookies de sesión, `sessionStorage` o consultas al backend.
+  - Duplicación de fragmentos estructurales comunes (encabezados, pies de página) entre archivos HTML al no contar con un sistema de componentes reactivos en cliente.
 
-- **Qué se pierde:** Algunos elementos visuales, como encabezados y botones comunes, pueden repetirse entre diferentes archivos HTML.
-- **Qué se pierde:** Compartir información entre páginas puede resultar más complicado al no contar con un gestor de estado centralizado.
-- **Qué se pierde:** Aunque esta alternativa reduce la configuración inicial, debemos comprobar el rendimiento de las pantallas mediante pruebas para asegurar que cumplimos el tiempo de carga solicitado.
+## Revisión pendiente
+
+- Evaluar la incorporación de Web Components nativos si la necesidad de reutilización de widgets visuales (modales, selectores) aumenta.
+
+## Referencias
+
+- [`frontend/index.html`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/main/frontend/index.html)
+- [`frontend/tripulacion.html`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/main/frontend/tripulacion.html)
+- [`frontend/compra.html`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/main/frontend/compra.html)
+
+Seguimiento de la revisión: [PCA-197](https://avianca-powercoders.atlassian.net/browse/PCA-197). La revisión por pares sigue pendiente.

@@ -1,56 +1,44 @@
-
-# ADR 0005 · Aceptamos el flujo de compra heredado sin refactorizar hasta después de la Feria
+# ADR 0005 · Gestión explícita de deuda técnica en el módulo de reservas y compra
 
 Estado: Aceptada · 22 de octubre de 2026
 
+Revisión documental: 26 de octubre de 2026 (UTC), sobre `main`. La fecha y el estado originales se conservan como metadatos; no acreditan una aprobación del equipo. Se retiraron las atribuciones personales sin respaldo verificable.
+
 ## Contexto
 
-### Qué decisiones tomamos y qué estábamos pensando cuando tomamos esa decisión
+Tras la integración del módulo heredado `Proyecto_AviancaWeb`, se identificó alta complejidad ciclomática y acoplamiento de responsabilidades en `frontend/purchase.js` (función monolítica `init()` de ~315 líneas coordinando validación de formulario, representación visual de inventario de asientos, cálculo de tarifas y emisión de peticiones de reserva) y en `frontend/mis-reservas.js`.
 
-Después de unir `Proyecto_AviancaWeb` con nuestro repositorio, nos dimos cuenta de que algunas partes del código necesitaban una mejor organización.
+Se planteó el dilema técnico entre dos estrategias:
+1. **Refactorización estructural inmediata:** Reescribir el módulo desacoplando la lógica de negocio, controladores de eventos y renderizado en submódulos especializados antes de la entrega de la Feria.
+2. **Contención y congelamiento de alcance de deuda técnica:** Mantener la arquitectura existente del módulo, aislando su superficie mediante contratos de API estables y pruebas de integración de caja negra, postergando la refactorización profunda para un ciclo de mantenimiento posterior.
 
-Uno de los casos más claros era el flujo de compra. En `frontend/purchase.js`, la función `init()` tenía alrededor de 315 líneas y mezclaba varias responsabilidades: validar datos, mostrar el mapa de asientos, preparar la reserva y guardarla.
+La evaluación de riesgos determinó que una refactorización de gran escala sin un arnés integral de pruebas E2E en el cliente introducía un alto riesgo de regresiones críticas en el flujo principal de generación de ingresos a pocos días del hito de entrega.
 
-También encontramos que `frontend/mis-reservas.js` estaba escrito de una forma muy compacta, lo que dificultaba leerlo y hacer modificaciones.
+## Decisión y alcance actual
 
-Durante el taller de deuda técnica S23 identificamos este problema como una deuda técnica accidental e imprudente, porque cuando se desarrolló esa parte del proyecto no se separaron adecuadamente las responsabilidades de la lógica y la interfaz.
-
-Sabíamos que lo ideal era reorganizar estos archivos, pero estábamos cerca de la Feria de Producto y todavía teníamos funcionalidades importantes por completar.
-
-El flujo de compra ya funcionaba y parte de su comportamiento estaba cubierto mediante pruebas de integración de la API. Sin embargo, no contábamos con suficientes pruebas automatizadas del frontend para realizar una refactorización grande con tranquilidad.
-
-Además, las funcionalidades pendientes del Sprint 4, como la edición de preferencias por personal autorizado, estaban enfocadas principalmente en la tripulación y no exigían reorganizar completamente el proceso de compra.
-
-Por eso tuvimos que decidir si dedicábamos tiempo a refactorizar esos archivos o si era mejor aceptar temporalmente esa deuda y concentrarnos en completar el producto.
-
-### Quién decidió, quién aprobó y posturas en el equipo
-
-- **Quién decidió:** Según lo registrado en el taller S23, el equipo decidió priorizar las deudas técnicas considerando su impacto, frecuencia de uso y costo de corrección.
-- **Quién aprobó:** El documento recoge un acuerdo del equipo para aplazar esta refactorización, aunque no identifica una aprobación individual separada.
-- **Dudas resueltas:** Durante el intercambio con otro equipo se señaló que uno de los riesgos era depender de una sola persona que conociera bien el código de compra. Por eso incorporamos la idea de trabajar esos cambios en pareja.
-- **El consenso alcanzado:** Mantener temporalmente el flujo de compra como estaba y dedicar el tiempo del Sprint 4 a las deudas técnicas que considerábamos más urgentes, identificadas como DT-01 a DT-05.
-
-## Decisión
-
-Decidimos no refactorizar completamente `purchase.js` ni `mis-reservas.js` durante el Sprint 4 ni en la semana de estabilización previa a la Feria.
-
-Durante ese período, solamente realizaríamos cambios necesarios para corregir defectos o completar ajustes pequeños que ya estaban planificados.
-
-Si aparecía un error, debíamos acompañar su corrección con una prueba que permitiera reproducirlo y verificar que se hubiera solucionado, siguiendo el criterio 7 de nuestra Definition of Done.
-
-También acordamos que los cambios en el flujo de compra se trabajarían en pareja, con Fernando y otro integrante, para que más personas conocieran esa parte del proyecto.
-
-Los ajustes pequeños de los catálogos de aeropuertos y comidas, identificados como DT-02 y DT-03, podían continuar sin reorganizar completamente los archivos.
-
-Si aparecía una nueva historia o un problema importante que exigiera modificar significativamente el proceso de compra, volveríamos a evaluar esta decisión.
+Se resolvió **congelar la refactorización de fondo de `purchase.js` y `mis-reservas.js`**, aceptando y documentando conscientemente la deuda técnica estructural bajo las siguientes reglas de gobierno:
+1. La integridad del flujo se blinda desde el servidor mediante contratos estrictos en `POST /api/reservas` y suites de integración (`tests/flujo-reservas.test.js`).
+2. Se prohíbe introducir nuevas responsabilidades funcionales dentro de las funciones monolíticas; únicamente se permiten correcciones puntuales de defectos respaldadas por pruebas de regresión.
+3. Las intervenciones en dicho módulo se ejecutan bajo revisión por pares obligatoria para mitigar la concentración de conocimiento técnico.
 
 ## Consecuencias
 
-+ **Qué se gana:** Podemos dedicar aproximadamente ocho horas, que habíamos estimado para la refactorización, a completar otras tareas pendientes del Sprint 4.
-+ **Qué se gana:** Reducimos el riesgo de introducir errores importantes en el flujo de compra poco antes de la demostración de la Feria.
-+ **Qué se gana:** Dejamos registrada la deuda técnica y las razones por las que decidimos posponerla.
+- **Positivas:**
+  - Preservación de la estabilidad operativa del esqueleto caminante en el hito crítico de demostración y entrega.
+  - Concentración del esfuerzo técnico en las capacidades no negociables del sistema (seguridad RBAC, persistencia Atlas, métricas de embudo).
+  - Trazabilidad y visibilidad explícita de la deuda técnica frente a auditorías de arquitectura.
+- **Negativas / Compromisos técnicos:**
+  - Mantenimiento de una alta barrera de legibilidad y costo de cambio elevado dentro de `purchase.js`.
+  - Necesidad de auditorías manuales y cobertura de pruebas de integración para prevenir efectos colaterales ante modificaciones menores.
 
-- **Qué se pierde:** El código continúa siendo más difícil de leer y modificar de lo que nos gustaría.
-- **Qué se pierde:** Seguimos dependiendo del conocimiento de quienes han trabajado directamente con esos archivos, aunque el trabajo en pareja ayuda a reducir ese riesgo.
-- **Qué se pierde:** Al no contar con suficientes pruebas automatizadas del frontend, algunos errores de interfaz podrían pasar desapercibidos y depender de las revisiones manuales de QA.
-- **Qué se pierde:** El código conserva algunas inconsistencias de estilo y organización durante la entrega.
+## Revisión pendiente
+
+- Planificar en el backlog posterior a la Feria la descomposición modular de `purchase.js` en un controlador de selección de asientos, un calculador de tarifas y un despachador de reservas desacoplados.
+
+## Referencias
+
+- [`frontend/purchase.js`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/main/frontend/purchase.js)
+- [`backend/reservas.js`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/main/backend/reservas.js)
+- [`tests/flujo-reservas.test.js`](https://github.com/GGaboBD/MA_PowerCoders_4.0/blob/main/tests/flujo-reservas.test.js)
+
+Seguimiento de la revisión: [PCA-197](https://avianca-powercoders.atlassian.net/browse/PCA-197). La revisión por pares sigue pendiente.

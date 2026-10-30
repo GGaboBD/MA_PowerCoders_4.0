@@ -1,4 +1,4 @@
-# ADR 0021 · Exigimos inicio de sesión para reservar asientos
+# ADR 0019 · Exigimos inicio de sesión para reservar asientos
 
 Estado: Aceptada · 26 de octubre de 2026
 
