@@ -29,8 +29,12 @@ jobs:
           path: /home/runner/.cache/mongodb-binaries
           key: mongodb-binaries-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
-      - run: npm ci
+      - name: Instalar dependencias
+        run: npm ci
 
-      - run: npm run check:syntax
+      - name: Revisar sintaxis del proyecto
+        run: npm run check:syntax
 
-      - run: npm test
+      - name: Ejecutar suite de pruebas e integracion de cabina (T15 / HU06a)
+        run: npm test
+
