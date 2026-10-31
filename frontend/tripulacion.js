@@ -727,14 +727,23 @@
     if (btnGuardar) btnGuardar.disabled = true;
     try {
       const idObjetivo = p.pasajeroId || p.boletoId || p.boleto;
-      const res = await fetch(`/api/pasajeros/${encodeURIComponent(idObjetivo)}/preferencias`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ comida, bebida })
-      });
-      const data = await res.json();
-      if (!res.ok || !data.ok) {
-        throw new Error(data.mensaje || 'Error al guardar en el servidor. Verifique conexión');
+      const esModoDemo = Boolean(vuelo?.id?.startsWith('demo-') || (typeof idObjetivo === 'string' && idObjetivo.toLowerCase().startsWith('demo-')));
+
+      let mensajeServidor = '';
+
+      try {
+        const respuesta = await api(`/api/pasajeros/${encodeURIComponent(idObjetivo)}/preferencias`, {
+          metodo: 'PUT',
+          cuerpo: { comida, bebida }
+        });
+        if (respuesta.ok) {
+          mensajeServidor = respuesta.datos?.mensaje;
+        } else if (!esModoDemo) {
+          throw new Error(respuesta.datos?.mensaje || 'Error al guardar en el servidor. Verifique conexión');
+        }
+      } catch (errApi) {
+        if (!esModoDemo) throw errApi;
+        // En modo demostración, permitimos persistencia local aun si el backend o la red no responden
       }
 
       // Éxito: persistir en memoria local del pasajero
@@ -742,6 +751,16 @@
       p.menuPreferencia = comida;
       p.bebida = bebida;
       p.bebidaPreferencia = bebida;
+
+      if (esModoDemo && Array.isArray(PASAJEROS_DEMO)) {
+        const demoItem = PASAJEROS_DEMO.find(item => item.asiento === p.asiento || item.boleto === p.boleto);
+        if (demoItem) {
+          demoItem.comida = comida;
+          demoItem.menuPreferencia = comida;
+          demoItem.bebida = bebida;
+          demoItem.bebidaPreferencia = bebida;
+        }
+      }
 
       // Actualizar en caché local si existe
       try {
@@ -762,7 +781,7 @@
 
       if (feedback) {
         feedback.className = 'alerta-feedback exito';
-        feedback.textContent = 'Preferencias actualizadas con éxito';
+        feedback.textContent = mensajeServidor || 'Preferencias actualizadas con éxito';
         feedback.hidden = false;
       }
 
@@ -772,7 +791,7 @@
     } catch (err) {
       if (feedback) {
         feedback.className = 'alerta-feedback error';
-        feedback.textContent = 'Error al guardar en el servidor. Verifique conexión';
+        feedback.textContent = err.message || 'Error al guardar en el servidor. Verifique conexión';
         feedback.hidden = false;
       }
     } finally {

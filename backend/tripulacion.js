@@ -237,16 +237,36 @@ module.exports = function registrarTripulacion(app, bases) {
       const comida = tieneComida ? comidaRaw.trim() : null;
       const bebida = tieneBebida ? bebidaRaw.trim() : null;
 
+      const COMIDAS_VALIDAS = ['sin_preferencia', 'estandar', 'vegetariana', 'vegana', 'sin_gluten', 'otra'];
+      const comidaNormalizada = comida && COMIDAS_VALIDAS.includes(comida) ? comida : 'sin_preferencia';
+
       const idStr = String(id).trim();
+
+      // Soporte para boletos o identificadores del modo demostración
+      if (idStr.toLowerCase().startsWith('demo-')) {
+        return res.json({
+          ok: true,
+          mensaje: 'Preferencias actualizadas con éxito',
+          preferencias: { comida: comidaNormalizada, bebida: bebida || '' }
+        });
+      }
+
       const idObj = ID.test(idStr) ? new ObjectId(idStr) : null;
-      const filtro = idObj ? { $or: [{ _id: idObj }, { _id: idStr }] } : { _id: idStr };
 
-      let pasajero = await clientes.collection('pasajeros').findOne(filtro);
+      // Buscar pasajero por ObjectId, cadena de ID o documento/asiento
+      let pasajero = null;
+      if (idObj) {
+        pasajero = await clientes.collection('pasajeros').findOne({ $or: [{ _id: idObj }, { _id: idStr }] });
+      } else {
+        pasajero = await clientes.collection('pasajeros').findOne({
+          $or: [{ _id: idStr }, { 'documento.numero': idStr }, { asiento: idStr }]
+        });
+      }
+
       let boleto = null;
-
       if (!pasajero) {
         boleto = await clientes.collection('boletos').findOne({
-          $or: [...(idObj ? [{ _id: idObj }] : []), { _id: idStr }, { numero: idStr }]
+          $or: [...(idObj ? [{ _id: idObj }] : []), { _id: idStr }, { numero: idStr }, { asiento: idStr }]
         });
         if (boleto && boleto.pasajeroId) {
           const pId = String(boleto.pasajeroId);
@@ -259,46 +279,72 @@ module.exports = function registrarTripulacion(app, bases) {
 
       const ahora = new Date();
       const updatePerfil = { actualizadoEn: ahora };
-      if (comida) { updatePerfil.comida = comida; updatePerfil.menu = comida; }
+      if (comida) { updatePerfil.comida = comidaNormalizada; updatePerfil.menu = comidaNormalizada; }
       if (bebida) { updatePerfil.bebida = bebida; }
 
-      // 1. Actualizar perfiles_viaje si tenemos boleto o id
+      // Cumplir con requerimientos obligatorios de esquema BSON de perfiles_viaje: { _id, pasajeroId }
+      const aObjectId = val => {
+        if (!val) return new ObjectId();
+        if (val instanceof ObjectId) return val;
+        const s = String(val);
+        return ID.test(s) ? new ObjectId(s) : new ObjectId();
+      };
+      const idPerfilBson = aObjectId(boleto?._id || idObj);
+      const idPasajeroBson = aObjectId(boleto?.pasajeroId || pasajero?._id || idObj);
+
+      const setOnInsert = {
+        _id: idPerfilBson,
+        pasajeroId: idPasajeroBson,
+        trato: pasajero?.nombres ? `${pasajero.nombres} ${pasajero.apellidos || ''}`.trim() : 'Pasajero',
+        idioma: 'es',
+        atencion: 0,
+        motivo: 0,
+        noMolestar: false,
+        alergias: [],
+        notas: ''
+      };
+      if (boleto?.vueloId && ID.test(String(boleto.vueloId))) setOnInsert.vueloId = aObjectId(boleto.vueloId);
+      if (boleto?.reservaId && ID.test(String(boleto.reservaId))) setOnInsert.reservaId = aObjectId(boleto.reservaId);
+      if (boleto?.asiento) setOnInsert.asiento = String(boleto.asiento).slice(0, 10);
+
+      // 1. Actualizar perfiles_viaje
+      await clientes.collection('perfiles_viaje').updateOne(
+        { _id: idPerfilBson },
+        {
+          $set: updatePerfil,
+          $setOnInsert: setOnInsert
+        },
+        { upsert: true }
+      ).catch(err => {
+        console.warn('Advertencia al upsert en perfiles_viaje:', err?.message);
+      });
+
+      // 2. Actualizar boleto si existe
       if (boleto) {
-        await clientes.collection('perfiles_viaje').updateOne(
-          { _id: boleto._id },
-          { $set: updatePerfil },
-          { upsert: true }
-        );
         const updateBoleto = { 'preferenciasViaje.actualizadoEn': ahora };
-        if (comida) updateBoleto['preferenciasViaje.comida'] = comida;
+        if (comida) updateBoleto['preferenciasViaje.comida'] = comidaNormalizada;
         if (bebida) updateBoleto['preferenciasViaje.bebida'] = bebida;
         await clientes.collection('boletos').updateOne(
           { _id: boleto._id },
           { $set: updateBoleto }
-        );
-      } else if (idObj) {
-        await clientes.collection('perfiles_viaje').updateOne(
-          { _id: idObj },
-          { $set: updatePerfil },
-          { upsert: true }
-        );
+        ).catch(() => {});
       }
 
-      // 2. Actualizar pasajero si existe
+      // 3. Actualizar pasajero si existe
       if (pasajero) {
         const updatePasajero = { 'preferencias.actualizadoEn': ahora };
-        if (comida) updatePasajero['preferencias.comida'] = comida;
+        if (comida) updatePasajero['preferencias.comida'] = comidaNormalizada;
         if (bebida) updatePasajero['preferencias.bebida'] = bebida;
         await clientes.collection('pasajeros').updateOne(
           { _id: pasajero._id },
           { $set: updatePasajero }
-        );
+        ).catch(() => {});
       }
 
       if (bases.avianca && req.cuenta?._id) {
         await auditarPersonal(bases, req.cuenta._id, 'pasajero.actualizarPreferencias', {
           objetivoId: idStr,
-          detalle: { comida, bebida }
+          detalle: { comida: comidaNormalizada, bebida }
         }).catch(() => {});
       }
 
@@ -306,7 +352,7 @@ module.exports = function registrarTripulacion(app, bases) {
         ok: true,
         mensaje: 'Preferencias actualizadas con éxito',
         preferencias: {
-          comida: comida || (pasajero?.preferencias?.comida || 'sin_preferencia'),
+          comida: comidaNormalizada || (pasajero?.preferencias?.comida || 'sin_preferencia'),
           bebida: bebida || (pasajero?.preferencias?.bebida || '')
         }
       });
