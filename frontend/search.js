@@ -35,7 +35,8 @@ function field(label, value) {
 function render(flights, data, hayMas) {
   const title = element('div', undefined, 'resultados-titulo');
   const rutaTexto = data.origen && data.destino ? `${getCityName(data.origen)} → ${getCityName(data.destino)}` : 'Catálogo de vuelos disponibles';
-  title.append(element('p', `RESULTADOS · ${data.fecha || 'TODOS LOS VUELOS'}`, 'etiqueta'),
+  const etiquetaFecha = data.todasFechas ? 'TODAS LAS FECHAS DISPONIBLES' : (data.fecha || 'TODOS LOS VUELOS');
+  title.append(element('p', `RESULTADOS · ${etiquetaFecha}`, 'etiqueta'),
     element('h2', rutaTexto),
     element('p', `${data.cabina === 'primera' ? 'Primera clase' : 'Clase ejecutiva'} · ${data.pasajeros || 1} pasajero(s)`));
   results.replaceChildren(title);
@@ -107,20 +108,28 @@ function render(flights, data, hayMas) {
         }
       }
     });
-    const actions = element('div');
+    const actions = element('div', undefined, 'vuelo-acciones');
     actions.append(choose, detailButton);
     detailButton.addEventListener('click', () => {
       detail.hidden = !detail.hidden;
       detailButton.setAttribute('aria-expanded', String(!detail.hidden));
       detailButton.textContent = detail.hidden ? 'Ver detalle' : 'Ocultar detalle';
     });
-    const salidaTexto = data.catalogo ? `${flight.origen} → ${flight.destino} · ${flight.hora}` : flight.hora;
-    card.append(field('SALIDA LOCAL', salidaTexto), field('VUELO', flight.codigo),
-      field('DURACIÓN', duration), field('ASIENTOS', `${flight.disponibles} disp.`), field('POR PERSONA', price), actions, detail);
+    const salidaTexto = (data.catalogo || data.todasFechas) ? `${flight.origen} → ${flight.destino} · ${flight.hora}` : flight.hora;
+    card.append(
+      field('SALIDA LOCAL', salidaTexto),
+      field('FECHA', flight.fecha),
+      field('VUELO', flight.codigo),
+      field('DURACIÓN', duration),
+      field('ASIENTOS', `${flight.disponibles} disp.`),
+      field('POR PERSONA', price),
+      actions,
+      detail
+    );
     list.append(card);
   }
   results.append(list);
-  if (hayMas) results.append(element('p', 'Se muestran las primeras 100 coincidencias. Ajusta la hora para acotar la búsqueda.'));
+  if (hayMas) results.append(element('p', 'Se muestran las primeras coincidencias disponibles.'));
 }
 
 form.addEventListener('submit', async event => {
@@ -180,13 +189,79 @@ if ('ResizeObserver' in window) {
 }
 
 if (typeof document !== 'undefined' && typeof document.getElementById === 'function') {
+  const btnRuta = document.getElementById('btn-vuelos-ruta');
+  if (btnRuta) {
+    btnRuta.addEventListener('click', async () => {
+      const origen = form?.elements?.origen?.value;
+      const destino = form?.elements?.destino?.value;
+      const cabina = form?.elements?.cabina?.value || 'ejecutiva';
+      const pasajeros = form?.elements?.pasajeros?.value || '1';
+
+      results.hidden = false;
+      if (!origen || !destino) {
+        message('Selecciona el aeropuerto o país de origen y destino.');
+        return;
+      }
+      if (origen === destino) {
+        message('El origen y el destino deben ser diferentes.');
+        results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+
+      btnRuta.disabled = true;
+      btnRuta.textContent = 'Consultando vuelos…';
+      message(`Consultando todos los vuelos disponibles de ${getCityName(origen)} a ${getCityName(destino)} en cualquier fecha…`);
+      results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      try {
+        const queryParams = new URLSearchParams({
+          origen,
+          destino,
+          catalogo: '1',
+          sinFecha: '1',
+          cabina,
+          pasajeros
+        });
+        const response = await fetch(`/api/vuelos?${queryParams}`, { cache: 'no-store' });
+        const payload = await response.json();
+        if (payload.ok && Array.isArray(payload.vuelos)) {
+          if (payload.vuelos.length === 0) {
+            results.replaceChildren(element('div', undefined, 'resultados-titulo'));
+            results.firstChild.append(
+              element('p', 'RESULTADOS · CUALQUIER FECHA', 'etiqueta'),
+              element('h2', `${getCityName(origen)} → ${getCityName(destino)}`),
+              element('p', 'No encontramos vuelos programados para esta ruta en fechas futuras. Consulta el catálogo completo o prueba otra ruta.')
+            );
+          } else {
+            render(payload.vuelos, {
+              origen,
+              destino,
+              fecha: 'TODAS LAS FECHAS DISPONIBLES',
+              cabina,
+              pasajeros: Number(pasajeros),
+              catalogo: true,
+              todasFechas: true
+            }, payload.hayMas);
+          }
+        } else {
+          message('No se pudo cargar la lista de vuelos para esta ruta.');
+        }
+      } catch {
+        message('No se pudo conectar con el catálogo de vuelos.');
+      } finally {
+        btnRuta.disabled = false;
+        btnRuta.textContent = '✈ Ver todos los vuelos de esta ruta (sin importar fecha)';
+      }
+    });
+  }
+
   const btnCat = document.getElementById('btn-catalogo-completo');
   if (btnCat) {
     btnCat.addEventListener('click', async () => {
       btnCat.disabled = true;
       btnCat.textContent = 'Cargando catálogo…';
       results.hidden = false;
-      message('Consultando más de 20 vuelos activos en el catálogo de Avianca…');
+      message('Consultando los vuelos activos en el catálogo de Avianca…');
       results.scrollIntoView({ behavior: 'smooth', block: 'start' });
       try {
         const response = await fetch('/api/vuelos?catalogo=1', { cache: 'no-store' });
@@ -199,6 +274,7 @@ if (typeof document !== 'undefined' && typeof document.getElementById === 'funct
             cabina: 'ejecutiva',
             pasajeros: 1,
             catalogo: true,
+            todasFechas: true
           }, payload.hayMas);
         } else {
           message('No se pudo cargar el catálogo de vuelos.');
@@ -207,7 +283,7 @@ if (typeof document !== 'undefined' && typeof document.getElementById === 'funct
         message('No se pudo conectar con el catálogo de vuelos.');
       } finally {
         btnCat.disabled = false;
-        btnCat.textContent = '✦ Ver catálogo completo (20+ vuelos disponibles)';
+        btnCat.textContent = '✦ Ver catálogo completo (todos los vuelos)';
       }
     });
   }

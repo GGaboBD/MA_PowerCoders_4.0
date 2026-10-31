@@ -250,8 +250,17 @@ const RUTAS_CATALOGO = [
   { origen: 'BOG', destino: 'CLO', minutos: 60, moneda: 'COP', tarifas: ['410000', '870000'], salidas: [['AV 8234', '08:15'], ['AV 8246', '15:35']] },
   { origen: 'SAL', destino: 'MIA', minutos: 150, moneda: 'USD', tarifas: ['520.00', '1100.00'], salidas: [['AV 0480', '10:05'], ['AV 0484', '17:40']] },
   { origen: 'MIA', destino: 'SAL', minutos: 155, moneda: 'USD', tarifas: ['520.00', '1100.00'], salidas: [['AV 0481', '15:30'], ['AV 0485', '21:15']] },
-  { origen: 'MDE', destino: 'CTG', minutos: 65, moneda: 'COP', tarifas: ['390000', '780000'], salidas: [['AV 9540', '10:30'], ['AV 9544', '16:00']] },
-  { origen: 'CTG', destino: 'MDE', minutos: 65, moneda: 'COP', tarifas: ['390000', '780000'], salidas: [['AV 9541', '12:15'], ['AV 9545', '18:00']] },
+  { origen: 'MDE', destino: 'CTG', minutos: 65, moneda: 'COP', tarifas: ['390000', '890000'], salidas: [['AV 9540', '10:30'], ['AV 9544', '16:00']] },
+  { origen: 'CTG', destino: 'MDE', minutos: 65, moneda: 'COP', tarifas: ['390000', '890000'], salidas: [['AV 9541', '12:15'], ['AV 9545', '18:00']] },
+  // Rutas internacionales intercontinentales
+  { origen: 'BOG', destino: 'MAD', minutos: 600, moneda: 'USD', tarifas: ['850.00', '1950.00'], salidas: [['AV 0010', '18:15']] },
+  { origen: 'BOG', destino: 'LHR', minutos: 630, moneda: 'USD', tarifas: ['920.00', '2100.00'], salidas: [['AV 0120', '20:30']] },
+  { origen: 'BOG', destino: 'CDG', minutos: 615, moneda: 'USD', tarifas: ['890.00', '2050.00'], salidas: [['AV 0180', '19:15']] },
+  { origen: 'BOG', destino: 'NRT', minutos: 870, moneda: 'USD', tarifas: ['1250.00', '2800.00'], salidas: [['AV 0300', '22:45']] },
+  { origen: 'BOG', destino: 'DXB', minutos: 840, moneda: 'USD', tarifas: ['1180.00', '2650.00'], salidas: [['AV 0380', '16:00']] },
+  { origen: 'BOG', destino: 'JFK', minutos: 330, moneda: 'USD', tarifas: ['460.00', '1150.00'], salidas: [['AV 0240', '08:30']] },
+  { origen: 'BOG', destino: 'EZE', minutos: 360, moneda: 'USD', tarifas: ['510.00', '1220.00'], salidas: [['AV 0086', '14:15']] },
+  { origen: 'BOG', destino: 'SCL', minutos: 350, moneda: 'USD', tarifas: ['480.00', '1180.00'], salidas: [['AV 0098', '10:45']] },
 ];
 
 async function sembrarVuelosCatalogo(db) {

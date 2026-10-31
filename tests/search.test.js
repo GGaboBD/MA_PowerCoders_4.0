@@ -67,11 +67,23 @@ function cargarBusqueda({ fetchImpl, query = '' } = {}) {
   formulario.checkValidity = () => true;
   formulario.requestSubmit = () => formulario.listeners.get('submit')({ preventDefault() {} });
   const consultas = [];
+  const elementosId = new Map([
+    ['btn-vuelos-ruta', new Elemento('button')],
+    ['btn-catalogo-completo', new Elemento('button')],
+    ['dialog-sesion-requerida', new Elemento('dialog')],
+    ['btn-ir-iniciar-sesion', new Elemento('a')],
+    ['cerrar-dialog-sesion', new Elemento('button')],
+    ['btn-cancelar-sesion', new Elemento('button')],
+  ]);
   const contexto = vm.createContext({
     document: {
       querySelector(selector) {
         assert.ok(['#formulario-busqueda', '#resultados'].includes(selector));
         return selector === '#formulario-busqueda' ? formulario : resultados;
+      },
+      getElementById: id => {
+        if (!elementosId.has(id)) elementosId.set(id, new Elemento('div'));
+        return elementosId.get(id);
       },
       createElement: tag => new Elemento(tag)
     },
@@ -88,6 +100,8 @@ function cargarBusqueda({ fetchImpl, query = '' } = {}) {
   vm.runInContext(source, contexto, { filename: 'frontend/search.js' });
   return {
     resultados, consultas, boton, controles, formulario,
+    btnRuta: elementosId.get('btn-vuelos-ruta'),
+    btnCat: elementosId.get('btn-catalogo-completo'),
     tarjetas: () => porClase(resultados, 'vuelo-card'),
     enlaces: () => porEtiqueta(resultados, 'a').map(a => new URL(a.href, 'https://example.test/')),
     async buscar(datos = {}) {
@@ -211,3 +225,32 @@ test('la búsqueda repone los filtros de la URL y mantiene los textos como texto
   assert.match(busqueda.resultados.textContent, /<img src=x onerror=alert\(1\)>/);
   assert.equal(porEtiqueta(busqueda.resultados, 'img').length, 0);
 });
+
+test('las tarjetas muestran a simple vista la fecha del vuelo', async () => {
+  const busqueda = cargarBusqueda();
+  await busqueda.buscar({ fecha: '2026-11-10' });
+  const [tarjeta] = busqueda.tarjetas();
+  assert.ok(tarjeta, 'Debe existir la tarjeta del vuelo');
+  assert.match(tarjeta.textContent, /FECHA/);
+  assert.match(tarjeta.textContent, /2026-11-10/);
+});
+
+test('el tercer botón de ruta sin fecha consulta /api/vuelos con sinFecha=1 y muestra los vuelos', async () => {
+  const busqueda = cargarBusqueda({
+    fetchImpl: async (url) => {
+      assert.match(url, /sinFecha=1/);
+      assert.match(url, /origen=BOG/);
+      assert.match(url, /destino=MAD/);
+      return { ok: true, json: async () => ({ ok: true, vuelos: [vuelo({ origen: 'BOG', destino: 'MAD', fecha: '2026-11-03' })] }) };
+    }
+  });
+  busqueda.controles.origen.value = 'BOG';
+  busqueda.controles.destino.value = 'MAD';
+  const listener = busqueda.btnRuta.listeners.get('click');
+  assert.ok(listener, 'El botón btn-vuelos-ruta debe tener un listener click');
+  await listener();
+  assert.equal(busqueda.tarjetas().length, 1);
+  assert.match(busqueda.resultados.textContent, /2026-11-03/);
+  assert.match(busqueda.resultados.textContent, /TODAS LAS FECHAS DISPONIBLES/);
+});
+

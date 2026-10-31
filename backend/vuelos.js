@@ -77,9 +77,11 @@ module.exports = function registrarVuelos(app, bases) {
       } catch { return res.status(503).json({ ok: false, mensaje: 'No se pudieron consultar los vuelos.' }); }
     }
 
-    // Modo catálogo abierto o filtrado flexible (por destino, fecha, hora, precio)
+    // Modo catálogo abierto o filtrado flexible (por destino, ruta sin fecha, hora, precio)
     const esCatalogo = req.query.catalogo === '1' || req.query.todos === '1' || req.query.modo === 'catalogo' ||
-      (!req.query.origen && (req.query.destino || req.query.fecha || req.query.precioMaximo));
+      req.query.sinFecha === '1' || req.query.todasFechas === '1' ||
+      (!req.query.origen && (req.query.destino || req.query.fecha || req.query.precioMaximo)) ||
+      (req.query.origen && req.query.destino && (!req.query.fecha || req.query.sinFecha === '1'));
 
     if (esCatalogo) {
       try {
@@ -101,7 +103,7 @@ module.exports = function registrarVuelos(app, bases) {
           ], as: 'ocupados' } },
           { $project: { codigo: 1, origen: 1, destino: 1, salida: 1, llegada: 1,
             tarifas: 1, moneda: 1, asientos: 1, ocupados: 1, diaViaje: 1 } },
-          { $limit: 150 },
+          { $limit: 1000 },
         ];
 
         let candidatos = await db.collection('vuelos').aggregate(pipeline).toArray();
@@ -137,7 +139,8 @@ module.exports = function registrarVuelos(app, bases) {
           vuelos.sort((a, b) => Number(b.precio) - Number(a.precio));
         }
 
-        const respuesta = { ok: true, cantidad: vuelos.length, catalogo: true, vuelos: vuelos.slice(0, 100) };
+        const limite = req.query.limite ? Math.min(Number(req.query.limite), 1000) : 500;
+        const respuesta = { ok: true, cantidad: vuelos.length, catalogo: true, vuelos: vuelos.slice(0, limite) };
         if (req.query.debug === '1' && errorSembrado) respuesta.debug = errorSembrado;
         return res.json(respuesta);
       } catch (err) {

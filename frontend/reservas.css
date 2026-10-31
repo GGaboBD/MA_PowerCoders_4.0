@@ -22,14 +22,17 @@
 .resultados-titulo h2 { font-size: 32px; letter-spacing: -.045em; font-weight: 400; }
 .resultados-titulo > p:last-child { color: var(--gris-texto); font-size: 14px; }
 .lista-vuelos { display: grid; gap: 14px; }
-.vuelo-card { display: grid; grid-template-columns: .8fr .8fr .9fr 1.1fr auto; gap: 24px; align-items: center; padding: 26px 28px; border: 1px solid var(--gris-borde); border-radius: 14px; background: white; transition: border-color .18s, box-shadow .18s; }
+.vuelo-card { display: grid; grid-template-columns: 1.15fr 1fr .8fr .8fr .9fr 1.1fr auto; gap: 20px; align-items: center; padding: 24px 28px; border: 1px solid var(--gris-borde); border-radius: 14px; background: white; transition: border-color .18s, box-shadow .18s; }
 .vuelo-card:hover { border-color: #b8b8af; box-shadow: 0 8px 24px #21201708; }
 .vuelo-card .campo-etiqueta { font-size: 11px; letter-spacing: .08em; font-weight: 700; }
 .vuelo-card strong { font-size: 19px; line-height: 1.4; letter-spacing: -.025em; font-weight: 700; }
 .vuelo-card > div:first-child strong { font-size: 31px; font-weight: 400; letter-spacing: -.05em; }
-.vuelo-card > div:nth-child(5) { display: flex; gap: 12px; align-items: center; }
-.vuelo-card > div:nth-child(5) > button { border: 0; background: transparent; color: var(--gris-texto); font-size: 13px; padding-inline: 9px; }
-.vuelo-card > div:nth-child(5) > button:hover { color: var(--rojo); }
+.vuelo-card .campo-fecha strong { color: var(--rojo); }
+.vuelo-acciones, .vuelo-card > div:nth-child(7), .vuelo-card > div:nth-child(6), .vuelo-card > div:nth-child(5) { display: flex; gap: 12px; align-items: center; }
+.vuelo-acciones > button, .vuelo-card > div:nth-child(7) > button, .vuelo-card > div:nth-child(6) > button, .vuelo-card > div:nth-child(5) > button { border: 0; background: transparent; color: var(--gris-texto); font-size: 13px; padding-inline: 9px; cursor: pointer; }
+.vuelo-acciones > button:hover, .vuelo-card > div:nth-child(7) > button:hover, .vuelo-card > div:nth-child(6) > button:hover, .vuelo-card > div:nth-child(5) > button:hover { color: var(--rojo); }
+#btn-vuelos-ruta { border-color: #c4c4b8; background: #fafaf7; }
+#btn-vuelos-ruta:hover { border-color: #8c8c80; background: #ededdf; }
 /* Compra: pasos centrados, datos a la izquierda y resumen de tarifa fijo. */
 .pagina-compra { background: var(--papel); }
 .compra-main { padding-top: 0; padding-bottom: 80px; }
