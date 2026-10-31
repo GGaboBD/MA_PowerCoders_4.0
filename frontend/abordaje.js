@@ -8,6 +8,15 @@ const Abordaje = (() => {
   const PREFIJO = 'AVPC2';
   const PREFIJO_ANTERIOR = 'AVPC1';
   const CIUDADES = { SAL: 'San Salvador', MIA: 'Miami', BOG: 'Bogotá', MDE: 'Medellín', CLO: 'Cali', CTG: 'Cartagena' };
+  // Catálogo único de aeropuertos con zona horaria (PCA-193 / Taller T33)
+  const AEROPUERTOS = {
+    BOG: { codigo: 'BOG', ciudad: 'Bogotá', nombre: 'Aeropuerto Internacional El Dorado', zonaHoraria: 'America/Bogota' },
+    SAL: { codigo: 'SAL', ciudad: 'San Salvador', nombre: 'Aeropuerto Internacional de El Salvador', zonaHoraria: 'America/El_Salvador' },
+    MIA: { codigo: 'MIA', ciudad: 'Miami', nombre: 'Miami International Airport', zonaHoraria: 'America/New_York' },
+    MDE: { codigo: 'MDE', ciudad: 'Medellín', nombre: 'Aeropuerto Internacional José María Córdova', zonaHoraria: 'America/Bogota' },
+    CLO: { codigo: 'CLO', ciudad: 'Cali', nombre: 'Aeropuerto Internacional Alfonso Bonilla Aragón', zonaHoraria: 'America/Bogota' },
+    CTG: { codigo: 'CTG', ciudad: 'Cartagena', nombre: 'Aeropuerto Internacional Rafael Núñez', zonaHoraria: 'America/Bogota' }
+  };
   const IDIOMAS = { es: 'Español', en: 'English', pt: 'Português', fr: 'Français' };
   // Países por código ISO del documento; los demás se muestran con su código.
   const PAISES = { CO: 'Colombia', SV: 'El Salvador', GT: 'Guatemala', HN: 'Honduras', CR: 'Costa Rica', PA: 'Panamá', MX: 'México', BR: 'Brasil', US: 'Estados Unidos', ES: 'España' };
@@ -246,7 +255,7 @@ const Abordaje = (() => {
     });
   }
 
-  return { CIUDADES, IDIOMAS, PAISES, COMIDAS, ATENCION, MOTIVOS, CABINAS, LETRAS,
+  return { CIUDADES, AEROPUERTOS, IDIOMAS, PAISES, COMIDAS, ATENCION, MOTIVOS, CABINAS, LETRAS,
     limpiar, codificar, decodificar, describir, describirPase, asientosDe, cabinaDeAsiento, claveCabina, dibujarQR, hoyISO, formatearFecha, restarMinutos, tieneRequerimientoEspecial, sinAcentos, filtrarPasajeros };
 })();
 
