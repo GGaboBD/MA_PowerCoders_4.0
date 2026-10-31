@@ -10,6 +10,7 @@
     "preparar": "node --env-file-if-exists=.env backend/scripts/preparar-bases.js",
     "personal:crear": "node --env-file-if-exists=.env backend/scripts/crear-personal.js",
     "demo": "node --env-file-if-exists=.env backend/scripts/semilla-demo.js",
+    "seed": "node --env-file-if-exists=.env seed.js",
     "check:syntax": "node scripts/revisar-sintaxis.js",
     "test:cabina": "node --test tests/cabina-requerimientos.test.js",
     "test:preferencias": "node --test tests/preferencias-conexiones-offline.test.js",
