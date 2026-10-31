@@ -396,9 +396,13 @@
       if (!ok) throw new Error(datos.mensaje || 'No pudimos cargar la cabina.');
       if ($('vuelo').value !== id) return; // se eligió otro vuelo mientras tanto
 
-      // Guardar en almacenamiento local para modo fuera de línea (HU09.1)
+      // Guardar en almacenamiento local para modo fuera de línea (HU09.1 / T24.1)
       try {
-        localStorage.setItem(`cabina_cache_${id}`, JSON.stringify(datos));
+        if (window.AlmacenamientoCabina?.guardarCabina) {
+          window.AlmacenamientoCabina.guardarCabina(id, datos);
+        } else {
+          localStorage.setItem(`cabina_cache_${id}`, JSON.stringify(datos));
+        }
       } catch { /* cuota o modo incógnito */ }
       if ($('aviso-offline')) $('aviso-offline').hidden = true;
 
@@ -423,9 +427,11 @@
       const abierto = fichaActual && !$('ficha-contenido').hidden && datos.pasajeros.find(p => p.boleto === fichaActual.boleto);
       if (abierto) mostrarFicha(abierto, fichaActual.estado, { registrable: fichaActual.registrable, desplazar: false });
     } catch (error) {
-      // Recuperar de almacenamiento local ante desconexión o fallo de red (HU09.1 / HU09.3)
+      // Recuperar de almacenamiento local ante desconexión o fallo de red (HU09.1 / T24.2 / HU09.3)
       try {
-        const enCache = JSON.parse(localStorage.getItem(`cabina_cache_${id}`) || 'null');
+        const enCache = window.AlmacenamientoCabina?.obtenerCabina
+          ? window.AlmacenamientoCabina.obtenerCabina(id)
+          : JSON.parse(localStorage.getItem(`cabina_cache_${id}`) || 'null');
         if (enCache && enCache.vuelo && Array.isArray(enCache.pasajeros)) {
           if ($('aviso-offline')) $('aviso-offline').hidden = false;
           vuelo = enCache.vuelo;
@@ -1115,16 +1121,23 @@
     if (inicial?.listo) configurar(inicial.usuario);
     else setTimeout(() => { if (!cuenta) configurar(null); }, 350);
 
-    // HU09.2 (PCA-91): Escuchadores de eventos de red online y offline
-    window.addEventListener('online', () => {
-      const aviso = $('aviso-offline');
-      if (aviso) aviso.hidden = true;
-      cargarCabina();
-    });
-    window.addEventListener('offline', () => {
-      const aviso = $('aviso-offline');
-      if (aviso) aviso.hidden = false;
-    });
+    // HU09.2 / T24.3 (PCA-91, PCA-170): Escuchadores de eventos de red online y offline
+    if (window.AlmacenamientoCabina?.registrarDetectorRed) {
+      window.AlmacenamientoCabina.registrarDetectorRed({
+        elementoAviso: $('aviso-offline'),
+        alCambiarRed: conectado => { if (conectado) cargarCabina(); }
+      });
+    } else {
+      window.addEventListener('online', () => {
+        const aviso = $('aviso-offline');
+        if (aviso) aviso.hidden = true;
+        cargarCabina();
+      });
+      window.addEventListener('offline', () => {
+        const aviso = $('aviso-offline');
+        if (aviso) aviso.hidden = false;
+      });
+    }
   }
 
   const TripulacionUI = {
