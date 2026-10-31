@@ -243,14 +243,34 @@
       const anterior = resultados[activo]?.value;
       const posicionScroll = lista.scrollTop;
       resultados = [...selector.options].map((opcion, orden) => {
-        const [hora = '', codigo = '', ruta = ''] = opcion.textContent.split(' · ');
+        let fecha = opcion.dataset.fecha || '';
+        let hora = opcion.dataset.hora || '';
+        let codigo = opcion.dataset.codigo || '';
+        let ruta = opcion.dataset.ruta || '';
+        let abordados = opcion.dataset.abordados || '0';
+        let pasajeros = opcion.dataset.pasajeros || '0';
+
+        if (!codigo) {
+          const partes = opcion.textContent.split(' · ');
+          hora = partes[0] || '';
+          codigo = partes[1] || '';
+          ruta = partes[2] || '';
+        }
+        if (!fecha) {
+          fecha = $('fecha-vuelo').value || '';
+        }
+
         const clave = normalizar(codigo);
         const numero = clave.replace(/^[A-Z]+/, '');
+        const claveFecha = normalizar(fecha);
         const posicion = clave.indexOf(consulta);
-        const prioridad = clave === consulta || numero === consulta ? 0
-          : clave.startsWith(consulta) || numero.startsWith(consulta) ? 1 : 2;
-        return { value: opcion.value, hora, codigo, ruta, orden, posicion, prioridad };
-      }).filter(opcion => !consulta || opcion.posicion >= 0)
+        const posicionFecha = claveFecha.indexOf(consulta);
+        const prioridad = (clave === consulta || numero === consulta) ? 0
+          : (clave.startsWith(consulta) || numero.startsWith(consulta)) ? 1
+          : (posicion >= 0) ? 2
+          : (posicionFecha >= 0) ? 3 : 4;
+        return { value: opcion.value, fecha, hora, codigo, ruta, orden, posicion, prioridad, abordados, pasajeros };
+      }).filter(opcion => !consulta || opcion.posicion >= 0 || (opcion.fecha && normalizar(opcion.fecha).includes(consulta)))
         .sort((a, b) => consulta ? a.prioridad - b.prioridad || a.orden - b.orden : a.orden - b.orden);
 
       lista.replaceChildren(...resultados.map((opcion, i) => {
@@ -262,7 +282,7 @@
         fila.setAttribute('aria-selected', String(opcion.value === selector.value));
         const codigo = document.createElement('strong');
         // Resaltar como texto, sin interpretar el código ni la consulta como HTML.
-        if (consulta) {
+        if (consulta && opcion.posicion >= 0) {
           const indices = [...opcion.codigo].map((letra, indice) => /[\s-]/.test(letra) ? -1 : indice).filter(indice => indice >= 0);
           const inicio = indices[opcion.posicion];
           const fin = indices[opcion.posicion + consulta.length - 1] + 1;
@@ -270,17 +290,31 @@
           marca.textContent = opcion.codigo.slice(inicio, fin);
           codigo.append(opcion.codigo.slice(0, inicio), marca, opcion.codigo.slice(fin));
         } else codigo.textContent = opcion.codigo;
-        const hora = document.createElement('span'); hora.textContent = opcion.hora;
+
+        const fechaBadge = document.createElement('span');
+        fechaBadge.className = 'vuelo-opcion-fecha';
+        fechaBadge.textContent = opcion.fecha ? `📅 ${opcion.fecha}` : '';
+
+        const hora = document.createElement('span');
+        hora.className = 'vuelo-opcion-hora';
+        hora.textContent = opcion.hora;
+
         const check = document.createElement('span');
         check.className = 'vuelo-opcion-check';
         check.setAttribute('aria-hidden', 'true');
         check.textContent = opcion.value === selector.value ? '✓' : '';
+
         const ruta = document.createElement('span');
         ruta.className = 'vuelo-opcion-ruta';
         const [origen, destino] = opcion.ruta.split(' → ');
-        ruta.textContent = A.CIUDADES[origen] && A.CIUDADES[destino]
+        const rutaNombrada = (A.CIUDADES[origen] && A.CIUDADES[destino])
           ? `${opcion.ruta} · ${A.CIUDADES[origen]} → ${A.CIUDADES[destino]}` : opcion.ruta;
-        fila.append(codigo, hora, check, ruta);
+        const paxInfo = opcion.pasajeros && opcion.pasajeros !== '0'
+          ? ` · ${opcion.abordados}/${opcion.pasajeros} a bordo`
+          : '';
+        ruta.textContent = `${rutaNombrada}${paxInfo}`;
+
+        fila.append(codigo, fechaBadge, hora, check, ruta);
         return fila;
       }));
       $('vuelo-coincidencias').textContent = consulta
@@ -312,19 +346,57 @@
     }
 
     function elegir(id) {
-      if (!resultados.some(opcion => opcion.value === id)) return;
+      const match = resultados.find(opcion => opcion.value === id);
+      if (!match) return;
       const cambio = selector.value !== id;
       selector.value = id;
+      if (match.fecha && $('fecha-vuelo').value !== match.fecha) {
+        $('fecha-vuelo').value = match.fecha;
+      }
       actualizar();
       cerrar(true);
       if (cambio) selector.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
+    let temporizadorBuscar = null;
+
     abrir.addEventListener('click', () => menu.hidden ? mostrar() : cerrar());
     abrir.addEventListener('keydown', event => {
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); mostrar(); }
     });
-    buscar.addEventListener('input', () => { activo = -1; lista.scrollTop = 0; pintar(); });
+    buscar.addEventListener('input', () => {
+      activo = -1;
+      lista.scrollTop = 0;
+      pintar();
+      const consulta = buscar.value.trim();
+      if (consulta.length >= 2) {
+        clearTimeout(temporizadorBuscar);
+        temporizadorBuscar = setTimeout(async () => {
+          try {
+            const { ok, datos } = await api(`/api/tripulacion/vuelos?${new URLSearchParams({ codigo: consulta })}`);
+            if (ok && Array.isArray(datos.vuelos) && datos.vuelos.length) {
+              let nuevos = false;
+              for (const v of datos.vuelos) {
+                if (![...selector.options].some(o => o.value === v.id)) {
+                  const opt = new Option(`${v.hora} · ${v.codigo} · ${v.origen} → ${v.destino} · ${v.abordados}/${v.pasajeros} a bordo`, v.id);
+                  opt.dataset.fecha = v.fecha || v.diaViaje || '';
+                  opt.dataset.hora = v.hora || '';
+                  opt.dataset.codigo = v.codigo || '';
+                  opt.dataset.ruta = `${v.origen} → ${v.destino}`;
+                  opt.dataset.pasajeros = String(v.pasajeros || 0);
+                  opt.dataset.abordados = String(v.abordados || 0);
+                  selector.append(opt);
+                  nuevos = true;
+                }
+              }
+              if (nuevos) pintar();
+            }
+          } catch {
+            // continuar
+          }
+        }, 250);
+      }
+    });
     limpiar.addEventListener('click', () => { buscar.focus(); buscar.value = ''; activo = -1; lista.scrollTop = 0; pintar(); });
     buscar.addEventListener('keydown', event => {
       if (event.isComposing) return;
@@ -370,7 +442,16 @@
       const { ok, datos } = await api(`/api/tripulacion/vuelos?${new URLSearchParams({ fecha })}`);
       if (!ok) throw new Error(datos.mensaje || 'No pudimos consultar los vuelos.');
       const anterior = selector.value || vueloRecordado(fecha);
-      selector.replaceChildren(...datos.vuelos.map(v => new Option(`${v.hora} · ${v.codigo} · ${v.origen} → ${v.destino} · ${v.abordados}/${v.pasajeros} a bordo`, v.id)));
+      selector.replaceChildren(...datos.vuelos.map(v => {
+        const opt = new Option(`${v.hora} · ${v.codigo} · ${v.origen} → ${v.destino} · ${v.abordados}/${v.pasajeros} a bordo`, v.id);
+        opt.dataset.fecha = v.fecha || v.diaViaje || '';
+        opt.dataset.hora = v.hora || '';
+        opt.dataset.codigo = v.codigo || '';
+        opt.dataset.ruta = `${v.origen} → ${v.destino}`;
+        opt.dataset.pasajeros = String(v.pasajeros || 0);
+        opt.dataset.abordados = String(v.abordados || 0);
+        return opt;
+      }));
       if (!datos.vuelos.length) {
         buscadorVuelo.actualizar();
         vuelo = null; limpiarCabina();
@@ -379,6 +460,10 @@
       }
       const conPasajeros = datos.vuelos.find(v => v.pasajeros > 0);
       selector.value = datos.vuelos.some(v => v.id === anterior) ? anterior : (conPasajeros || datos.vuelos[0]).id;
+      const elegido = datos.vuelos.find(v => v.id === selector.value);
+      if (elegido && elegido.fecha && $('fecha-vuelo').value !== elegido.fecha) {
+        $('fecha-vuelo').value = elegido.fecha;
+      }
       buscadorVuelo.actualizar();
       await cargarCabina();
     } catch (error) {

@@ -346,3 +346,75 @@ test('PCA-139: T15.2 — Prueba que valida la presencia de banderas booleanas pa
   assert.equal(fichaEspecial.requerimientoEspecial, true, 'Pasajero con dieta estricta/alergia debe tener requerimientoEspecial = true');
   assert.equal(fichaRegular.requerimientoEspecial, false, 'Pasajero estándar debe tener requerimientoEspecial = false');
 });
+
+// -----------------------------------------------------------------------------
+// Calvo: Buscador de vuelos por código con fecha visible en tripulación
+// -----------------------------------------------------------------------------
+test('Calvo: /api/tripulacion/vuelos busca por código entre todas las fechas y devuelve fecha visible', async () => {
+  let vuelosHandler = null;
+  const mockApp = {
+    get: (ruta, ...handlers) => {
+      if (ruta === '/api/tripulacion/vuelos') {
+        vuelosHandler = handlers[handlers.length - 1];
+      }
+    },
+    post: () => {}
+  };
+
+  const vueloNov3Id = new ObjectId();
+  const mockVueloNov3 = {
+    _id: vueloNov3Id,
+    codigo: 'AV 0010',
+    origen: 'BOG',
+    destino: 'MAD',
+    salida: new Date('2026-11-03T18:15:00Z'),
+    estado: 'ventas_abiertas'
+  };
+
+  const mockDb = {
+    clientes: {
+      collection: (nombre) => ({
+        find: (filtro) => {
+          if (nombre === 'vuelos') {
+            return mockCursor([mockVueloNov3]);
+          }
+          return mockCursor([]);
+        },
+        distinct: async () => [vueloNov3Id],
+        aggregate: () => mockCursor([{ _id: vueloNov3Id, total: 22 }])
+      })
+    },
+    avianca: {
+      collection: () => ({
+        aggregate: () => mockCursor([])
+      })
+    }
+  };
+
+  registrarTripulacion(mockApp, mockDb);
+  assert(vuelosHandler, 'El handler de /api/tripulacion/vuelos debe estar registrado');
+
+  const req = {
+    query: { codigo: '0010' }
+  };
+  let respuestaStatus = 200;
+  let respuestaJson = null;
+  const res = {
+    status: (s) => { respuestaStatus = s; return res; },
+    json: (datos) => { respuestaJson = datos; }
+  };
+
+  await vuelosHandler(req, res);
+
+  assert.equal(respuestaStatus, 200);
+  assert.equal(respuestaJson.ok, true);
+  assert.equal(Array.isArray(respuestaJson.vuelos), true);
+  assert.equal(respuestaJson.vuelos.length, 1);
+
+  const encontrado = respuestaJson.vuelos[0];
+  assert.equal(encontrado.codigo, 'AV 0010');
+  assert.equal(encontrado.fecha, '2026-11-03');
+  assert.equal(encontrado.diaViaje, '2026-11-03');
+  assert.equal(encontrado.pasajeros, 22);
+});
+

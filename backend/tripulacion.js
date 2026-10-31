@@ -45,18 +45,58 @@ function validarSolicitud(body) {
 module.exports = function registrarTripulacion(app, bases) {
   const { clientes, avianca } = bases;
 
-  // HU01: vuelos de una fecha (hora local del origen) para elegir cuál se está abordando.
+  // HU01: vuelos de una fecha (hora local del origen) o búsqueda por código para elegir cuál se está abordando.
   app.get('/api/tripulacion/vuelos', exigirPermiso(bases, 'tripulacion.ver'), async (req, res) => {
-    let { fecha } = req.query;
-    if (!fecha || typeof fecha !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
-      fecha = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
-    }
-    const dia = new Date(`${fecha}T00:00:00Z`);
+    let { fecha, codigo } = req.query;
     try {
+      const contar = async (coleccion, filtro) => new Map((await coleccion.aggregate([{ $match: filtro }, { $group: { _id: '$vueloId', total: { $sum: 1 } } }],
+        { maxTimeMS: 10000 }).toArray()).map(g => [String(g._id), g.total]));
+
+      if (typeof codigo === 'string' && codigo.trim()) {
+        const codigoLimpio = codigo.trim().replace(/[\s-]/g, '\\s*');
+        const filtro = { codigo: { $regex: codigoLimpio, $options: 'i' } };
+        const vuelos = await clientes.collection('vuelos').find(filtro, VUELO_PROYECCION)
+          .sort({ salida: 1, _id: 1 }).limit(100).maxTimeMS(10000).toArray();
+        const ids = vuelos.map(v => v._id);
+        const [pasajeros, abordados] = await Promise.all([
+          contar(clientes.collection('boletos'), { vueloId: { $in: ids }, vigente: true }),
+          contar(avianca.collection('abordajes'), { vueloId: { $in: ids } }),
+        ]);
+        return res.json({
+          ok: true,
+          vuelos: vuelos.map(v => {
+            const r = resumenVuelo(v);
+            return { ...r, diaViaje: r.fecha, pasajeros: pasajeros.get(String(v._id)) || 0, abordados: abordados.get(String(v._id)) || 0 };
+          })
+        });
+      }
+
+      if (!fecha || typeof fecha !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+        fecha = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+      }
+      const dia = new Date(`${fecha}T00:00:00Z`);
       const inicio = dia.getTime();
       let candidatos = await clientes.collection('vuelos').find({ salida: { $gte: new Date(inicio - 14 * 3600000), $lt: new Date(inicio + 38 * 3600000) } },
         VUELO_PROYECCION).sort({ salida: 1, _id: 1 }).limit(300).maxTimeMS(10000).toArray();
       let vuelos = candidatos.filter(v => salidaLocal(v).fecha === fecha);
+
+      // Cargar también vuelos con pasajeros activos para que la azafata pueda encontrarlos sin importar la fecha actual
+      try {
+        const boletosConPax = await clientes.collection('boletos').distinct('vueloId', { vigente: true });
+        if (Array.isArray(boletosConPax) && boletosConPax.length) {
+          const vuelosConPax = await clientes.collection('vuelos').find(
+            { _id: { $in: boletosConPax } },
+            VUELO_PROYECCION
+          ).sort({ salida: 1, _id: 1 }).limit(100).maxTimeMS(10000).toArray();
+          for (const vp of vuelosConPax) {
+            if (!vuelos.some(v => String(v._id) === String(vp._id))) {
+              vuelos.push(vp);
+            }
+          }
+        }
+      } catch {
+        // no bloquear flujo principal
+      }
 
       if (!vuelos.length) {
         candidatos = await clientes.collection('vuelos').find({ estado: { $in: ['programado', 'ventas_abiertas', 'ventas_cerradas', 'salido'] } },
@@ -65,13 +105,18 @@ module.exports = function registrarTripulacion(app, bases) {
       }
 
       const ids = vuelos.map(v => v._id);
-      const contar = async (coleccion, filtro) => new Map((await coleccion.aggregate([{ $match: filtro }, { $group: { _id: '$vueloId', total: { $sum: 1 } } }],
-        { maxTimeMS: 10000 }).toArray()).map(g => [String(g._id), g.total]));
       const [pasajeros, abordados] = await Promise.all([
         contar(clientes.collection('boletos'), { vueloId: { $in: ids }, vigente: true }),
         contar(avianca.collection('abordajes'), { vueloId: { $in: ids } }),
       ]);
-      res.json({ ok: true, fecha, vuelos: vuelos.map(v => ({ ...resumenVuelo(v), pasajeros: pasajeros.get(String(v._id)) || 0, abordados: abordados.get(String(v._id)) || 0 })) });
+      res.json({
+        ok: true,
+        fecha,
+        vuelos: vuelos.map(v => {
+          const r = resumenVuelo(v);
+          return { ...r, diaViaje: r.fecha, pasajeros: pasajeros.get(String(v._id)) || 0, abordados: abordados.get(String(v._id)) || 0 };
+        })
+      });
     } catch {
       res.status(503).json({ ok: false, mensaje: 'No pudimos consultar los vuelos. Intenta nuevamente.' });
     }
