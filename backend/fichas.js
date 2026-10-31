@@ -38,7 +38,15 @@ async function completarBoletos(db, boletos) {
       )
     );
 
+    const conexionRaw = perfil?.conexion || boleto?.conexion || persona?.conexion || null;
+    const conexion = (conexionRaw && typeof conexionRaw === 'object' && conexionRaw.vuelo) ? {
+      vuelo: String(conexionRaw.vuelo).trim().toUpperCase(),
+      escalaMinutos: Number(conexionRaw.escalaMinutos) || 0,
+      puerta: conexionRaw.puerta ? String(conexionRaw.puerta).trim() : ''
+    } : null;
+
     return {
+      pasajeroId: boleto.pasajeroId,
       boletoId: boleto._id,
       boleto: boleto.numero, asiento: boleto.asiento, cabina: boleto.clase,
       nombre: persona?.nombres || 'Pasajero', apellido: persona?.apellidos || 'sin nombre',
@@ -49,6 +57,7 @@ async function completarBoletos(db, boletos) {
       menuPreferencia: comida,
       bebidaPreferencia: bebida,
       requerimientoEspecial,
+      conexion,
       notas, alergias, noMolestar,
       estado: boleto.estado || 'reservado',
     };

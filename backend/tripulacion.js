@@ -203,4 +203,121 @@ module.exports = function registrarTripulacion(app, bases) {
       res.status(503).json({ ok: false, mensaje: 'No pudimos reiniciar el abordaje. Intenta nuevamente.' });
     }
   });
+
+  // HU07a (PCA-83) & HU07b (PCA-86): Actualizar preferencias del pasajero con persistencia en vivo y validación de campos
+  const actualizarPreferenciasPasajero = async (req, res) => {
+    try {
+      const { id } = req.params;
+      if (!id || typeof id !== 'string') {
+        return res.status(400).json({ ok: false, mensaje: 'El identificador no es válido.' });
+      }
+
+      const body = req.body;
+      if (!body || typeof body !== 'object' || Array.isArray(body)) {
+        return res.status(400).json({ ok: false, mensaje: 'El campo no puede estar vacío' });
+      }
+
+      const tieneComida = Object.prototype.hasOwnProperty.call(body, 'comida') || Object.prototype.hasOwnProperty.call(body, 'menu');
+      const tieneBebida = Object.prototype.hasOwnProperty.call(body, 'bebida');
+
+      if (!tieneComida && !tieneBebida) {
+        return res.status(400).json({ ok: false, mensaje: 'El campo no puede estar vacío' });
+      }
+
+      const comidaRaw = body.comida !== undefined ? body.comida : body.menu;
+      const bebidaRaw = body.bebida;
+
+      if (tieneComida && (typeof comidaRaw !== 'string' || comidaRaw.trim().length === 0)) {
+        return res.status(400).json({ ok: false, mensaje: 'El campo no puede estar vacío' });
+      }
+      if (tieneBebida && (typeof bebidaRaw !== 'string' || bebidaRaw.trim().length === 0)) {
+        return res.status(400).json({ ok: false, mensaje: 'El campo no puede estar vacío' });
+      }
+
+      const comida = tieneComida ? comidaRaw.trim() : null;
+      const bebida = tieneBebida ? bebidaRaw.trim() : null;
+
+      const idStr = String(id).trim();
+      const idObj = ID.test(idStr) ? new ObjectId(idStr) : null;
+      const filtro = idObj ? { $or: [{ _id: idObj }, { _id: idStr }] } : { _id: idStr };
+
+      let pasajero = await clientes.collection('pasajeros').findOne(filtro);
+      let boleto = null;
+
+      if (!pasajero) {
+        boleto = await clientes.collection('boletos').findOne({
+          $or: [...(idObj ? [{ _id: idObj }] : []), { _id: idStr }, { numero: idStr }]
+        });
+        if (boleto && boleto.pasajeroId) {
+          const pId = String(boleto.pasajeroId);
+          const pObj = ID.test(pId) ? new ObjectId(pId) : null;
+          pasajero = await clientes.collection('pasajeros').findOne(pObj ? { $or: [{ _id: pObj }, { _id: pId }] } : { _id: pId });
+        }
+      } else {
+        boleto = await clientes.collection('boletos').findOne({ pasajeroId: pasajero._id });
+      }
+
+      const ahora = new Date();
+      const updatePerfil = { actualizadoEn: ahora };
+      if (comida) { updatePerfil.comida = comida; updatePerfil.menu = comida; }
+      if (bebida) { updatePerfil.bebida = bebida; }
+
+      // 1. Actualizar perfiles_viaje si tenemos boleto o id
+      if (boleto) {
+        await clientes.collection('perfiles_viaje').updateOne(
+          { _id: boleto._id },
+          { $set: updatePerfil },
+          { upsert: true }
+        );
+        const updateBoleto = { 'preferenciasViaje.actualizadoEn': ahora };
+        if (comida) updateBoleto['preferenciasViaje.comida'] = comida;
+        if (bebida) updateBoleto['preferenciasViaje.bebida'] = bebida;
+        await clientes.collection('boletos').updateOne(
+          { _id: boleto._id },
+          { $set: updateBoleto }
+        );
+      } else if (idObj) {
+        await clientes.collection('perfiles_viaje').updateOne(
+          { _id: idObj },
+          { $set: updatePerfil },
+          { upsert: true }
+        );
+      }
+
+      // 2. Actualizar pasajero si existe
+      if (pasajero) {
+        const updatePasajero = { 'preferencias.actualizadoEn': ahora };
+        if (comida) updatePasajero['preferencias.comida'] = comida;
+        if (bebida) updatePasajero['preferencias.bebida'] = bebida;
+        await clientes.collection('pasajeros').updateOne(
+          { _id: pasajero._id },
+          { $set: updatePasajero }
+        );
+      }
+
+      if (bases.avianca && req.cuenta?._id) {
+        await auditarPersonal(bases, req.cuenta._id, 'pasajero.actualizarPreferencias', {
+          objetivoId: idStr,
+          detalle: { comida, bebida }
+        }).catch(() => {});
+      }
+
+      res.json({
+        ok: true,
+        mensaje: 'Preferencias actualizadas con éxito',
+        preferencias: {
+          comida: comida || (pasajero?.preferencias?.comida || 'sin_preferencia'),
+          bebida: bebida || (pasajero?.preferencias?.bebida || '')
+        }
+      });
+    } catch (error) {
+      console.error('Error al actualizar preferencias:', error);
+      res.status(500).json({ ok: false, mensaje: 'Error al guardar en el servidor. Verifique conexión' });
+    }
+  };
+
+  if (typeof app.put === 'function') {
+    app.put('/api/pasajeros/:id/preferencias', exigirPermiso(bases, 'tripulacion.ver'), actualizarPreferenciasPasajero);
+    app.put('/api/tripulacion/pasajeros/:id/preferencias', exigirPermiso(bases, 'tripulacion.ver'), actualizarPreferenciasPasajero);
+  }
 };

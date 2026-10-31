@@ -36,7 +36,8 @@ const CLIENTES = [
   { nombre: 'Juliana', apellido: 'Ceballos', correo: 'juliana.ceballos@demo.avianca.test', pasajero: {
     asiento: '2A', fechaNacimiento: '1986-04-12', documento: { tipo: 'pasaporte', paisEmisor: 'CO', numero: 'DEMO-CO-1001' },
     preferencias: { comida: 'vegetariana', noMolestar: false, alergias: ['Frutos secos'], bebida: 'Café americano sin azúcar', notas: 'Trabaja durante el vuelo: agradece que le ofrezcan enchufe.' },
-    perfil: { trato: 'Ing. Ceballos', idioma: 'es', atencion: 0, motivo: 1 } } },
+    perfil: { trato: 'Ing. Ceballos', idioma: 'es', atencion: 0, motivo: 1 },
+    conexion: { vuelo: 'AV456', escalaMinutos: 45, puerta: 'B3' } } },
   { nombre: 'James', apellido: 'Carter', correo: 'james.carter@demo.avianca.test', pasajero: {
     asiento: '4C', fechaNacimiento: '1979-09-30', documento: { tipo: 'pasaporte', paisEmisor: 'US', numero: 'DEMO-US-2002' },
     preferencias: { comida: 'sin_preferencia', noMolestar: false, alergias: [], bebida: 'Agua con gas', notas: '' },
@@ -144,6 +145,7 @@ async function main() {
               idioma: c.pasajero.perfil.idioma,
               atencion: c.pasajero.perfil.atencion,
               motivo: c.pasajero.perfil.motivo,
+              conexion: c.pasajero.conexion || null,
               actualizadoEn: new Date(),
             }
           },
