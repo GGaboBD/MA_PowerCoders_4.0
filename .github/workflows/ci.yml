@@ -35,6 +35,9 @@ jobs:
       - name: Revisar sintaxis del proyecto
         run: npm run check:syntax
 
-      - name: Ejecutar suite de pruebas e integracion de cabina (T15 / HU06a)
+      - name: Ejecutar suite consolidada de Sprint 4 (HU01-HU09)
+        run: npm run test:sprint4
+
+      - name: Ejecutar suite completa de pruebas unitarias e integracion
         run: npm test
 
