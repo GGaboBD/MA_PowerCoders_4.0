@@ -132,3 +132,14 @@ test('el script sigue disponible como Abordaje en un navegador sin CommonJS', ()
   contexto.pase = pase;
   assert.equal(vm.runInContext('Abordaje.decodificar(Abordaje.codificar(pase)).ok', contexto), true);
 });
+
+test('la ficha genera saludos validos para ja, ko, ar y lenguajes no contemplados sin fallar', () => {
+  const fJa = A.describir({ nombre: 'Kenji', apellido: 'Tanaka', trato: 'Mr. Tanaka', idioma: 'ja', cabina: 'ejecutiva' });
+  assert.equal(fJa.saludo, 'ご搭乗ありがとうございます、Mr. Tanaka。');
+  const fKo = A.describir({ nombre: 'Min-jun', apellido: 'Kim', trato: 'Dr. Kim', idioma: 'ko', cabina: 'ejecutiva' });
+  assert.equal(fKo.saludo, '탑승을 환영합니다, Dr. Kim님.');
+  const fAr = A.describir({ nombre: 'Tariq', apellido: 'Al-Mansoor', trato: 'Sheikh Al-Mansoor', idioma: 'ar', cabina: 'ejecutiva' });
+  assert.equal(fAr.saludo, 'مرحباً بك على متن الطائرة، Sheikh Al-Mansoor.');
+  const fOtro = A.describir({ nombre: 'Hans', apellido: 'Gruber', trato: 'Herr Gruber', idioma: 'de', cabina: 'ejecutiva' });
+  assert.equal(fOtro.saludo, 'Le damos la bienvenida a bordo, Herr Gruber.');
+});

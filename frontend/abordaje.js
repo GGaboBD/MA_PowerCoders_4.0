@@ -52,7 +52,10 @@ const Abordaje = (() => {
     es: t => `Le damos la bienvenida a bordo, ${t}.`,
     en: t => `Welcome aboard, ${t}.`,
     pt: t => `Boas-vindas a bordo, ${t}.`,
-    fr: t => `Bienvenue à bord, ${t}.`
+    fr: t => `Bienvenue à bord, ${t}.`,
+    ja: t => `ご搭乗ありがとうございます、${t}。`,
+    ko: t => `탑승을 환영합니다, ${t}님.`,
+    ar: t => `مرحباً بك على متن الطائرة، ${t}.`
   };
 
   // Orden de los campos dentro del QR. No cambiar sin subir la versión del prefijo.
@@ -176,7 +179,7 @@ const Abordaje = (() => {
       alergias,
       bebida: limpiar(p.bebida, 80),
       notas: limpiar(p.notas, 1000),
-      saludo: SALUDOS[idioma](trato)
+      saludo: (typeof SALUDOS[idioma] === 'function' ? SALUDOS[idioma] : SALUDOS.es)(trato)
     };
   }
 
