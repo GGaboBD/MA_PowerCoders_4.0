@@ -328,6 +328,9 @@
 .icono-requerimiento-especial { display: inline-block; margin-left: 6px; font-size: 13px; vertical-align: middle; }
 .tag-comida { padding: 2px 7px; border-radius: 99px; background: #e8f5e9; color: #2e7d32; font-size: 11px; font-weight: 700; }
 .tag-no-molestar { padding: 2px 7px; border-radius: 99px; background: #eceff1; color: #37474f; font-size: 11px; font-weight: 700; }
+.tag-conexion-critica { padding: 2px 7px; border-radius: 99px; background: #fff3e0; color: #d84315; font-size: 11px; font-weight: 700; border: 1px solid #ffcc80; }
+.lista-abordados li button.tiene-conexion-critica { border-left: 3px solid #ff5722; }
+.asiento.conexion-critica { outline: 2px solid #ff9800; outline-offset: 1px; }
 .lista-abordados li small { color: var(--gris-texto); font-size: 12px; white-space: nowrap; }
 .lista-abordados li small.pendiente { color: var(--rojo); font-weight: 700; }
 .lista-vacia { padding: 18px 0; color: var(--gris-texto); font-size: 14px; text-align: center; }

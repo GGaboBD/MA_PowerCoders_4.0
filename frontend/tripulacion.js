@@ -840,6 +840,7 @@
         b.type = 'button'; b.className = 'asiento'; b.dataset.asiento = asiento.codigo; b.textContent = asiento.codigo;
         if (p) b.classList.add(p.abordaje ? 'a-bordo' : 'reservado');
         if (p?.noMolestar) b.classList.add('no-molestar');
+        if (p?.conexion && Number(p.conexion.escalaMinutos) < 60) b.classList.add('conexion-critica');
         if (asiento.codigo === asientoActivo) b.classList.add('activo');
         b.setAttribute('aria-label', p ? `Asiento ${asiento.codigo}, ${p.nombre} ${p.apellido}, ${p.abordaje ? 'a bordo' : 'pendiente de abordar'}` : `Asiento ${asiento.codigo}, libre`);
         b.setAttribute('aria-pressed', String(asiento.codigo === asientoActivo));
@@ -900,6 +901,17 @@
       nmSpan.className = 'tag-no-molestar';
       nmSpan.textContent = '🌙 Descanso';
       tags.append(nmSpan);
+    }
+
+    // HU08 (PCA-89): Destacar visualmente si tiene una conexión menor a 60 minutos con un badge visible
+    if (p.conexion && p.conexion.vuelo && Number(p.conexion.escalaMinutos) < 60) {
+      const conSpan = document.createElement('small');
+      conSpan.className = 'tag-conexion-critica';
+      conSpan.setAttribute('role', 'status');
+      conSpan.setAttribute('aria-label', `Conexión corta: ${p.conexion.escalaMinutos} min`);
+      conSpan.textContent = `⚡ Conexión: ${p.conexion.escalaMinutos}m`;
+      tags.append(conSpan);
+      b.classList.add('tiene-conexion-critica');
     }
 
     const h = document.createElement('small');
