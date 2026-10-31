@@ -139,7 +139,7 @@ module.exports = function registrarVuelos(app, bases) {
           vuelos.sort((a, b) => Number(b.precio) - Number(a.precio));
         }
 
-        const limite = req.query.limite ? Math.min(Number(req.query.limite), 1000) : 500;
+        const limite = req.query.limite ? Math.min(Number(req.query.limite), 1000) : 1000;
         const respuesta = { ok: true, cantidad: vuelos.length, catalogo: true, vuelos: vuelos.slice(0, limite) };
         if (req.query.debug === '1' && errorSembrado) respuesta.debug = errorSembrado;
         return res.json(respuesta);
