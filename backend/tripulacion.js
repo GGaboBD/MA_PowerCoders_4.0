@@ -55,8 +55,15 @@ module.exports = function registrarTripulacion(app, bases) {
       if (typeof codigo === 'string' && codigo.trim()) {
         const codigoLimpio = codigo.trim().replace(/[\s-]/g, '\\s*');
         const filtro = { codigo: { $regex: codigoLimpio, $options: 'i' } };
-        const vuelos = await clientes.collection('vuelos').find(filtro, VUELO_PROYECCION)
+        const vuelosDocs = await clientes.collection('vuelos').find(filtro, VUELO_PROYECCION)
           .sort({ salida: 1, _id: 1 }).limit(100).maxTimeMS(10000).toArray();
+        const vistosCod = new Set();
+        const vuelos = vuelosDocs.filter(v => {
+          const idStr = String(v._id);
+          if (vistosCod.has(idStr)) return false;
+          vistosCod.add(idStr);
+          return true;
+        });
         const ids = vuelos.map(v => v._id);
         const [pasajeros, abordados] = await Promise.all([
           contar(clientes.collection('boletos'), { vueloId: { $in: ids }, vigente: true }),
@@ -66,7 +73,7 @@ module.exports = function registrarTripulacion(app, bases) {
           ok: true,
           vuelos: vuelos.map(v => {
             const r = resumenVuelo(v);
-            return { ...r, diaViaje: r.fecha, pasajeros: pasajeros.get(String(v._id)) || 0, abordados: abordados.get(String(v._id)) || 0 };
+            return { ...r, diaViaje: r.fecha, fecha: r.fecha, pasajeros: pasajeros.get(String(v._id)) || 0, abordados: abordados.get(String(v._id)) || 0 };
           })
         });
       }
@@ -104,6 +111,15 @@ module.exports = function registrarTripulacion(app, bases) {
         vuelos = candidatos;
       }
 
+      // Deduplicar estrictamente por _id
+      const vistosId = new Set();
+      vuelos = vuelos.filter(v => {
+        const idStr = String(v._id);
+        if (vistosId.has(idStr)) return false;
+        vistosId.add(idStr);
+        return true;
+      });
+
       const ids = vuelos.map(v => v._id);
       const [pasajeros, abordados] = await Promise.all([
         contar(clientes.collection('boletos'), { vueloId: { $in: ids }, vigente: true }),
@@ -114,7 +130,7 @@ module.exports = function registrarTripulacion(app, bases) {
         fecha,
         vuelos: vuelos.map(v => {
           const r = resumenVuelo(v);
-          return { ...r, diaViaje: r.fecha, pasajeros: pasajeros.get(String(v._id)) || 0, abordados: abordados.get(String(v._id)) || 0 };
+          return { ...r, diaViaje: r.fecha, fecha: r.fecha, pasajeros: pasajeros.get(String(v._id)) || 0, abordados: abordados.get(String(v._id)) || 0 };
         })
       });
     } catch {

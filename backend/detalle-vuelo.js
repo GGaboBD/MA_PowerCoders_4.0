@@ -1,6 +1,6 @@
 'use strict';
 const { ObjectId } = require('mongodb');
-const { presentar, validar } = require('./vuelos');
+const { presentar, validar, zonas } = require('./vuelos');
 
 module.exports = function registrarDetalle(app, bases) {
   const db = bases?.clientes || bases;
@@ -16,7 +16,12 @@ module.exports = function registrarDetalle(app, bases) {
       const [vuelo] = await db.collection('vuelos').aggregate([
         { $match: { _id: new ObjectId(req.params.id) } },
         { $lookup: { from: 'boletos', let: { vuelo: '$_id' }, pipeline: [
-          { $match: { vigente: true, $expr: { $eq: ['$vueloId', '$$vuelo'] } } },
+          { $match: { vigente: true, $expr: {
+            $or: [
+              { $eq: ['$vueloId', '$$vuelo'] },
+              { $eq: [{ $toString: '$vueloId' }, { $toString: '$$vuelo' }] }
+            ]
+          } } },
           { $project: { _id: 0, asiento: 1 } },
         ], as: 'ocupados' } },
         { $project: { codigo: 1, origen: 1, destino: 1, salida: 1, llegada: 1,
@@ -27,8 +32,7 @@ module.exports = function registrarDetalle(app, bases) {
         return res.status(409).json({ ok: false, mensaje: 'Este vuelo ya no admite reservas. Vuelve al buscador.' });
       }
       // Obtener la fecha local del origen sin modificar la regla diaViaje de las reservas.
-      const zonas = { SAL: 'America/El_Salvador', MIA: 'America/New_York', BOG: 'America/Bogota', MDE: 'America/Bogota', CLO: 'America/Bogota', CTG: 'America/Bogota' };
-      if (!Object.hasOwn(zonas, vuelo.origen) || !Object.hasOwn(zonas, vuelo.destino)) {
+      if (!zonas[vuelo.origen] || !zonas[vuelo.destino]) {
         return res.status(422).json({ ok: false, mensaje: 'El aeropuerto de este vuelo aún no está configurado.' });
       }
       const partes = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {

@@ -19,7 +19,20 @@ const cities = {
   BOG: "Bogotá",
   MDE: "Medellín",
   CLO: "Cali",
-  CTG: "Cartagena"
+  CTG: "Cartagena",
+  MAD: "Madrid",
+  BCN: "Barcelona",
+  LHR: "Londres",
+  CDG: "París",
+  NRT: "Tokio",
+  ICN: "Seúl",
+  DXB: "Dubái",
+  JFK: "Nueva York",
+  MEX: "Ciudad de México",
+  EZE: "Buenos Aires",
+  GRU: "São Paulo",
+  SCL: "Santiago",
+  LIM: "Lima"
 };
 
 let flight = null;
@@ -38,8 +51,15 @@ const picker = document.querySelector("#pasajero-activo");
 const stateNode = document.querySelector("#estado-asientos");
 const countNode = document.querySelector("#contador-asientos");
 
-function money(value) {
+function money(value, moneda = flight?.moneda || "COP") {
   const num = Number(value) || 0;
+  if (moneda === "USD") {
+    const formatted = new Intl.NumberFormat("es-SV", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(num);
+    return `$ ${formatted} USD`;
+  }
   const formatted = new Intl.NumberFormat("es-CO", {
     maximumFractionDigits: 0
   }).format(num);
@@ -286,8 +306,9 @@ async function refreshFlight() {
   if (confirmed.some(seat => !seat)) {
     autoAssignDefaultSeats();
   }
-  document.querySelector("#precio-unitario").textContent = money(price);
-  document.querySelector("#precio-total").textContent = money(price * count);
+  const monedaVuelo = flight?.moneda || "COP";
+  document.querySelector("#precio-unitario").textContent = money(price, monedaVuelo);
+  document.querySelector("#precio-total").textContent = money(price * count, monedaVuelo);
   const mNode = document.querySelector("#moneda-total");
   if (mNode) mNode.textContent = "";
   refreshSidebar();

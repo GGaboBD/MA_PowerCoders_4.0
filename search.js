@@ -44,8 +44,16 @@ function render(flights, data, hayMas) {
     title.append(element('p', 'No hay vuelos con suficientes asientos para esta búsqueda. Prueba otra fecha, hora o cabina.'));
     return;
   }
+  const flightsUnicos = [];
+  const vistos = new Set();
+  for (const f of flights) {
+    if (f && f.id && !vistos.has(f.id)) {
+      vistos.add(f.id);
+      flightsUnicos.push(f);
+    }
+  }
   const list = element('div', undefined, 'lista-vuelos');
-  for (const flight of flights) {
+  for (const flight of flightsUnicos) {
     const card = element('article', undefined, 'vuelo-card');
     const price = flight.moneda === 'COP'
       ? `$ ${new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(Number(flight.precio))} COP`

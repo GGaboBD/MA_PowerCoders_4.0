@@ -252,9 +252,16 @@
 
         if (!codigo) {
           const partes = opcion.textContent.split(' · ');
-          hora = partes[0] || '';
-          codigo = partes[1] || '';
-          ruta = partes[2] || '';
+          if (partes.length >= 4 && /^\d{4}-\d{2}-\d{2}$/.test(partes[0])) {
+            fecha = partes[0];
+            hora = partes[1] || '';
+            codigo = partes[2] || '';
+            ruta = partes[3] || '';
+          } else {
+            hora = partes[0] || '';
+            codigo = partes[1] || '';
+            ruta = partes[2] || '';
+          }
         }
         if (!fecha) {
           fecha = $('fecha-vuelo').value || '';
@@ -272,6 +279,13 @@
         return { value: opcion.value, fecha, hora, codigo, ruta, orden, posicion, prioridad, abordados, pasajeros };
       }).filter(opcion => !consulta || opcion.posicion >= 0 || (opcion.fecha && normalizar(opcion.fecha).includes(consulta)))
         .sort((a, b) => consulta ? a.prioridad - b.prioridad || a.orden - b.orden : a.orden - b.orden);
+
+      const vistosResultados = new Set();
+      resultados = resultados.filter(op => {
+        if (vistosResultados.has(op.value)) return false;
+        vistosResultados.add(op.value);
+        return true;
+      });
 
       lista.replaceChildren(...resultados.map((opcion, i) => {
         const fila = document.createElement('li');
@@ -378,7 +392,8 @@
               let nuevos = false;
               for (const v of datos.vuelos) {
                 if (![...selector.options].some(o => o.value === v.id)) {
-                  const opt = new Option(`${v.hora} · ${v.codigo} · ${v.origen} → ${v.destino} · ${v.abordados}/${v.pasajeros} a bordo`, v.id);
+                  const fechaLabel = v.fecha || v.diaViaje ? `${v.fecha || v.diaViaje} · ` : '';
+                  const opt = new Option(`${fechaLabel}${v.hora} · ${v.codigo} · ${v.origen} → ${v.destino} · ${v.abordados}/${v.pasajeros} a bordo`, v.id);
                   opt.dataset.fecha = v.fecha || v.diaViaje || '';
                   opt.dataset.hora = v.hora || '';
                   opt.dataset.codigo = v.codigo || '';
@@ -441,9 +456,17 @@
     try {
       const { ok, datos } = await api(`/api/tripulacion/vuelos?${new URLSearchParams({ fecha })}`);
       if (!ok) throw new Error(datos.mensaje || 'No pudimos consultar los vuelos.');
-      const anterior = selector.value || vueloRecordado(fecha);
-      selector.replaceChildren(...datos.vuelos.map(v => {
-        const opt = new Option(`${v.hora} · ${v.codigo} · ${v.origen} → ${v.destino} · ${v.abordados}/${v.pasajeros} a bordo`, v.id);
+      const vuelosUnicos = [];
+      const idsVistos = new Set();
+      for (const v of (datos.vuelos || [])) {
+        if (!idsVistos.has(v.id)) {
+          idsVistos.add(v.id);
+          vuelosUnicos.push(v);
+        }
+      }
+      selector.replaceChildren(...vuelosUnicos.map(v => {
+        const fechaLabel = v.fecha || v.diaViaje ? `${v.fecha || v.diaViaje} · ` : '';
+        const opt = new Option(`${fechaLabel}${v.hora} · ${v.codigo} · ${v.origen} → ${v.destino} · ${v.abordados}/${v.pasajeros} a bordo`, v.id);
         opt.dataset.fecha = v.fecha || v.diaViaje || '';
         opt.dataset.hora = v.hora || '';
         opt.dataset.codigo = v.codigo || '';

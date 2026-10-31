@@ -98,7 +98,12 @@ module.exports = function registrarVuelos(app, bases) {
           { $match: match },
           { $sort: { salida: 1, _id: 1 } },
           { $lookup: { from: 'boletos', let: { vuelo: '$_id' }, pipeline: [
-            { $match: { vigente: true, $expr: { $eq: ['$vueloId', '$$vuelo'] } } },
+            { $match: { vigente: true, $expr: {
+              $or: [
+                { $eq: ['$vueloId', '$$vuelo'] },
+                { $eq: [{ $toString: '$vueloId' }, { $toString: '$$vuelo' }] }
+              ]
+            } } },
             { $project: { _id: 0, asiento: 1 } },
           ], as: 'ocupados' } },
           { $project: { codigo: 1, origen: 1, destino: 1, salida: 1, llegada: 1,
@@ -127,10 +132,14 @@ module.exports = function registrarVuelos(app, bases) {
           precioMaximo: req.query.precioMaximo ? Number(req.query.precioMaximo) : null,
         };
 
-        let vuelos = [];
+        const vuelos = [];
+        const idsVistos = new Set();
         for (const v of candidatos) {
           const r = presentar(v, filtro, ahora);
-          if (r) vuelos.push(r);
+          if (r && !idsVistos.has(r.id)) {
+            idsVistos.add(r.id);
+            vuelos.push(r);
+          }
         }
 
         if (req.query.orden === 'precio_asc') {
@@ -159,18 +168,27 @@ module.exports = function registrarVuelos(app, bases) {
           salida: { $gte: new Date(inicio - 14 * 3600000), $lt: new Date(inicio + 38 * 3600000) } } },
         { $sort: { salida: 1, _id: 1 } },
         { $lookup: { from: 'boletos', let: { vuelo: '$_id' }, pipeline: [
-          { $match: { vigente: true, $expr: { $eq: ['$vueloId', '$$vuelo'] } } },
+          { $match: { vigente: true, $expr: {
+            $or: [
+              { $eq: ['$vueloId', '$$vuelo'] },
+              { $eq: [{ $toString: '$vueloId' }, { $toString: '$$vuelo' }] }
+            ]
+          } } },
           { $project: { _id: 0, asiento: 1 } },
         ], as: 'ocupados' } },
         { $project: { codigo: 1, origen: 1, destino: 1, salida: 1, llegada: 1,
           tarifas: 1, moneda: 1, asientos: 1, ocupados: 1 } },
       ], { maxTimeMS: 10000 });
       const vuelos = [];
+      const idsVistos = new Set();
       const ahora = new Date();
       try {
         for await (const vuelo of candidatos) {
           const resultado = presentar(vuelo, filtro, ahora);
-          if (resultado) vuelos.push(resultado);
+          if (resultado && !idsVistos.has(resultado.id)) {
+            idsVistos.add(resultado.id);
+            vuelos.push(resultado);
+          }
           if (vuelos.length === 101) break;
         }
       } finally { await candidatos.close(); }
@@ -183,7 +201,12 @@ module.exports = function registrarVuelos(app, bases) {
               salida: { $gte: new Date(inicio - 14 * 3600000), $lt: new Date(inicio + 38 * 3600000) } } },
             { $sort: { salida: 1, _id: 1 } },
             { $lookup: { from: 'boletos', let: { vuelo: '$_id' }, pipeline: [
-              { $match: { vigente: true, $expr: { $eq: ['$vueloId', '$$vuelo'] } } },
+              { $match: { vigente: true, $expr: {
+                $or: [
+                  { $eq: ['$vueloId', '$$vuelo'] },
+                  { $eq: [{ $toString: '$vueloId' }, { $toString: '$$vuelo' }] }
+                ]
+              } } },
               { $project: { _id: 0, asiento: 1 } },
             ], as: 'ocupados' } },
             { $project: { codigo: 1, origen: 1, destino: 1, salida: 1, llegada: 1,
@@ -191,7 +214,10 @@ module.exports = function registrarVuelos(app, bases) {
           ], { maxTimeMS: 10000 });
           for await (const vuelo of reintentos) {
             const resultado = presentar(vuelo, filtro, ahora);
-            if (resultado) vuelos.push(resultado);
+            if (resultado && !idsVistos.has(resultado.id)) {
+              idsVistos.add(resultado.id);
+              vuelos.push(resultado);
+            }
             if (vuelos.length === 101) break;
           }
         } catch {}

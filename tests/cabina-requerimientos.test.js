@@ -418,3 +418,76 @@ test('Calvo: /api/tripulacion/vuelos busca por código entre todas las fechas y 
   assert.equal(encontrado.pasajeros, 22);
 });
 
+test('Detalle de vuelo internacional entrega asientos ocupados con disponible=false sin error 422', async () => {
+  const registrarDetalle = require('../backend/detalle-vuelo.js');
+  const vueloIntId = new ObjectId('6ae5651f1e3cfde837d3ae50');
+  let detalleHandler = null;
+
+  const mockApp = {
+    get: (ruta, handler) => {
+      if (ruta === '/api/vuelos/:id') detalleHandler = handler;
+    }
+  };
+
+  const vueloDoc = {
+    _id: vueloIntId,
+    codigo: 'AV 0010',
+    origen: 'BOG',
+    destino: 'MAD',
+    salida: new Date('2026-11-03T23:15:00.000Z'),
+    llegada: new Date('2026-11-04T09:15:00.000Z'),
+    estado: 'ventas_abiertas',
+    tarifas: { ejecutiva: '850.00', primera: '1950.00' },
+    moneda: 'USD',
+    asientos: [
+      { codigo: '4A', clase: 'ejecutiva' },
+      { codigo: '4B', clase: 'ejecutiva' },
+      { codigo: '4C', clase: 'ejecutiva' },
+      { codigo: '4D', clase: 'ejecutiva' }
+    ],
+    ocupados: [
+      { asiento: '4A' },
+      { asiento: '4B' }
+    ]
+  };
+
+  const mockDb = {
+    collection: (col) => ({
+      aggregate: () => ({
+        toArray: async () => [vueloDoc]
+      })
+    })
+  };
+
+  registrarDetalle(mockApp, mockDb);
+  assert(detalleHandler, 'El handler de /api/vuelos/:id debe estar registrado');
+
+  const req = {
+    params: { id: vueloIntId.toHexString() },
+    query: { cabina: 'ejecutiva', pasajeros: '1' }
+  };
+  let resStatus = 200;
+  let resJson = null;
+  const res = {
+    set: () => {},
+    status: (s) => { resStatus = s; return res; },
+    json: (d) => { resJson = d; }
+  };
+
+  await detalleHandler(req, res);
+
+  assert.equal(resStatus, 200);
+  assert.equal(resJson.ok, true);
+  assert(Array.isArray(resJson.vuelo.asientos), 'Debe devolver un arreglo de asientos');
+
+  const asiento4A = resJson.vuelo.asientos.find(a => a.codigo === '4A');
+  const asiento4B = resJson.vuelo.asientos.find(a => a.codigo === '4B');
+  const asiento4C = resJson.vuelo.asientos.find(a => a.codigo === '4C');
+  const asiento4D = resJson.vuelo.asientos.find(a => a.codigo === '4D');
+
+  assert.equal(asiento4A?.disponible, false, 'El asiento 4A reservado debe tener disponible: false');
+  assert.equal(asiento4B?.disponible, false, 'El asiento 4B reservado debe tener disponible: false');
+  assert.equal(asiento4C?.disponible, true, 'El asiento 4C libre debe tener disponible: true');
+  assert.equal(asiento4D?.disponible, true, 'El asiento 4D libre debe tener disponible: true');
+});
+
