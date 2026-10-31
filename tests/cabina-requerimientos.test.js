@@ -491,3 +491,11 @@ test('Detalle de vuelo internacional entrega asientos ocupados con disponible=fa
   assert.equal(asiento4D?.disponible, true, 'El asiento 4D libre debe tener disponible: true');
 });
 
+test('El script frontend/tripulacion.js no tiene errores de referencia y anterior esta definida en cargarVuelos', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const codigoScript = fs.readFileSync(path.join(__dirname, '..', 'frontend', 'tripulacion.js'), 'utf8');
+  assert(codigoScript.includes('const anterior = selector.value || vueloRecordado(fecha);'), 'anterior debe estar definida antes de su uso en cargarVuelos');
+});
+
+

@@ -270,14 +270,19 @@
         const clave = normalizar(codigo);
         const numero = clave.replace(/^[A-Z]+/, '');
         const claveFecha = normalizar(fecha);
+        const claveRuta = normalizar(ruta);
         const posicion = clave.indexOf(consulta);
+        const posicionNum = numero.indexOf(consulta);
         const posicionFecha = claveFecha.indexOf(consulta);
+        const posicionRuta = claveRuta.indexOf(consulta);
+        const match = !consulta || posicion >= 0 || posicionNum >= 0 || posicionFecha >= 0 || posicionRuta >= 0;
         const prioridad = (clave === consulta || numero === consulta) ? 0
           : (clave.startsWith(consulta) || numero.startsWith(consulta)) ? 1
-          : (posicion >= 0) ? 2
-          : (posicionFecha >= 0) ? 3 : 4;
-        return { value: opcion.value, fecha, hora, codigo, ruta, orden, posicion, prioridad, abordados, pasajeros };
-      }).filter(opcion => !consulta || opcion.posicion >= 0 || (opcion.fecha && normalizar(opcion.fecha).includes(consulta)))
+          : (posicion >= 0 || posicionNum >= 0) ? 2
+          : (posicionRuta >= 0) ? 3
+          : (posicionFecha >= 0) ? 4 : 5;
+        return { value: opcion.value, fecha, hora, codigo, ruta, orden, posicion, prioridad, abordados, pasajeros, match };
+      }).filter(opcion => opcion.match)
         .sort((a, b) => consulta ? a.prioridad - b.prioridad || a.orden - b.orden : a.orden - b.orden);
 
       const vistosResultados = new Set();
@@ -360,16 +365,17 @@
     }
 
     function elegir(id) {
-      const match = resultados.find(opcion => opcion.value === id);
-      if (!match) return;
-      const cambio = selector.value !== id;
+      const matchOpt = [...selector.options].find(o => o.value === id);
+      const matchRes = resultados.find(opcion => opcion.value === id);
+      const fechaVuelo = matchRes?.fecha || matchOpt?.dataset?.fecha;
       selector.value = id;
-      if (match.fecha && $('fecha-vuelo').value !== match.fecha) {
-        $('fecha-vuelo').value = match.fecha;
+      if (fechaVuelo && $('fecha-vuelo').value !== fechaVuelo) {
+        $('fecha-vuelo').value = fechaVuelo;
       }
       actualizar();
       cerrar(true);
-      if (cambio) selector.dispatchEvent(new Event('change', { bubbles: true }));
+      recordarVuelo();
+      cargarCabina();
     }
 
     let temporizadorBuscar = null;
@@ -404,7 +410,10 @@
                   nuevos = true;
                 }
               }
-              if (nuevos) pintar();
+              if (nuevos) {
+                actualizar();
+                pintar();
+              }
             }
           } catch {
             // continuar
@@ -454,6 +463,7 @@
     if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) { estado.textContent = 'Elige una fecha válida.'; return; }
     estado.textContent = 'Consultando vuelos…';
     try {
+      const anterior = selector.value || vueloRecordado(fecha);
       const { ok, datos } = await api(`/api/tripulacion/vuelos?${new URLSearchParams({ fecha })}`);
       if (!ok) throw new Error(datos.mensaje || 'No pudimos consultar los vuelos.');
       const vuelosUnicos = [];
@@ -475,15 +485,15 @@
         opt.dataset.abordados = String(v.abordados || 0);
         return opt;
       }));
-      if (!datos.vuelos.length) {
+      if (!vuelosUnicos.length) {
         buscadorVuelo.actualizar();
         vuelo = null; limpiarCabina();
         estado.textContent = `No hay vuelos registrados que salgan el ${A.formatearFecha(fecha)}. Prueba con otra fecha.`;
         return;
       }
-      const conPasajeros = datos.vuelos.find(v => v.pasajeros > 0);
-      selector.value = datos.vuelos.some(v => v.id === anterior) ? anterior : (conPasajeros || datos.vuelos[0]).id;
-      const elegido = datos.vuelos.find(v => v.id === selector.value);
+      const conPasajeros = vuelosUnicos.find(v => v.pasajeros > 0);
+      selector.value = vuelosUnicos.some(v => v.id === anterior) ? anterior : (conPasajeros || vuelosUnicos[0]).id;
+      const elegido = vuelosUnicos.find(v => v.id === selector.value);
       if (elegido && elegido.fecha && $('fecha-vuelo').value !== elegido.fecha) {
         $('fecha-vuelo').value = elegido.fecha;
       }
