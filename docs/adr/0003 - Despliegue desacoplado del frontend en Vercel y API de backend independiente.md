@@ -1,9 +1,9 @@
 
 # ADR 0003 · Despliegue desacoplado del frontend en Vercel y API de backend independiente
 
-Estado: Aceptada · 20 de octubre de 2026
+Estado: Superada por ADR 0008 · 26 de octubre de 2026
 
-> Revisión documental del 26 de octubre de 2026 (UTC): Esta decisión fue sustituida posteriormente por el ADR 0008, que establece el despliegue conjunto del frontend y la API en un mismo proyecto de Vercel. Conservamos este ADR para documentar la decisión original y explicar cómo evolucionó nuestra arquitectura.
+> Revisión documental del 26 de octubre de 2026 (UTC): Esta decisión fue sustituida formalmente por el ADR 0008, que establece la unificación de arquitectura monorepositorio en Vercel con Serverless Functions y reescritura de rutas. Conservamos este registro arquitectónico para trazabilidad metodológica y auditoría de QA (PCA-196 / T36).
 
 ## Contexto
 

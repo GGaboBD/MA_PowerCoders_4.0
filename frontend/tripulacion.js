@@ -921,26 +921,15 @@
     const comidaFiltro = $('filtro-comida')?.value || '';
     const estadoFiltro = $('filtro-estado')?.value || '';
 
-    const pasajeros = [...cabina.pasajeros].sort((a, b) => ordenAsiento(a.asiento, b.asiento)).filter(p => {
-      // 1. Filtro por selector de comida
-      if (comidaFiltro) {
-        if (comidaFiltro === 'sin_preferencia' && !['sin_preferencia', 'estandar'].includes(p.comida)) return false;
-        if (comidaFiltro !== 'sin_preferencia' && p.comida !== comidaFiltro) return false;
-      }
-      // 2. Filtro por estado de abordaje
-      if (estadoFiltro) {
+    const ordenados = [...cabina.pasajeros].sort((a, b) => ordenAsiento(a.asiento, b.asiento));
+    const pasajeros = typeof A?.filtrarPasajeros === 'function'
+      ? A.filtrarPasajeros(ordenados, { consulta, comida: comidaFiltro, estado: estadoFiltro })
+      : ordenados.filter(p => {
+        if (comidaFiltro && p.comida !== comidaFiltro) return false;
         if (estadoFiltro === 'a-bordo' && !p.abordaje) return false;
         if (estadoFiltro === 'por-abordar' && Boolean(p.abordaje)) return false;
-        if (estadoFiltro === 'no-molestar' && !p.noMolestar) return false;
-      }
-      // 3. Filtro por texto libre (nombre, asiento, trato, comida, notas, gustos, bebida, alergias)
-      if (consulta) {
-        const alergiasTexto = Array.isArray(p.alergias) ? p.alergias.join(' ') : (p.alergias || '');
-        const todoElTexto = sinAcentos(`${p.nombre} ${p.apellido} ${p.trato || ''} ${p.asiento} ${p.comida || ''} ${p.bebida || ''} ${p.notas || ''} ${alergiasTexto}`);
-        if (!todoElTexto.includes(consulta)) return false;
-      }
-      return true;
-    });
+        return true;
+      });
 
     if (contador) contador.textContent = `${pasajeros.length} de ${cabina.pasajeros.length}`;
 

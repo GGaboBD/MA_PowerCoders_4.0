@@ -196,8 +196,58 @@ const Abordaje = (() => {
     return Boolean(pasajero.asistencia || pasajero.medica || tieneAlergias || comidaEspecial);
   }
 
+  const sinAcentos = texto => String(texto ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
+  // HU03 / T32 (PCA-192): Función pura para filtrar pasajeros por texto libre, comida y estado
+  function filtrarPasajeros(pasajeros, criterio = {}) {
+    if (!Array.isArray(pasajeros)) return [];
+
+    const consultaTexto = typeof criterio === 'string' ? criterio : (criterio.consulta || criterio.texto || '');
+    const consultaNormalizada = sinAcentos(consultaTexto);
+    const comidaFiltro = typeof criterio === 'object' && criterio.comida ? criterio.comida : '';
+    const estadoFiltro = typeof criterio === 'object' && criterio.estado ? criterio.estado : '';
+
+    return pasajeros.filter(p => {
+      if (!p || typeof p !== 'object') return false;
+
+      // 1. Filtro por selector de comida
+      if (comidaFiltro) {
+        if (comidaFiltro === 'sin_preferencia' && !['sin_preferencia', 'estandar'].includes(p.comida)) return false;
+        if (comidaFiltro !== 'sin_preferencia' && p.comida !== comidaFiltro) return false;
+      }
+
+      // 2. Filtro por estado de abordaje
+      if (estadoFiltro) {
+        if (estadoFiltro === 'a-bordo' && !p.abordaje) return false;
+        if (estadoFiltro === 'por-abordar' && Boolean(p.abordaje)) return false;
+        if (estadoFiltro === 'no-molestar' && !p.noMolestar) return false;
+      }
+
+      // 3. Filtro por texto libre
+      if (consultaNormalizada) {
+        const alergiasTexto = Array.isArray(p.alergias) ? p.alergias.join(' ') : (p.alergias || '');
+        const campos = [
+          p.nombre,
+          p.apellido,
+          p.asiento,
+          p.trato,
+          p.comida,
+          p.bebida,
+          p.notas,
+          alergiasTexto,
+          p.boleto,
+          p.documento?.numero || p.documento
+        ];
+        const todoElTexto = sinAcentos(campos.filter(Boolean).join(' '));
+        if (!todoElTexto.includes(consultaNormalizada)) return false;
+      }
+
+      return true;
+    });
+  }
+
   return { CIUDADES, IDIOMAS, PAISES, COMIDAS, ATENCION, MOTIVOS, CABINAS, LETRAS,
-    limpiar, codificar, decodificar, describir, describirPase, asientosDe, cabinaDeAsiento, claveCabina, dibujarQR, hoyISO, formatearFecha, restarMinutos, tieneRequerimientoEspecial };
+    limpiar, codificar, decodificar, describir, describirPase, asientosDe, cabinaDeAsiento, claveCabina, dibujarQR, hoyISO, formatearFecha, restarMinutos, tieneRequerimientoEspecial, sinAcentos, filtrarPasajeros };
 })();
 
 // Permite usar la misma lógica en Node (pruebas y backend) sin cambiar su uso en el navegador.
