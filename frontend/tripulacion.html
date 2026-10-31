@@ -107,6 +107,9 @@
 
       <!-- Cabina en Vivo: Mapa interactivo a la izquierda y Ficha/Lista a la derecha -->
       <section class="cabina-vivo" aria-labelledby="t-cabina">
+        <div id="aviso-offline" class="aviso-offline" hidden role="status">
+          <span>📡 Modo fuera de línea: Visualizando datos de cabina almacenados localmente.</span>
+        </div>
         <div class="cabina-vivo-cabecera">
           <div>
             <p class="etiqueta"><span class="numero">02</span> CABINA EN VIVO INTERACTIVA</p>
@@ -180,7 +183,33 @@
                 <dl class="ficha-datos" id="ficha-datos"></dl>
                 <div class="ficha-acciones" id="ficha-acciones" hidden>
                   <button class="boton boton-oscuro" type="button" id="registrar-manual" data-permiso="abordaje.registrar">Registrar abordaje sin QR</button>
+                  <button class="boton boton-secundario" type="button" id="btn-editar-preferencias">Modificar preferencias</button>
                   <span>Úsalo si el pase no se puede leer y verificaste su identidad.</span>
+                </div>
+                <div class="ficha-edicion" id="ficha-edicion" hidden>
+                  <h3>Modificar preferencias a bordo</h3>
+                  <form id="form-edicion-preferencias" novalidate>
+                    <div class="campo-edicion">
+                      <label for="edicion-comida">Menú / Comida preferida</label>
+                      <select id="edicion-comida" name="comida">
+                        <option value="sin_preferencia">🍽️ Estándar</option>
+                        <option value="vegetariana">🥗 Vegetariano</option>
+                        <option value="vegana">🌱 Vegano</option>
+                        <option value="sin_gluten">🌾 Sin gluten</option>
+                        <option value="otra">🍴 Especial</option>
+                      </select>
+                    </div>
+                    <div class="campo-edicion">
+                      <label for="edicion-bebida">Bebida preferida</label>
+                      <input type="text" id="edicion-bebida" name="bebida" placeholder="Ej. Té verde, Café americano" maxlength="100">
+                      <p class="error-validacion" id="error-edicion-bebida" hidden>El campo no puede estar vacío</p>
+                    </div>
+                    <div class="edicion-botones">
+                      <button class="boton boton-rojo" type="submit" id="btn-guardar-preferencias">Guardar cambios</button>
+                      <button class="boton boton-claro" type="button" id="btn-cancelar-preferencias">Cancelar</button>
+                    </div>
+                    <div class="alerta-feedback" id="alerta-feedback-preferencias" hidden role="alert"></div>
+                  </form>
                 </div>
                 <p class="ficha-pie" id="ficha-pie"></p>
               </div>

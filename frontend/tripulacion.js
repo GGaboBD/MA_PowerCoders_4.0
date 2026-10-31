@@ -395,6 +395,13 @@
       const { ok, datos } = await api(`/api/tripulacion/vuelos/${encodeURIComponent(id)}/cabina`);
       if (!ok) throw new Error(datos.mensaje || 'No pudimos cargar la cabina.');
       if ($('vuelo').value !== id) return; // se eligió otro vuelo mientras tanto
+
+      // Guardar en almacenamiento local para modo fuera de línea (HU09.1)
+      try {
+        localStorage.setItem(`cabina_cache_${id}`, JSON.stringify(datos));
+      } catch { /* cuota o modo incógnito */ }
+      if ($('aviso-offline')) $('aviso-offline').hidden = true;
+
       const cambio = vuelo?.id !== datos.vuelo.id;
       vuelo = datos.vuelo;
       const asientosVuelo = normalizarAsientosCabina(datos.asientos);
@@ -416,7 +423,28 @@
       const abierto = fichaActual && !$('ficha-contenido').hidden && datos.pasajeros.find(p => p.boleto === fichaActual.boleto);
       if (abierto) mostrarFicha(abierto, fichaActual.estado, { registrable: fichaActual.registrable, desplazar: false });
     } catch (error) {
-      if (!silencioso) $('vuelo-estado').textContent = error.name === 'TimeoutError' ? 'La consulta tardó demasiado. Pulsa Actualizar.' : error.message;
+      // Recuperar de almacenamiento local ante desconexión o fallo de red (HU09.1 / HU09.3)
+      try {
+        const enCache = JSON.parse(localStorage.getItem(`cabina_cache_${id}`) || 'null');
+        if (enCache && enCache.vuelo && Array.isArray(enCache.pasajeros)) {
+          if ($('aviso-offline')) $('aviso-offline').hidden = false;
+          vuelo = enCache.vuelo;
+          const asientosVuelo = normalizarAsientosCabina(enCache.asientos || []);
+          cabina = { asientos: asientosVuelo, pasajeros: enCache.pasajeros };
+          porAsiento = new Map(enCache.pasajeros.map(p => [p.asiento, p]));
+          pintarCabina();
+          if (porAsiento.has('2A')) fichaDeAsiento('2A');
+          $('vuelo-estado').textContent = `${vuelo.codigo} · (Modo fuera de línea) · ${enCache.pasajeros.length} pasajeros en memoria local.`;
+          return;
+        }
+      } catch { /* error en lectura de cache */ }
+
+      if (!silencioso) {
+        $('vuelo-estado').textContent = error.name === 'TimeoutError' ? 'La consulta tardó demasiado. Pulsa Actualizar.' : error.message;
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          fichaVacia('Modo sin conexión', 'Conéctate a la red al menos una vez para cargar los datos de cabina del vuelo.');
+        }
+      }
     }
   }
 
@@ -568,10 +596,22 @@
     if (d.alergias) insignia('Revisar alergias', 'alerta');
     if (p.atencion === 2) insignia('Consultar antes de servir', 'suave');
 
+    // HU08 (PCA-89): Alerta prioritaria de conexiones cortas (< 60 minutos)
+    const tieneConexion = Boolean(p.conexion && p.conexion.vuelo);
+    const conexionCritica = tieneConexion && Number(p.conexion.escalaMinutos) < 60;
+    if (conexionCritica) {
+      insignia(`Conexión crítica: ${p.conexion.vuelo} - ${p.conexion.escalaMinutos} min`, 'critica');
+    }
+
+    const textoConexion = tieneConexion
+      ? `${p.conexion.vuelo} · Escala: ${p.conexion.escalaMinutos} min${p.conexion.puerta ? ' · Puerta ' + p.conexion.puerta : ''}`
+      : 'Destino final: sin conexión posterior';
+
     const datos = $('ficha-datos');
     datos.replaceChildren();
     const filas = [
       ['Idioma', d.idioma], ['País', d.pais], ['Comida', d.comida], ['Bebida', d.bebida || 'Sin preferencia'],
+      ['Conexión posterior', textoConexion, conexionCritica],
       ['Atención a bordo', d.atencion], ['Motivo del viaje', d.motivo],
       ['Alergias', d.alergias || 'Sin alergias registradas', Boolean(d.alergias)], ['Notas', d.notas || 'Sin notas', false],
     ];
@@ -583,7 +623,15 @@
       div.append(dt, dd); datos.append(div);
     }
     const pendiente = !p.abordaje;
-    $('ficha-acciones').hidden = !(pendiente && registrable && puede('abordaje.registrar'));
+    const puedeRegistrar = Boolean(pendiente && registrable && puede('abordaje.registrar'));
+    const puedeEditar = Boolean(puede('tripulacion.ver'));
+
+    if ($('registrar-manual')) $('registrar-manual').hidden = !puedeRegistrar;
+    if ($('btn-editar-preferencias')) $('btn-editar-preferencias').hidden = !puedeEditar;
+    $('ficha-acciones').hidden = !puedeRegistrar && !puedeEditar;
+    if ($('ficha-edicion')) $('ficha-edicion').hidden = true;
+    if ($('alerta-feedback-preferencias')) $('alerta-feedback-preferencias').hidden = true;
+
     $('registrar-manual').dataset.boleto = p.boleto;
     $('ficha-pie').textContent = p.abordaje
       ? `A bordo desde las ${horaCorta(p.abordaje.registradoEn)} · ${VIAS[p.abordaje.via] || p.abordaje.via} · ${p.abordaje.registradoPor} · boleto ${p.boleto}`
@@ -605,6 +653,131 @@
   $('registrar-manual').addEventListener('click', event => {
     const boleto = event.currentTarget.dataset.boleto;
     if (boleto) registrar({ boleto, via: 'manual' });
+  });
+
+  // HU07a (PCA-82) & HU07b (PCA-85): Control reactivo y validaciones del formulario de edición de preferencias
+  $('btn-editar-preferencias')?.addEventListener('click', () => {
+    if (!fichaActual || !porAsiento) return;
+    const p = porAsiento.get(asientoActivo);
+    if (!p) return;
+    const form = $('ficha-edicion');
+    if (!form) return;
+    const selectComida = $('edicion-comida');
+    const inputBebida = $('edicion-bebida');
+    const errorBebida = $('error-edicion-bebida');
+    const feedback = $('alerta-feedback-preferencias');
+
+    if (selectComida) {
+      const comidaActual = p.comida || p.menuPreferencia || 'sin_preferencia';
+      selectComida.value = ['vegetariana', 'vegana', 'sin_gluten', 'otra', 'sin_preferencia'].includes(comidaActual)
+        ? comidaActual
+        : 'sin_preferencia';
+    }
+    if (inputBebida) {
+      inputBebida.value = p.bebida || p.bebidaPreferencia || '';
+      inputBebida.classList.remove('invalido');
+    }
+    if (errorBebida) errorBebida.hidden = true;
+    if (feedback) feedback.hidden = true;
+    form.hidden = false;
+    inputBebida?.focus?.();
+  });
+
+  $('btn-cancelar-preferencias')?.addEventListener('click', () => {
+    const form = $('ficha-edicion');
+    if (form) form.hidden = true;
+    const feedback = $('alerta-feedback-preferencias');
+    if (feedback) feedback.hidden = true;
+    const inputBebida = $('edicion-bebida');
+    if (inputBebida) inputBebida.classList.remove('invalido');
+    const errorBebida = $('error-edicion-bebida');
+    if (errorBebida) errorBebida.hidden = true;
+  });
+
+  $('edicion-bebida')?.addEventListener('input', function() {
+    if (this.value && this.value.trim().length > 0) {
+      this.classList.remove('invalido');
+      const errorBebida = $('error-edicion-bebida');
+      if (errorBebida) errorBebida.hidden = true;
+    }
+  });
+
+  $('form-edicion-preferencias')?.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (!fichaActual || !porAsiento) return;
+    const p = porAsiento.get(asientoActivo);
+    if (!p) return;
+
+    const selectComida = $('edicion-comida');
+    const inputBebida = $('edicion-bebida');
+    const errorBebida = $('error-edicion-bebida');
+    const feedback = $('alerta-feedback-preferencias');
+    const btnGuardar = $('btn-guardar-preferencias');
+
+    const comida = selectComida ? selectComida.value : 'sin_preferencia';
+    const bebida = inputBebida ? inputBebida.value.trim() : '';
+
+    // Criterio HU07b: Si se intenta guardar una preferencia con texto vacío, bloquea y resalta en rojo "El campo no puede estar vacío"
+    if (!bebida) {
+      if (inputBebida) inputBebida.classList.add('invalido');
+      if (errorBebida) errorBebida.hidden = false;
+      return;
+    }
+
+    if (btnGuardar) btnGuardar.disabled = true;
+    try {
+      const idObjetivo = p.pasajeroId || p.boletoId || p.boleto;
+      const res = await fetch(`/api/pasajeros/${encodeURIComponent(idObjetivo)}/preferencias`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ comida, bebida })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data.mensaje || 'Error al guardar en el servidor. Verifique conexión');
+      }
+
+      // Éxito: persistir en memoria local del pasajero
+      p.comida = comida;
+      p.menuPreferencia = comida;
+      p.bebida = bebida;
+      p.bebidaPreferencia = bebida;
+
+      // Actualizar en caché local si existe
+      try {
+        if (vuelo?.id) {
+          const cache = JSON.parse(localStorage.getItem(`cabina_cache_${vuelo.id}`) || 'null');
+          if (cache && Array.isArray(cache.pasajeros)) {
+            const idx = cache.pasajeros.findIndex(item => item.asiento === p.asiento || item.boleto === p.boleto);
+            if (idx !== -1) {
+              cache.pasajeros[idx].comida = comida;
+              cache.pasajeros[idx].menuPreferencia = comida;
+              cache.pasajeros[idx].bebida = bebida;
+              cache.pasajeros[idx].bebidaPreferencia = bebida;
+              localStorage.setItem(`cabina_cache_${vuelo.id}`, JSON.stringify(cache));
+            }
+          }
+        }
+      } catch { /* cuota de almacenamiento */ }
+
+      if (feedback) {
+        feedback.className = 'alerta-feedback exito';
+        feedback.textContent = 'Preferencias actualizadas con éxito';
+        feedback.hidden = false;
+      }
+
+      setTimeout(() => {
+        mostrarFicha(p, fichaActual?.estado || null, { desplazar: false });
+      }, 1000);
+    } catch (err) {
+      if (feedback) {
+        feedback.className = 'alerta-feedback error';
+        feedback.textContent = 'Error al guardar en el servidor. Verifique conexión';
+        feedback.hidden = false;
+      }
+    } finally {
+      if (btnGuardar) btnGuardar.disabled = false;
+    }
   });
 
   /* ---------- Plano de cabina y lista de pasajeros ---------- */
@@ -922,9 +1095,25 @@
     const inicial = window.SesionUI?.estado();
     if (inicial?.listo) configurar(inicial.usuario);
     else setTimeout(() => { if (!cuenta) configurar(null); }, 350);
+
+    // HU09.2 (PCA-91): Escuchadores de eventos de red online y offline
+    window.addEventListener('online', () => {
+      const aviso = $('aviso-offline');
+      if (aviso) aviso.hidden = true;
+      cargarCabina();
+    });
+    window.addEventListener('offline', () => {
+      const aviso = $('aviso-offline');
+      if (aviso) aviso.hidden = false;
+    });
   }
 
-  const TripulacionUI = { crearBotonPasajero };
+  const TripulacionUI = {
+    crearBotonPasajero,
+    mostrarFicha,
+    fichaDeAsiento,
+    cargarCabina
+  };
   if (typeof window !== 'undefined') window.TripulacionUI = TripulacionUI;
   if (typeof globalThis !== 'undefined') globalThis.TripulacionUI = TripulacionUI;
 })();
