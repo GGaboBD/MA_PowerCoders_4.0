@@ -12,6 +12,7 @@
     "demo": "node --env-file-if-exists=.env backend/scripts/semilla-demo.js",
     "check:syntax": "node scripts/revisar-sintaxis.js",
     "test:cabina": "node --test tests/cabina-requerimientos.test.js",
+    "test:preferencias": "node --test tests/preferencias-conexiones-offline.test.js",
     "test": "node --test"
   },
   "engines": {
