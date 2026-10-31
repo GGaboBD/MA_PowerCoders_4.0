@@ -33,6 +33,8 @@
 .vuelo-acciones > button:hover, .vuelo-card > div:nth-child(7) > button:hover, .vuelo-card > div:nth-child(6) > button:hover, .vuelo-card > div:nth-child(5) > button:hover { color: var(--rojo); }
 #btn-vuelos-ruta { border-color: #c4c4b8; background: #fafaf7; }
 #btn-vuelos-ruta:hover { border-color: #8c8c80; background: #ededdf; }
+.buscador-barra-acciones { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-top: 14px; }
+.buscador-botones-auxiliares { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 /* Compra: pasos centrados, datos a la izquierda y resumen de tarifa fijo. */
 .pagina-compra { background: var(--papel); }
 .compra-main { padding-top: 0; padding-bottom: 80px; }
@@ -151,17 +153,10 @@
 .dialog-acciones p { font-size: 12px; color: var(--gris-texto); }
 .pagina-compra input, .pagina-compra select { scroll-margin-top: 105px; }
 @media (max-width: 1200px) {
-  #buscar-vuelos { padding-inline: 20px; }
-  #buscar-vuelos .campo { padding-inline: 10px; }
-  #buscar-vuelos .boton { margin-left: 8px; padding-inline: 12px; font-size: 11px; }
-  .compra-columnas { grid-template-columns: minmax(0, 1fr) 310px; gap: 20px; }
-  .compra-lateral { padding: 23px; }
-}
-@media (max-width: 1024px) {
-  #buscar-vuelos { position: static; margin-top: 20px; padding: 20px; }
+  #buscar-vuelos { padding: 18px 20px; }
   #buscar-vuelos .buscador-campos {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px 14px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
   }
   #buscar-vuelos .campo {
     border-right: 0;
@@ -170,18 +165,33 @@
   }
   #buscar-vuelos .campo-origen { padding-left: 4px; }
   #buscar-vuelos .boton {
-    grid-column: 1 / -1;
+    grid-column: span 2;
     margin-left: 0;
-    margin-top: 8px;
+    margin-top: 4px;
     min-height: 48px;
-    font-size: 14px;
+    font-size: 13px;
     width: 100%;
   }
   .vuelo-card {
-    grid-template-columns: repeat(2, 1fr) auto;
-    gap: 18px 20px;
-    padding: 22px 24px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px 18px;
+    padding: 20px 22px;
   }
+  .vuelo-card > div:first-child {
+    grid-column: 1 / -1;
+  }
+  .vuelo-acciones {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 6px;
+  }
+  .compra-columnas { grid-template-columns: minmax(0, 1fr) 310px; gap: 20px; }
+  .compra-lateral { padding: 23px; }
+}
+@media (max-width: 1024px) {
+  #buscar-vuelos { position: static; margin-top: 20px; padding: 20px; }
   .resumen-vuelo {
     grid-template-columns: 1fr 1fr;
     gap: 20px;
@@ -197,19 +207,38 @@
     position: static;
   }
 }
-@media (max-width: 768px) {
+@media (max-width: 860px) {
   #buscar-vuelos .buscador-campos {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 14px;
   }
+  #buscar-vuelos .boton {
+    grid-column: 1 / -1;
+    margin-left: 0;
+    margin-top: 6px;
+  }
+}
+@media (max-width: 768px) {
   .vuelo-card {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
     gap: 14px;
     padding: 18px 16px;
   }
-  .vuelo-card > div:nth-child(5) {
-    justify-content: flex-start;
-    flex-wrap: wrap;
-    margin-top: 6px;
+  .vuelo-card > div:first-child {
+    grid-column: 1 / -1;
+  }
+  .vuelo-acciones {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 8px;
+  }
+  .vuelo-acciones .boton {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
   }
   .resumen-vuelo {
     grid-template-columns: 1fr;
@@ -241,7 +270,7 @@
     grid-template-columns: 1fr;
   }
   .dialog-asientos {
-    width: calc(100vw - 32px);
+    width: calc(100vw - 24px);
     padding: 20px 16px;
     border-radius: 14px;
   }
@@ -271,25 +300,89 @@
     width: 100%;
   }
 }
-@media (max-width: 480px) {
+@media (max-width: 580px) {
+  #buscar-vuelos {
+    padding: 16px 14px;
+    margin-top: 14px;
+    border-radius: 12px;
+  }
+  #buscar-vuelos .buscador-campos {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  #buscar-vuelos .boton {
+    grid-column: 1;
+    width: 100%;
+  }
+  .buscador-superior {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .buscador-sello {
+    margin-left: 0;
+  }
+  .buscador-barra-acciones {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+  .buscador-botones-auxiliares {
+    flex-direction: column;
+    align-items: stretch !important;
+    width: 100%;
+  }
+  .buscador-botones-auxiliares .boton {
+    width: 100%;
+    white-space: normal;
+  }
+  .vuelo-card {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 16px 14px;
+  }
+  .vuelo-card > div:first-child strong {
+    font-size: 24px;
+  }
+  .vuelo-card strong {
+    font-size: 17px;
+  }
+  .plano-cabina {
+    min-width: min(280px, 100%);
+    padding: 16px 8px;
+  }
   .fila-inventario {
     gap: 6px;
   }
   .numero-inventario {
-    width: 36px;
+    width: 32px;
     font-size: 10px;
-    margin-right: 4px;
+    margin-right: 2px;
   }
   .asiento {
-    min-height: 42px;
-    width: 42px;
+    min-height: 40px;
+    width: 40px;
     font-size: 12px;
   }
   .asiento-pasillo {
-    width: 14px;
+    width: 12px;
   }
   .ticket-datos {
     grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 380px) {
+  .asiento {
+    min-height: 35px;
+    width: 35px;
+    font-size: 11px;
+  }
+  .asiento-pasillo {
+    width: 8px;
+  }
+  .numero-inventario {
+    width: 24px;
+    font-size: 9px;
   }
 }
 @media (max-height: 760px) { .compra-lateral { position: static; } }
