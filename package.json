@@ -14,6 +14,7 @@
     "check:syntax": "node scripts/revisar-sintaxis.js",
     "test:cabina": "node --test tests/cabina-requerimientos.test.js",
     "test:preferencias": "node --test tests/preferencias-conexiones-offline.test.js",
+    "test:sprint4": "node --test tests/suite-sprint4-completa.test.js",
     "test": "node --test"
   },
   "engines": {
