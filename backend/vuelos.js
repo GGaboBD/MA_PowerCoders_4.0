@@ -4,6 +4,12 @@ const zonas = {
   SAL: 'America/El_Salvador', MIA: 'America/New_York',
   BOG: 'America/Bogota', MDE: 'America/Bogota',
   CLO: 'America/Bogota', CTG: 'America/Bogota',
+  MAD: 'Europe/Madrid', BCN: 'Europe/Madrid',
+  LHR: 'Europe/London', CDG: 'Europe/Paris',
+  NRT: 'Asia/Tokyo', ICN: 'Asia/Seoul', DXB: 'Asia/Dubai',
+  JFK: 'America/New_York', MEX: 'America/Mexico_City',
+  EZE: 'America/Argentina/Buenos_Aires', GRU: 'America/Sao_Paulo',
+  SCL: 'America/Santiago', LIM: 'America/Lima',
 };
 
 function horarioLocal(fecha, zona) {

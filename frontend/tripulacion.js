@@ -818,6 +818,23 @@
       if (!filas.has(numero)) filas.set(numero, { clase: claseFila, asientos: [] });
       filas.get(numero).asientos.push(asiento);
     }
+    const consulta = sinAcentos($('buscar-pasajero')?.value?.trim() || '');
+    const comidaFiltro = $('filtro-comida')?.value || '';
+    const estadoFiltro = $('filtro-estado')?.value || '';
+    const tieneFiltro = Boolean(consulta || comidaFiltro || estadoFiltro);
+    const asientosCoincidentes = new Set();
+    if (tieneFiltro && cabina?.pasajeros) {
+      const filtrados = typeof A?.filtrarPasajeros === 'function'
+        ? A.filtrarPasajeros(cabina.pasajeros, { consulta, comida: comidaFiltro, estado: estadoFiltro })
+        : cabina.pasajeros.filter(p => {
+          if (comidaFiltro && p.comida !== comidaFiltro) return false;
+          if (estadoFiltro === 'a-bordo' && !p.abordaje) return false;
+          if (estadoFiltro === 'por-abordar' && Boolean(p.abordaje)) return false;
+          return true;
+        });
+      filtrados.forEach(p => asientosCoincidentes.add(p.asiento));
+    }
+
     const contenedor = document.createElement('div');
     contenedor.className = 'plano-cabina';
     contenedor.insertAdjacentHTML('beforeend', '<div class="nariz-cabina">FRENTE DEL AVIÓN<br><strong>Cabina de pilotos</strong></div><div class="servicios-cabina"><span>Puerta</span><span>Cocina</span><span>Puerta</span></div>');
@@ -841,6 +858,13 @@
         if (p) b.classList.add(p.abordaje ? 'a-bordo' : 'reservado');
         if (p?.noMolestar) b.classList.add('no-molestar');
         if (p?.conexion && Number(p.conexion.escalaMinutos) < 60) b.classList.add('conexion-critica');
+        if (tieneFiltro) {
+          if (asientosCoincidentes.has(asiento.codigo)) {
+            b.classList.add('coincide-busqueda');
+          } else {
+            b.classList.add('opaco-busqueda');
+          }
+        }
         if (asiento.codigo === asientoActivo) b.classList.add('activo');
         b.setAttribute('aria-label', p ? `Asiento ${asiento.codigo}, ${p.nombre} ${p.apellido}, ${p.abordaje ? 'a bordo' : 'pendiente de abordar'}` : `Asiento ${asiento.codigo}, libre`);
         b.setAttribute('aria-pressed', String(asiento.codigo === asientoActivo));
@@ -953,15 +977,42 @@
     vacia.hidden = pasajeros.length > 0;
     vacia.textContent = !cabina.pasajeros.length ? 'Este vuelo todavía no tiene pasajeros con boleto.'
       : 'No se encontraron pasajeros que coincidan con los filtros seleccionados.';
+    return pasajeros;
+  }
+
+  function ejecutarBusquedaPasajero({ autoAbrir = true, desplazarSiMultiple = false } = {}) {
+    if (!cabina) return;
+    const pasajeros = pintarLista();
+    pintarCabina();
+
+    const consulta = sinAcentos($('buscar-pasajero')?.value?.trim() || '');
+    if (consulta && Array.isArray(pasajeros)) {
+      if (pasajeros.length === 1 && autoAbrir) {
+        fichaDeAsiento(pasajeros[0].asiento);
+      } else if (pasajeros.length > 1 && desplazarSiMultiple) {
+        $('lista-abordados')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else if (pasajeros.length === 0) {
+        fichaVacia('Sin resultados', `No se encontraron pasajeros ni asientos que coincidan con "${$('buscar-pasajero')?.value}".`);
+      }
+    }
   }
 
   document.addEventListener('click', event => {
     const objetivo = event.target.closest('#plano-vivo [data-asiento], #lista-abordados [data-asiento]');
     if (objetivo) fichaDeAsiento(objetivo.dataset.asiento);
   });
-  $('buscar-pasajero')?.addEventListener('input', () => { pintarLista(); pintarCabina(); });
-  $('filtro-comida')?.addEventListener('change', () => { pintarLista(); pintarCabina(); });
-  $('filtro-estado')?.addEventListener('change', () => { pintarLista(); pintarCabina(); });
+  const alBuscar = () => ejecutarBusquedaPasajero({ autoAbrir: true, desplazarSiMultiple: true });
+  $('btn-buscar-pasajero')?.addEventListener('click', alBuscar);
+  $('buscar-pasajero')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      alBuscar();
+    }
+  });
+  $('buscar-pasajero')?.addEventListener('input', () => ejecutarBusquedaPasajero({ autoAbrir: false }));
+  $('buscar-pasajero')?.addEventListener('search', () => ejecutarBusquedaPasajero({ autoAbrir: false }));
+  $('filtro-comida')?.addEventListener('change', () => ejecutarBusquedaPasajero({ autoAbrir: false }));
+  $('filtro-estado')?.addEventListener('change', () => ejecutarBusquedaPasajero({ autoAbrir: false }));
   $('fecha-vuelo').addEventListener('change', () => cargarVuelos());
   $('vuelo').addEventListener('change', () => { recordarVuelo(); cargarCabina(); });
   $('actualizar-cabina').addEventListener('click', () => cargarVuelos());

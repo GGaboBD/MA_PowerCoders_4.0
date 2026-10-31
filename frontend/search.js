@@ -1,4 +1,10 @@
-const routeNames = { SAL: 'San Salvador', MIA: 'Miami', BOG: 'Bogotá', MDE: 'Medellín', CLO: 'Cali', CTG: 'Cartagena' };
+const routeNames = {
+  SAL: 'San Salvador', MIA: 'Miami', BOG: 'Bogotá', MDE: 'Medellín', CLO: 'Cali', CTG: 'Cartagena',
+  MAD: 'Madrid', BCN: 'Barcelona', LHR: 'Londres', CDG: 'París',
+  NRT: 'Tokio', ICN: 'Seúl', DXB: 'Dubái',
+  JFK: 'Nueva York', MEX: 'Ciudad de México', EZE: 'Buenos Aires',
+  GRU: 'São Paulo', SCL: 'Santiago', LIM: 'Lima'
+};
 function getCityName(code) {
   return routeNames[code] || code || 'Desconocido';
 }

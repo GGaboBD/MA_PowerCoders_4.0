@@ -275,6 +275,13 @@
 .filtros-tripulacion label { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--gris-texto); margin-bottom: 6px; display: block; }
 .filtros-tripulacion input, .filtros-tripulacion select { width: 100%; min-height: 42px; border: 1px solid var(--gris-borde); padding: 8px 12px; font: 14px var(--fuente); background: #fdfdfd; }
 .filtros-tripulacion input:focus, .filtros-tripulacion select:focus { border-color: var(--rojo); outline: 2px solid var(--rojo); background: white; }
+.buscador-caja { display: flex; align-items: stretch; gap: 6px; }
+.buscador-caja input { flex: 1; min-width: 0; }
+.boton-lupa { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; padding: 0 14px; background: var(--rojo); color: white; border: 0; border-radius: 4px; font-size: 16px; cursor: pointer; transition: background .15s ease, transform .1s ease; }
+.boton-lupa:hover { background: #b71c1c; transform: scale(1.04); }
+.boton-lupa:active { transform: scale(0.96); }
+.plano-vivo .asiento.coincide-busqueda { outline: 3px solid #f59e0b; outline-offset: 2px; transform: scale(1.08); z-index: 3; box-shadow: 0 0 14px rgba(245, 158, 11, 0.65); }
+.plano-vivo .asiento.opaco-busqueda { opacity: 0.25; filter: grayscale(0.5); }
 
 /* ---------- Cabina en vivo: Layout en 2 columnas ---------- */
 .cabina-vivo { margin-top: 40px; padding-top: 32px; border-top: 1px solid var(--gris-borde); }

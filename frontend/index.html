@@ -61,9 +61,65 @@
         <span class="buscador-sello"><span aria-hidden="true">✦</span> Una experiencia a tu medida</span>
       </div>
       <form class="buscador-campos" id="formulario-busqueda">
-        <label class="campo campo-origen"><span class="campo-etiqueta">Origen</span><select name="origen" required><option value="SAL">San Salvador (SAL)</option><option value="MIA">Miami (MIA)</option><option value="BOG">Bogotá (BOG)</option><option value="MDE">Medellín (MDE)</option><option value="CLO">Cali (CLO)</option><option value="CTG">Cartagena (CTG)</option></select></label>
+        <label class="campo campo-origen"><span class="campo-etiqueta">Origen</span><select name="origen" required>
+          <optgroup label="América Latina">
+            <option value="BOG" selected>Bogotá (BOG)</option>
+            <option value="MDE">Medellín (MDE)</option>
+            <option value="CLO">Cali (CLO)</option>
+            <option value="CTG">Cartagena (CTG)</option>
+            <option value="SAL">San Salvador (SAL)</option>
+            <option value="MEX">Ciudad de México (MEX)</option>
+            <option value="EZE">Buenos Aires (EZE)</option>
+            <option value="GRU">São Paulo (GRU)</option>
+            <option value="SCL">Santiago (SCL)</option>
+            <option value="LIM">Lima (LIM)</option>
+          </optgroup>
+          <optgroup label="Norteamérica">
+            <option value="MIA">Miami (MIA)</option>
+            <option value="JFK">Nueva York (JFK)</option>
+          </optgroup>
+          <optgroup label="Europa">
+            <option value="MAD">Madrid (MAD)</option>
+            <option value="BCN">Barcelona (BCN)</option>
+            <option value="LHR">Londres (LHR)</option>
+            <option value="CDG">París (CDG)</option>
+          </optgroup>
+          <optgroup label="Asia y Medio Oriente">
+            <option value="NRT">Tokio (NRT)</option>
+            <option value="ICN">Seúl (ICN)</option>
+            <option value="DXB">Dubái (DXB)</option>
+          </optgroup>
+        </select></label>
         <span class="intercambio" aria-hidden="true">→</span>
-        <label class="campo campo-destino"><span class="campo-etiqueta">Destino</span><select name="destino" required><option value="BOG" selected>Bogotá (BOG)</option><option value="SAL">San Salvador (SAL)</option><option value="MIA">Miami (MIA)</option><option value="MDE">Medellín (MDE)</option><option value="CLO">Cali (CLO)</option><option value="CTG">Cartagena (CTG)</option></select></label>
+        <label class="campo campo-destino"><span class="campo-etiqueta">Destino</span><select name="destino" required>
+          <optgroup label="Europa">
+            <option value="MAD" selected>Madrid (MAD)</option>
+            <option value="BCN">Barcelona (BCN)</option>
+            <option value="LHR">Londres (LHR)</option>
+            <option value="CDG">París (CDG)</option>
+          </optgroup>
+          <optgroup label="Asia y Medio Oriente">
+            <option value="NRT">Tokio (NRT)</option>
+            <option value="ICN">Seúl (ICN)</option>
+            <option value="DXB">Dubái (DXB)</option>
+          </optgroup>
+          <optgroup label="Norteamérica">
+            <option value="MIA">Miami (MIA)</option>
+            <option value="JFK">Nueva York (JFK)</option>
+          </optgroup>
+          <optgroup label="América Latina">
+            <option value="BOG">Bogotá (BOG)</option>
+            <option value="MDE">Medellín (MDE)</option>
+            <option value="CLO">Cali (CLO)</option>
+            <option value="CTG">Cartagena (CTG)</option>
+            <option value="SAL">San Salvador (SAL)</option>
+            <option value="MEX">Ciudad de México (MEX)</option>
+            <option value="EZE">Buenos Aires (EZE)</option>
+            <option value="GRU">São Paulo (GRU)</option>
+            <option value="SCL">Santiago (SCL)</option>
+            <option value="LIM">Lima (LIM)</option>
+          </optgroup>
+        </select></label>
         <label class="campo campo-fecha"><span class="campo-etiqueta">Fecha</span><input name="fecha" type="date" required></label>
         <label class="campo campo-hora"><span class="campo-etiqueta">Hora desde</span><input name="hora" type="time" value="00:00" required></label>
         <label class="campo campo-cabina"><span class="campo-etiqueta">Cabina</span><select name="cabina"><option value="ejecutiva">Clase ejecutiva</option><option value="primera">Primera clase</option></select></label>

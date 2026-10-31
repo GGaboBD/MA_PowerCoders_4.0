@@ -7,7 +7,13 @@
 const Abordaje = (() => {
   const PREFIJO = 'AVPC2';
   const PREFIJO_ANTERIOR = 'AVPC1';
-  const CIUDADES = { SAL: 'San Salvador', MIA: 'Miami', BOG: 'Bogotá', MDE: 'Medellín', CLO: 'Cali', CTG: 'Cartagena' };
+  const CIUDADES = {
+    SAL: 'San Salvador', MIA: 'Miami', BOG: 'Bogotá', MDE: 'Medellín', CLO: 'Cali', CTG: 'Cartagena',
+    MAD: 'Madrid', BCN: 'Barcelona', LHR: 'Londres', CDG: 'París',
+    NRT: 'Tokio', ICN: 'Seúl', DXB: 'Dubái',
+    JFK: 'Nueva York', MEX: 'Ciudad de México', EZE: 'Buenos Aires',
+    GRU: 'São Paulo', SCL: 'Santiago', LIM: 'Lima'
+  };
   // Catálogo único de aeropuertos con zona horaria (PCA-193 / Taller T33)
   const AEROPUERTOS = {
     BOG: { codigo: 'BOG', ciudad: 'Bogotá', nombre: 'Aeropuerto Internacional El Dorado', zonaHoraria: 'America/Bogota' },
@@ -15,11 +21,24 @@ const Abordaje = (() => {
     MIA: { codigo: 'MIA', ciudad: 'Miami', nombre: 'Miami International Airport', zonaHoraria: 'America/New_York' },
     MDE: { codigo: 'MDE', ciudad: 'Medellín', nombre: 'Aeropuerto Internacional José María Córdova', zonaHoraria: 'America/Bogota' },
     CLO: { codigo: 'CLO', ciudad: 'Cali', nombre: 'Aeropuerto Internacional Alfonso Bonilla Aragón', zonaHoraria: 'America/Bogota' },
-    CTG: { codigo: 'CTG', ciudad: 'Cartagena', nombre: 'Aeropuerto Internacional Rafael Núñez', zonaHoraria: 'America/Bogota' }
+    CTG: { codigo: 'CTG', ciudad: 'Cartagena', nombre: 'Aeropuerto Internacional Rafael Núñez', zonaHoraria: 'America/Bogota' },
+    MAD: { codigo: 'MAD', ciudad: 'Madrid', nombre: 'Aeropuerto Adolfo Suárez Madrid-Barajas', zonaHoraria: 'Europe/Madrid' },
+    BCN: { codigo: 'BCN', ciudad: 'Barcelona', nombre: 'Aeropuerto Josep Tarradellas Barcelona-El Prat', zonaHoraria: 'Europe/Madrid' },
+    LHR: { codigo: 'LHR', ciudad: 'Londres', nombre: 'London Heathrow Airport', zonaHoraria: 'Europe/London' },
+    CDG: { codigo: 'CDG', ciudad: 'París', nombre: 'Aéroport de Paris-Charles de Gaulle', zonaHoraria: 'Europe/Paris' },
+    NRT: { codigo: 'NRT', ciudad: 'Tokio', nombre: 'Narita International Airport', zonaHoraria: 'Asia/Tokyo' },
+    ICN: { codigo: 'ICN', ciudad: 'Seúl', nombre: 'Incheon International Airport', zonaHoraria: 'Asia/Seoul' },
+    DXB: { codigo: 'DXB', ciudad: 'Dubái', nombre: 'Dubai International Airport', zonaHoraria: 'Asia/Dubai' },
+    JFK: { codigo: 'JFK', ciudad: 'Nueva York', nombre: 'John F. Kennedy International Airport', zonaHoraria: 'America/New_York' },
+    MEX: { codigo: 'MEX', ciudad: 'Ciudad de México', nombre: 'Aeropuerto Internacional Benito Juárez', zonaHoraria: 'America/Mexico_City' },
+    EZE: { codigo: 'EZE', ciudad: 'Buenos Aires', nombre: 'Aeropuerto Internacional Ministro Pistarini', zonaHoraria: 'America/Argentina/Buenos_Aires' },
+    GRU: { codigo: 'GRU', ciudad: 'São Paulo', nombre: 'Aeroporto Internacional de São Paulo-Guarulhos', zonaHoraria: 'America/Sao_Paulo' },
+    SCL: { codigo: 'SCL', ciudad: 'Santiago', nombre: 'Aeropuerto Internacional Arturo Merino Benítez', zonaHoraria: 'America/Santiago' },
+    LIM: { codigo: 'LIM', ciudad: 'Lima', nombre: 'Aeropuerto Internacional Jorge Chávez', zonaHoraria: 'America/Lima' }
   };
-  const IDIOMAS = { es: 'Español', en: 'English', pt: 'Português', fr: 'Français' };
+  const IDIOMAS = { es: 'Español', en: 'English', pt: 'Português', fr: 'Français', ja: '日本語', ko: '한국어', ar: 'العربية' };
   // Países por código ISO del documento; los demás se muestran con su código.
-  const PAISES = { CO: 'Colombia', SV: 'El Salvador', GT: 'Guatemala', HN: 'Honduras', CR: 'Costa Rica', PA: 'Panamá', MX: 'México', BR: 'Brasil', US: 'Estados Unidos', ES: 'España' };
+  const PAISES = { CO: 'Colombia', SV: 'El Salvador', GT: 'Guatemala', HN: 'Honduras', CR: 'Costa Rica', PA: 'Panamá', MX: 'México', BR: 'Brasil', US: 'Estados Unidos', ES: 'España', GB: 'Reino Unido', FR: 'Francia', JP: 'Japón', KR: 'Corea del Sur', AE: 'Emiratos Árabes', AR: 'Argentina', CL: 'Chile', PE: 'Perú' };
   const COMIDAS = { sin_preferencia: 'Sin preferencia', estandar: 'Estándar', vegetariana: 'Vegetariana', vegana: 'Vegana', sin_gluten: 'Sin gluten', otra: 'Otra preferencia' };
   const ATENCION = ['Atención habitual', 'Prefiero descansar sin interrupciones', 'Prefiero que me consulten antes'];
   const MOTIVOS = ['Sin especificar', 'Negocios', 'Descanso o turismo', 'Familia'];
