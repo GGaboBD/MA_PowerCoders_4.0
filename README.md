@@ -101,7 +101,7 @@ npm test
 | **Josue Gabriel Mendez Benitez** | Backend & Arquitectura | `GGaboBD` (`007007gabo7u7@gmail.com`) |
 | **Carlos Andrés Amaya Rengifo** | Frontend & UI/UX | `C1A23` (`carlosam854@gmail.com`) |
 | **Javier Paniagua** | Integración Continua & QA | `JarcoVixO` (`javierpmoran@gmail.com`) |
-| **20255526 (Calvo)** | Pruebas Unitarias & Datos | `mrdemon05` (`klvorcinos@gmail.com`) |
+| **Fernando Alonso Calvo Recinos** | Pruebas Unitarias & Datos | `mrdemon05` (`klvorcinos@gmail.com`) |
 | **Diego Alejandro Gonzalez Ingles**| Scrum Master & Metodología | `Diegogonz05` (`diego.gonzalez.ingles@gmail.com`) |
 
 ---
